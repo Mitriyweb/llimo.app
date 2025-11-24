@@ -21,6 +21,11 @@ describe("ValidateCommand", () => {
 		assert.deepStrictEqual(output, [
 			' ! Unexpected response "2 file(s), 0 command(s)"',
 			'   but provided: 6 file(s), 0 command(s)',
+			' ℹ label format for @validate is:',
+			'   #### [<a> file(s), <b> command(s)](@validate)',
+			'   > <a> - amount of file(s) minus command(s)',
+			'   > <b> - amount of commands(s) minus validate command (-1)',
+			'   > if amount is zero part with its number might be skipped',
 			' + Expected validation of files 100% valid',
 		])
 	})

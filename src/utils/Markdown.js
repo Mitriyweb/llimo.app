@@ -145,4 +145,32 @@ export default class MarkdownProtocol extends FileProtocol {
 		const { isValid, validate, files, requested } = FileProtocol.validate(correct)
 		return { correct, failed, isValid, validate, files, requested }
 	}
+
+	/**
+	 * Parse a markdown checklist line and extract the file path if it matches the pattern.
+	 *
+	 * Supported patterns (case‑insensitive, optional spaces):
+	 *   - [<name?>](<path>)
+	 *
+	 * @param {string} line
+	 * @returns {{ name: string, path: string }|null} – relative path and name, or null if the line does not match.
+	 */
+	static extractPath(line) {
+		const trimmed = line.trim()
+		// Valid checklist line must start with "- [" and end with ")".
+		if (!trimmed.startsWith("- [") || !trimmed.endsWith(")")) {
+			return null
+		}
+		// Remove leading "- [" and trailing ")" then split on "](".
+		const parts = trimmed.slice(3, -1).split("](")
+		if (parts.length !== 2) {
+			// malformed header – treat as not a checklist line
+			return null
+		}
+		const [name = "", path = ""] = parts
+		if (!path) {
+			return null
+		}
+		return { name, path }
+	}
 }

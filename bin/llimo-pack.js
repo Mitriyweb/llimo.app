@@ -18,32 +18,13 @@
 import { fileURLToPath } from "node:url"
 import process from "node:process"
 import { Readable } from "node:stream"
-
 import { FileSystem, Path, ReadLine, GREEN, YELLOW, RESET, ITALIC } from "../src/utils.js"
+import Markdown from "../src/utils/Markdown.js"
 
-/**
- * Parse a markdown checklist line and extract the file path if it matches the pattern.
- *
- * Supported patterns (case‑insensitive, optional spaces):
- *   - [<name?>](<path>)
- *
- * @param {string} line
- * @returns {{ name: string, path: string }} – relative path and name or null if the line does not match.
- */
-function extractPath(line) {
-	const trimmed = line.trim()
-	if (trimmed.startsWith("- [") && trimmed.endsWith(")")) {
-		const [name = "", path = ""] = trimmed.slice(3, -1).split("](")
-		if (path) {
-			return { name, path }
-		}
-	}
-	return { name: "", path: "" }
-}
 
-/**
- * Main entry point.
- */
+/* --------------------------------------------------------------- */
+/* Main entry point – unchanged except for the null‑check handling */
+/* --------------------------------------------------------------- */
 async function main(argv = process.argv.slice(2)) {
 	const fs = new FileSystem()
 	const pathUtil = new Path()
@@ -131,9 +112,11 @@ async function main(argv = process.argv.slice(2)) {
 	const errors = []
 
 	for (const line of lines) {
-		let { name, path } = extractPath(line)
-		if (path) {
+		const entry = Markdown.extractPath(line)
+		if (entry) {
+			let { name, path } = entry
 			if (!name) name = pathUtil.basename(path)
+
 			// Resolve the file path – first try relative to the current working directory.
 			// If the file does not exist there, fall back to a path relative to the script's location.
 			let absPath
@@ -143,7 +126,7 @@ async function main(argv = process.argv.slice(2)) {
 				absPath = cwdPath
 			} catch {
 				const scriptDir = pathUtil.dirname(fileURLToPath(import.meta.url))
-				const repoRoot = pathUtil.resolve(scriptDir, '..')
+				const repoRoot = pathUtil.resolve(scriptDir, "..")
 				absPath = pathUtil.resolve(repoRoot, path)
 			}
 
@@ -157,22 +140,20 @@ async function main(argv = process.argv.slice(2)) {
 				fileContent = "ERROR: Could not read file"
 			}
 
-			// Escape newlines in content for JSON
-			// fileContent = fileContent.replace(/\n/g, '\\n')
-
 			const ext = pathUtil.extname(path)
 			output.push(`#### [${name}](${path})`)
-			output.push("```" + ext.slice(1))
+			output.push("```" + (ext.startsWith(".") ? ext.slice(1) : ext))
 			output.push(fileContent)
 			output.push("```")
 		} else {
+			// Not a checklist line – keep it verbatim.
 			output.push(line)
 		}
 	}
 
-	// ---------------------------------------------------------------------
-	// Emit results – either to a file or to stdout.
-	// ---------------------------------------------------------------------
+	/* --------------------------------------------------------------- */
+	/* Emit results – unchanged */
+	/* --------------------------------------------------------------- */
 	console.info(RESET)
 	if (outputPath) {
 		const relPath = pathUtil.relative(baseDir, outputPath)

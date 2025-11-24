@@ -121,3 +121,27 @@ describe("Markdown.parseStream", () => {
 		await fs.save(`dist/markdown-parse.test/source.md`, content)
 	})
 })
+
+
+describe("Markdown.extractPath", () => {
+	describe("extractPath helper", () => {
+		it("returns null for non‑checklist lines", () => {
+			assert.strictEqual(Markdown.extractPath("# Title"), null)
+			assert.strictEqual(Markdown.extractPath("- not a checklist"), null)
+		})
+
+		it("parses empty name correctly", () => {
+			const res = Markdown.extractPath("- [](path/to/file.js)")
+			assert.deepStrictEqual(res, { name: "", path: "path/to/file.js" })
+		})
+
+		it("parses explicit name correctly", () => {
+			const res = Markdown.extractPath("- [MyFile](src/file.js)")
+			assert.deepStrictEqual(res, { name: "MyFile", path: "src/file.js" })
+		})
+
+		it("rejects malformed headers", () => {
+			assert.strictEqual(Markdown.extractPath("- [MissingParen]src/file.js"), null)
+		})
+	})
+})
