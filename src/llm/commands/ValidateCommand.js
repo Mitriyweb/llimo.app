@@ -5,7 +5,8 @@ import Command from "./Command.js"
 
 export default class ValidateCommand extends Command {
 	static name = "validate"
-	static help = "Check the validation "
+	static help = "Validate of the response by comparing provided (parsed) files and commands to expected list of files and commands"
+	static example = "```markdown\n- [](system.md)\n- [Updated](play/main.js)\n- [Setting up the project](@bash)\n```"
 
 	/** @type {ParsedFile} */
 	parsed = {}
@@ -21,19 +22,23 @@ export default class ValidateCommand extends Command {
 	}
 	async * run() {
 		if (this.parsed.isValid) {
-			yield ` ${GREEN}+${RESET} Expected validation of files 100% valid`
+			yield ` ${GREEN}+${RESET} Expected validation of files ${GREEN}100% valid${RESET}`
 		} else {
 			yield ` ${RED}-${RESET} ! Validation of responses files fail`
-			if (this.parsed.requested?.length) {
+			const requested = Array.from(this.parsed.requested ?? []).map(([, file]) => file)
+			const files = Array.from(this.parsed.files ?? []).map(([, file]) => file)
+			const PASS = `${GREEN}+`
+			const FAIL = `${RED}-`
+			if (requested.length) {
 				yield `   Files to validate (LLiMo version):`
-				for (const [label, filename] of this.parsed.requested) {
-					yield `   - [${label}](${filename})`
+				for (const filename of requested) {
+					yield `    ${files.includes(filename) ? PASS : FAIL}- ${filename}${RESET}`
 				}
 			}
-			if (this.parsed.files?.length) {
+			if (files?.length) {
 				console.error(`   Files parsed from the answer:`)
-				for (const [label, filename] of this.parsed.files) {
-					yield `   - [${label}](${filename})`
+				for (const filename of files) {
+					yield `    ${requested.includes(filename) ? PASS : FAIL}- ${filename}${RESET}`
 				}
 			}
 		}

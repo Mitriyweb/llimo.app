@@ -14,8 +14,7 @@ import { Readable } from "node:stream"
 import { GREEN, RED, RESET, ITALIC, YELLOW } from "../src/utils/ANSI.js"
 import { FileSystem, Path, ReadLine } from "../src/utils.js"
 import Markdown from "../src/utils/Markdown.js"
-import BashCommand from "../src/llm/commands/BashCommand.js"
-import ValidateCommand from "../src/llm/commands/ValidateCommand.js"
+import commands from "../src/llm/commands/index.js"
 
 /**
  * @typedef {Object} JSONResponse
@@ -38,12 +37,6 @@ function usage() {
 	console.info("    output-file - Path to the output file prints to stdout if not defined")
 	console.info("  ")
 }
-
-/** @type {Map<string, typeof import("../src/llm/commands/Command.js").default>} */
-const commands = new Map([
-	[ValidateCommand.name, ValidateCommand],
-	[BashCommand.name, BashCommand],
-])
 
 /**
  * Main entry point.
@@ -136,7 +129,7 @@ async function main(argv = process.argv.slice(2)) {
 
 	for (const file of correct) {
 		const { filename = "", content = "", encoding = "utf-8" } = file
-		const text = String(content).replace(/\\n/g, "\n")
+		const text = String(content)
 		if (filename.startsWith("@")) {
 			const command = filename.slice(1)
 			const Command = commands.get(command)

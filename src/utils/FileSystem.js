@@ -6,6 +6,7 @@ import process from 'node:process'
 
 import Path from './Path.js'
 import { Stream } from 'node:stream'
+import { Stats } from 'node:fs'
 
 /**
  * @typedef {import('node:fs').Mode | import('node:fs').MakeDirectoryOptions | null} MkDirOptions
@@ -68,7 +69,7 @@ export default class FileSystem {
 	/**
 	 * Get file stats
 	 * @param {string} path
-	 * @returns {Promise<Object>}
+	 * @returns {Promise<Stats>}
 	 */
 	async stat(path) {
 		return fs.stat(path)

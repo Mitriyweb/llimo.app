@@ -2,6 +2,7 @@ import { FileEntry } from "../../FileProtocol.js"
 
 export default class Command {
 	static help = "Command description for user"
+	static example = "The example of the content of the command response ```bash\npnpm install\n```"
 	/** @type {string} */
 	cwd = ""
 	/** @type {number} */

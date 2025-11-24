@@ -3,20 +3,20 @@ import { Readable } from "node:stream"
 
 /**
  * @typedef {Object} ParsedFile
- * @property {FileEntry[]} [correct=[]]
- * @property {FileError[]} [failed=[]]
- * @property {boolean} [isValid=false]
+ * @property {FileEntry[]} [correct=[]] List of correctly parsed files from the response
+ * @property {FileError[]} [failed=[]] List of errors per line detected in the response
+ * @property {boolean} [isValid=false] Validation flag that checked by LLiMo validate files compared to delivered files in the response
  * @property {FileEntry | null} [validate=null] Validate content with the list of provided files
- * @property {Array<[string, string]>} [files=[]] Array of found files in LLiMo response in [label, filename] format
- * @property {Array<[string, string]>} [requested=[]] Array of requested files in `@validate` file response from LLiMo in [label, filename] format
+ * @property {Array<[label: string, filename: string]>} [files=[]] Array of found files in LLiMo response in [label, filename] format
+ * @property {Array<[label: string, filename: string]>} [requested=[]] Array of requested files in `@validate` file response from LLiMo in [label, filename] format
  */
 
 /**
  * @typedef {Object} ValidateResult
- * @property {boolean} [isValid=false]
- * @property {FileEntry | null} [validate=null]
- * @property {Array<[string, string]>} [files=[]] Array of found files in LLiMo response in [label, filename] format
- * @property {Array<[string, string]>} [requested=[]] Array of requested files in `@validate` file response from LLiMo in [label, filename] format
+ * @property {boolean} [isValid=false] Validation flag that checked by LLiMo validate files compared to delivered files in the response
+ * @property {FileEntry | null} [validate=null] Validate file with the content of the listed files that LLiMo thinks must be delivered in the response
+ * @property {Array<[label: string, filename: string]>} [files=[]] Array of found files in LLiMo response in [label, filename] format
+ * @property {Array<[label: string, filename: string]>} [requested=[]] Array of requested files in `@validate` file response from LLiMo in [label, filename] format
  */
 
 export class FileEntry {
@@ -91,14 +91,17 @@ export default class FileProtocol {
 		return { isValid, validate, files, requested }
 	}
 
+	/**
+	 * Parse the source into ParsedFile.
+	 * @param {any} source – a source of content
+	 * @returns {Promise<ParsedFile>}
+	 */
 	static async parse(source) {
-		if ("string" === typeof source) {
-			const stream = readline.createInterface({
-				input: Readable.from([source]),
-				crlfDelay: Infinity
-			})
-			return await this.parseStream(stream)
-		}
+		const stream = readline.createInterface({
+			input: Readable.from([String(source)]),
+			crlfDelay: Infinity
+		})
+		return await this.parseStream(stream)
 	}
 
 	/**

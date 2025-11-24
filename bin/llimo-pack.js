@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url"
 import process from "node:process"
 import { Readable } from "node:stream"
 
-import { FileSystem, Path, ReadLine, GREEN, RESET, ITALIC } from "../src/utils.js"
+import { FileSystem, Path, ReadLine, GREEN, YELLOW, RESET, ITALIC } from "../src/utils.js"
 
 /**
  * Parse a markdown checklist line and extract the file path if it matches the pattern.
@@ -51,6 +51,7 @@ async function main(argv = process.argv.slice(2)) {
 
 	let mdStream = null               // interface that yields markdown lines
 	let baseDir = process.cwd()       // directory used to resolve relative file paths
+
 	let outputPath = undefined        // where packed markdown should be written (stdout if undefined)
 	let stdinData = ''                // raw data read from stdin (if any)
 
@@ -184,7 +185,7 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ ${GREEN}${relPath}${RESET} (${ITALIC}${outputPath}${RESET})`)
 		console.info(`  (${format(stats.size)} bytes)${injections}`)
 		if (errors.length) {
-			console.warn("\nUnable to read files:\n" + errors.join("\n") + "\n")
+			console.warn(`\n${YELLOW}Unable to read files:\n` + errors.join("\n") + `\n${RESET}`)
 		}
 	} else {
 		console.info(output.join("\n") + "\n")

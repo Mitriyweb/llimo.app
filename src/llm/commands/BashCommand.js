@@ -4,6 +4,7 @@ import Command from "./Command.js"
 export default class BashCommand extends Command {
 	static name = "bash"
 	static help = "Run bash commands and save output of stdout & stderr in chat"
+	static example = "```bash\npnpm install\n```"
 	/**
 	 * @param {Partial<BashCommand>} [input={}]
 	 */

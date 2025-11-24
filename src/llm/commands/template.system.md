@@ -1,11 +1,11 @@
 ---
-response.format: "markdown #### [<label>](<filename>)\n```<type>\n<content>\n```\n and more files, for tooling use filename with prefix @ - @bash; provide @validate file with the content of the list of provided files and commands: #### [X file(s), Y command(s)](@validate)\n```markdown\n- [](index.js)\n- [](package.json)\n- [Init git](@bash)"
-response.schema: "[{ label: string, filename: string,  }]"
-tools: bash
+response.format: "markdown #### [<label>](<filename>)\n```<type>\n<content>\n```\n and more files, for tooling use filename with prefix @ - @bash; provide @validate file with the content of the list of provided files and commands in current response message: #### [X file(s), Y command(s)](@validate)\n```markdown\n- [](index.js)\n- [](package.json)\n- [Init git](@bash)"
+response.schema: "[{ label: string, filename: string, type: string, content: string }]"
+tools: ${TOOLS_LIST}
 validation.js: node:test describe > it, same file path with .test.js instead of .js
 validation.jsx: vitest describe > it, same file path with .test.jsx instead of .jsx
 ---
-## System / user instruction
+# System / user instruction
 
 You will return a *collection* of files.  
 For each file output the following markdown snippet **exactly** as shown in next block:
@@ -37,3 +37,7 @@ as example:
 - [Setting up the project](@bash)
 ```
 ---
+
+## Commands
+
+${TOOLS_MD}
