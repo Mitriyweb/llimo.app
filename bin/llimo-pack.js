@@ -181,12 +181,14 @@ async function main(argv = process.argv.slice(2)) {
 		await fs.writeFile(outputPath, output.join("\n"), { encoding: "utf-8" })
 		const stats = await fs.stat(outputPath)
 		const format = new Intl.NumberFormat("en-US").format
-		const injections = injected.length > 0 ? ` injected ${injected.length} file(s):\n${injected.join("\n")}` : ""
 		console.info(`+ ${GREEN}${relPath}${RESET} (${ITALIC}${outputPath}${RESET})`)
-		console.info(`  (${format(stats.size)} bytes)${injections}`)
+		if (injected.length) {
+			console.info(`  injected ${injected.length} file(s):\n${injected.join("\n")}`)
+		}
 		if (errors.length) {
 			console.warn(`\n${YELLOW}Unable to read files:\n` + errors.join("\n") + `\n${RESET}`)
 		}
+		console.info(`  Prompt size: ${ITALIC}${format(stats.size)} bytes${RESET} — ${format(injected.length)} file(s).`)
 	} else {
 		console.info(output.join("\n") + "\n")
 	}

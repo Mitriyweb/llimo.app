@@ -39,7 +39,8 @@ describe("llimo‑pack script", () => {
 	let tempDir
 
 	after(async () => {
-		await cleanupTempDir(tempDir)
+		// await cleanupTempDir(tempDir)
+		console.info(`rm -rf ${tempDir}`)
 		tempDir = undefined
 	})
 
