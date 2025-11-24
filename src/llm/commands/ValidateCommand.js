@@ -42,9 +42,9 @@ export default class ValidateCommand extends Command {
 			yield ` ${RED}!${RESET} Unexpected response "${this.parsed.validate?.label}"`
 			yield `   but provided: ${realLabel.files} file(s), ${realLabel.commands} command(s)`
 			yield ` ${MAGENTA}ℹ label format for @validate is:`
-			yield ` ${MAGENTA}  #### [<a> file(s), <b> command(s)](@validate)${RESET}`
-			yield ` ${MAGENTA}  > <a> - amount of file(s) minus command(s)${RESET}`
-			yield ` ${MAGENTA}  > <b> - amount of commands(s) minus validate command (-1)${RESET}`
+			yield ` ${MAGENTA}  #### [N file(s), M command(s)](@validate)${RESET}`
+			yield ` ${MAGENTA}  > N - amount of file(s) minus command(s)${RESET}`
+			yield ` ${MAGENTA}  > M - amount of commands(s) minus validate command (-1)${RESET}`
 			yield ` ${MAGENTA}  > if amount is zero part with its number might be skipped${RESET}`
 		}
 		if (this.parsed.isValid) {
