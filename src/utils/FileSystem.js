@@ -7,6 +7,7 @@ import process from 'node:process'
 import Path from './Path.js'
 import { Stream } from 'node:stream'
 import { Stats } from 'node:fs'
+import minimatch from 'minimatch'
 
 /**
  * @typedef {import('node:fs').Mode | import('node:fs').MakeDirectoryOptions | null} MkDirOptions
@@ -110,11 +111,111 @@ export default class FileSystem {
 		}
 	}
 
+	/**
+	 * Read directory contents
+	 * @param {string} path
+	 * @param {any} [options]
+	 * @returns {Promise<string[]>}
+	 */
+	async readdir(path, options) {
+		return fs.readdir(path, options)
+	}
+
+	/**
+	 * Check if a path matches any ignore pattern
+	 * @param {string} path The path to check (relative to startPath)
+	 * @param {string} dir The path of the parent directory to check (relative to startPath)
+	 * @param {string[]} patterns Array of ignore patterns (supports glob patterns)
+	 * @returns {boolean} True if path should be ignored
+	 */
+	#shouldIgnore(path, dir, patterns) {
+		return patterns.some(p => {
+			const full = this.path.resolve(dir, path)
+			return patterns.includes(path) || minimatch(full, p, { dot: true })
+		})
+	}
+
+	/**
+	 * Recursively browse a directory.
+	 * @param {string} path The starting path.
+	 * @param {object} [options={}]
+	 * @param {boolean} [options.recursive=false] Whether to browse recursively.
+	 * @param {string[]} [options.ignore=[]] An array of directory/file patterns to ignore (supports glob patterns).
+	 * @param {(dir: string, entries: string[]) => Promise<void>} [options.onRead] Callback for each directory read.
+	 * @returns {Promise<string[]>} A promise that resolves to an array of file/directory paths.
+	 */
+	async browse(path, options = {}) {
+		const { recursive = false, ignore = [], onRead } = options
+		const startPath = this.path.resolve(path)
+		const results = []
+
+		const _traverse = async (dir, dirPathRelative = '.') => {
+			let entries
+			try {
+				entries = await fs.readdir(dir, { withFileTypes: true })
+			} catch (/** @type {any} */ error) {
+				console.error(`Error reading directory ${dir}:`, error.message)
+				return
+			}
+
+			const entryPaths = entries.map(entry => this.path.resolve(dir, entry.name))
+			const relativeEntries = entryPaths.map(
+				p => this.path.relative(startPath, p)
+			).filter(p => !this.#shouldIgnore(p, dir, ignore))
+
+			if (typeof onRead === 'function') {
+				await onRead(dirPathRelative, relativeEntries)
+			}
+
+			for (const entry of entries) {
+				const fullPath = this.path.resolve(dir, entry.name)
+				const rel = this.path.relative(startPath, fullPath)
+
+				if (!this.#shouldIgnore(rel, dir, ignore)) {
+					results.push(rel)
+				}
+
+				if (entry.isDirectory() && recursive) {
+					const dirRel = this.path.relative(startPath, fullPath)
+					if (!this.#shouldIgnore(dirRel, dir, ignore) && !ignore.some(pattern => minimatch(dirRel, pattern, { dot: true }))) {
+						await _traverse(fullPath, dirRel)
+					}
+				}
+			}
+		}
+
+		await _traverse(startPath)
+		return results
+	}
+
+	/**
+	 * Relative proxy of stat().
+	 * @param {string} path
+	 * @returns {Promise<Stats>}
+	 */
+	async info(path) {
+		const abs = this.path.resolve(path)
+		return await this.stat(abs)
+	}
+
+	/**
+	 * Relative proxy of readFile().
+	 * @param {string} path
+	 * @param {BufferEncoding} [encoding]
+	 * @returns {Promise<string>}
+	 */
 	async load(path, encoding) {
 		const abs = this.path.resolve(path)
 		return await this.readFile(abs, encoding)
 	}
 
+	/**
+	 * Relative proxy of mkdir() & writeFile().
+	 * @param {string} path
+	 * @param {any} data
+	 * @param {any} [options]
+	 * @returns {Promise<void>}
+	 */
 	async save(path, data, options) {
 		const abs = this.path.resolve(path)
 		const dir = this.path.dirname(abs)
@@ -122,3 +223,4 @@ export default class FileSystem {
 		return await fs.writeFile(abs, data, options)
 	}
 }
+

@@ -122,7 +122,7 @@ async function main(argv = process.argv.slice(2)) {
 
 	const parsed = await Markdown.parseStream(mdStream)
 	const {
-		correct, failed, isValid, files, requested
+		correct, failed, files
 	} = parsed
 
 	const format = new Intl.NumberFormat("en-US").format
@@ -157,7 +157,8 @@ async function main(argv = process.argv.slice(2)) {
 			if (!isDry) {
 				await fs.save(absPath, text, encoding)
 			}
-			const suffix = label && !filename.includes(label) ? `— ${MAGENTA}${label}${RESET}` : ""
+			const suffix = label && !filename.includes(label) || label !== files.get(filename)
+				? `— ${MAGENTA}${label}${RESET}` : ""
 			const size = Buffer.byteLength(text)
 			const SAVE = `${GREEN}+`
 			const SKIP = `${YELLOW}•`
