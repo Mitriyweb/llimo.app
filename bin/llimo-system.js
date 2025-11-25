@@ -8,10 +8,10 @@
  * - Documentation for each command
  */
 
-import { fileURLToPath } from "node:url"
 import process from "node:process"
 import { FileSystem, Path, GREEN, RESET, ITALIC } from "../src/utils.js"
 import commands from "../src/llm/commands/index.js"
+import loadSystemInstructions from "../src/templates/system.js"
 
 /**
  * Main entry point.
@@ -20,11 +20,16 @@ async function main(argv = process.argv.slice(2)) {
 	const fs = new FileSystem()
 	const pathUtil = new Path()
 
-	const template = await fs.readFile("src/llm/commands/template.system.md", "utf-8")
+	// Read the template file
+	const template = await loadSystemInstructions()
+	if (!template) {
+		console.error(`❌ Cannot read template file: ${error.message}`)
+		process.exit(1)
+	}
 
-	let outputPath = undefined        // where packed markdown should be written (stdout if undefined)
+	let outputPath = undefined
 
-	// No stdin data – treat argv as potential input file.
+	// Parse arguments - first argument is output file if provided
 	if (argv.length > 0) {
 		outputPath = pathUtil.resolve(process.cwd(), argv[0])
 	}
@@ -32,7 +37,8 @@ async function main(argv = process.argv.slice(2)) {
 	// Generate tools list and documentation
 	const list = Array.from(commands.keys()).join(", ")
 	const md = Array.from(commands.values()).map(
-		Command => `### ${Command.name}\n${Command.help}\n\nExample:\n#### [${Command.label || Command.name}](@${Command.name})\n\`\`\`${Command.example.includes('```') ? '' : 'txt'}\n${Command.example}\n\`\`\``
+		Command => `### ${Command.name}\n${Command.help}\n\n`
+			+ `Example:\n#### [${Command.label || ""}](@${Command.name})\n${Command.example}`
 	).join("\n\n")
 
 	// Replace placeholders in template

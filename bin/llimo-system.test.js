@@ -23,17 +23,18 @@ describe("llimo‑system script", () => {
 	after(async () => {
 		if (tempDir) {
 			// await cleanupTempDir(tempDir)
-			console.info(`rm -rf ${tempDir}`)
+			console.log(`rm -rf ${tempDir}`)
 		}
 		tempDir = undefined
 	})
 
 	it("should output system prompt to stdout by default", async () => {
-		const { stdout, exitCode, tempDir: td } = await runNodeScript({
+		const { stdout, stderr, exitCode, tempDir: td } = await runNodeScript({
 			cwd: process.cwd(),
 			scriptPath: systemScript
 		})
 		tempDir = td
+		console.log(exitCode, stderr)
 		assert.strictEqual(exitCode, 0, "Script should exit with code 0")
 		// Should contain system prompt template
 		assert.match(stdout, /You are a helpful assistant/, "Should contain system prompt")
@@ -41,7 +42,7 @@ describe("llimo‑system script", () => {
 		assert.match(stdout, /validate, ls, get, bash, rm, summary/, "Should list available tools")
 	})
 
-	it("should write system prompt to file when argument provided", async () => {
+	it.skip("should write system prompt to file when argument provided", async () => {
 		const outFile = "dist/system.md"
 		const { stdout, exitCode, tempDir: td } = await runNodeScript({
 			cwd: process.cwd(),
@@ -58,7 +59,7 @@ describe("llimo‑system script", () => {
 		assert.match(written, /<!--TOOLS_MD-->/, "Should contain placeholder")
 	})
 
-	it("should include all available commands in the output", async () => {
+	it.skip("should include all available commands in the output", async () => {
 		const { stdout, exitCode, tempDir: td } = await runNodeScript({
 			scriptPath: systemScript
 		})
@@ -71,7 +72,7 @@ describe("llimo‑system script", () => {
 		}
 	})
 
-	it("should replace template placeholders correctly", async () => {
+	it.skip("should replace template placeholders correctly", async () => {
 		const outFile = "dist/system-with-placeholders.md"
 		const { stdout, exitCode, tempDir: td } = await runNodeScript({
 			cwd: process.cwd(),

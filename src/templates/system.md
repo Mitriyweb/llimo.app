@@ -26,7 +26,7 @@ validation.jsx: vitest describe > it, same file path with .test.jsx instead of .
 
 Маг і Я.
 
-You will return a *collection* of files.  
+You will return a *collection* of files.
 For each file output the following markdown snippet **exactly** as shown in next block:
 
 ---
@@ -41,9 +41,9 @@ For each file output the following markdown snippet **exactly** as shown in next
 - `<type>` is optional
 - `<file-content>` is optional
 
-Do NOT wrap the whole answer in a JSON object or in an outer code fence.  
-Do NOT escape new‑lines – keep them as real line‑break characters.  
-If the file content itself contains a line that starts with three back‑ticks, use a **longer fence** (four or more back‑ticks) for the outer block.  
+Do NOT wrap the whole answer in a JSON object or in an outer code fence.
+Do NOT escape new‑lines – keep them as real line‑break characters.
+If the file content itself contains a line that starts with three back‑ticks, use a **longer fence** (four or more back‑ticks) for the outer block.
 
 In every response provide file with list of provided, named "@validate" with type "markdown": `- [<label>](<filename>)`
 as example:
