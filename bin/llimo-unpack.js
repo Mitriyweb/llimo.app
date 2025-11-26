@@ -15,6 +15,7 @@ import { GREEN, RED, RESET, ITALIC, YELLOW, BOLD, MAGENTA } from "../src/utils/A
 import { FileSystem, Path, ReadLine } from "../src/utils.js"
 import Markdown from "../src/utils/Markdown.js"
 import commands from "../src/llm/commands/index.js"
+import { FileError } from "../src/FileProtocol.js"
 
 /**
  * @typedef {Object} JSONResponse
@@ -142,8 +143,8 @@ async function main(argv = process.argv.slice(2)) {
 					console.info(str)
 				}
 			} else {
-				console.error(` ${RED}! Unknown command: ${filename}${RESET}`)
-				console.error(' ! Available commands:')
+				console.error(`${RED}! Unknown command: ${filename}${RESET}`)
+				console.error('! Available commands:')
 				Array.from(commands.entries()).forEach(([name, Command]) => {
 					console.error(` - ${name} - ${Command.help}`)
 				})
@@ -151,7 +152,7 @@ async function main(argv = process.argv.slice(2)) {
 		} else {
 			const absPath = path.resolve(baseDir, filename)
 			if ("" === text.trim()) {
-				console.info(` ${YELLOW}- ${filename} - ${BOLD}empty content${RESET} - to remove file use command @rm`)
+				console.info(`${YELLOW}- ${filename} - ${BOLD}empty content${RESET} - to remove file use command @rm`)
 				continue
 			}
 			if (!isDry) {
@@ -162,17 +163,32 @@ async function main(argv = process.argv.slice(2)) {
 			const size = Buffer.byteLength(text)
 			const SAVE = `${GREEN}+`
 			const SKIP = `${YELLOW}•`
-			console.info(` ${isDry ? SKIP : SAVE}${RESET} ${filename} (${ITALIC}${format(size)} bytes${RESET}) ${suffix}`)
+			console.info(`${isDry ? SKIP : SAVE}${RESET} ${filename} (${ITALIC}${format(size)} bytes${RESET}) ${suffix}`)
 		}
 	}
 
-	const empties = failed.filter(err => err.content.trim() === "").map(err => err.line)
-	if (empties.length) {
-		console.warn(` ${YELLOW}• Empty rows #${empties.join(", #")}`)
-	}
-	const others = failed.filter(err => err.content.trim() !== "")
-	for (const err of others) {
-		console.error(` ${RED}! Error: ${err.error}\n > ${err.line}. ${err.content}${RESET}`)
+	// const empties = failed.filter(err => err.content.trim() === "").map(err => err.line)
+	// if (empties.length) {
+	// 	console.warn(`${YELLOW}• Empty rows #${empties.join(", #")}`)
+	// }
+	/** @type {Map<string, FileError[]>} */
+	const others = new Map()
+	failed
+		// .filter(err => err.content.trim() !== "")
+		.forEach(err => {
+			if (!others.has(err.error)) {
+				others.set(err.error, [])
+			}
+			const arr = others.get(err.error)
+			arr.push(err)
+		})
+	for (const [str, arr] of others.entries()) {
+		console.error(`${RED}! Error: ${str}`)
+		const max = arr.reduce((acc, err) => acc = Math.max(acc, String(err.line).length), 0)
+		arr.forEach(err => {
+			console.error(`  # ${String(err.line).padStart(max, " ")} > ${err.content}`)
+		})
+		console.error(RESET)
 	}
 }
 

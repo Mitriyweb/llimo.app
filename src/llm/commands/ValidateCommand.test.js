@@ -29,7 +29,7 @@ describe("ValidateCommand", () => {
 			'      M - amount of commands(s) minus validate command (-1)',
 			'    if amount is zero part with its number might be skipped',
 			'  ------------------------------------------------------------',
-			' + Expected validation of files 100% valid',
+			'+ Expected validation of files 100% valid',
 		])
 	})
 })

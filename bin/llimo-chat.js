@@ -154,7 +154,7 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ answer.md (${pathUtil.resolve(chat.dir, "answer.md")})`)
 
 		// 6. decode answer & run tests
-		await decodeAnswerAndRunTests(chat, fs, pathUtil, runCommand)
+		await decodeAnswerAndRunTests(chat, runCommand)
 
 		// 7. check if tests passed – same logic as original script
 		const testStdout = await fs.readFile(pathUtil.resolve(chat.dir, "prompt.md"), "utf-8")
