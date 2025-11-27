@@ -113,6 +113,7 @@ async function main(argv = process.argv.slice(2)) {
 	const ai = new AI({ models })
 
 	const isNew = argv.includes("--new")
+	const isYes = argv.includes("--yes")
 
 	// Verify model existence
 	/** @type {import("../src/llm/AI.js").ModelInfo} */
@@ -140,7 +141,8 @@ async function main(argv = process.argv.slice(2)) {
 	await copyInputToChat(inputFile, input, chat)
 
 	// 4. pack prompt – prepend system.md if present
-	const { packedPrompt } = await packPrompt(packMarkdown, input, chat)
+	const packed = await packPrompt(packMarkdown, input, chat)
+	let packedPrompt = packed.packedPrompt
 
 	// 5. chat loop
 	let step = 1
@@ -287,34 +289,30 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ answer.md (${path.resolve(chat.dir, "answer.md")})`)
 
 		// 6. decode answer & run tests
-		break
-		await decodeAnswerAndRunTests(chat, runCommand)
+		const testsCode = await decodeAnswerAndRunTests(chat, runCommand, isYes)
+		const input = await chat.db.load("prompt.md")
+		packed = await packPrompt(packMarkdown, input, chat)
 
 		// 7. check if tests passed – same logic as original script
-		const testStdout = await fs.readFile(path.resolve(chat.dir, "prompt.md"), "utf-8")
-		const testFailed =
-			testStdout.includes("fail") &&
-			testStdout.split("fail")[1].trim().split(" ")[0] !== "0"
-
-		if (!testFailed) {
+		if (0 === testsCode) {
+			// Task is complete, let's commit and exit
+			// @todo remove the hardcoded name, define name in the beggining
 			await git.renameBranch(`2511/llimo-chat/done`)
 			await git.push(`2511/llimo-chat/done`)
 			break
 		}
-
-		if (testFailed) {
+		else {
 			consecutiveErrors++
 			if (consecutiveErrors >= MAX_ERRORS) {
 				console.error(`LLiMo stuck after ${MAX_ERRORS} consecutive errors.`)
+			// @todo remove the hardcoded name, define name in the beggining
 				await git.renameBranch(`2511/llimo-chat/fail`)
 				break
 			}
-		} else {
-			consecutiveErrors = 0
 		}
 
 		// 8. commit step and continue
-		await commitStep(git, `step ${step}: response and test results`)
+		await git.commitAll(`step ${step}: response and test results`)
 		step++
 	}
 }

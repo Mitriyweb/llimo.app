@@ -14,8 +14,7 @@ import { Readable } from "node:stream"
 import { GREEN, RED, RESET, ITALIC, YELLOW, BOLD, MAGENTA } from "../src/utils/ANSI.js"
 import { FileSystem, Path, ReadLine } from "../src/utils.js"
 import Markdown from "../src/utils/Markdown.js"
-import commands from "../src/llm/commands/index.js"
-import { FileError } from "../src/FileProtocol.js"
+import { unpackAnswer } from "../src/llm/unpack.js"
 
 /**
  * @typedef {Object} JSONResponse
@@ -120,75 +119,12 @@ async function main(argv = process.argv.slice(2)) {
 		usage()
 		return
 	}
+	console.info(RESET)
 
 	const parsed = await Markdown.parseStream(mdStream)
-	const {
-		correct, failed, files
-	} = parsed
-
-	const format = new Intl.NumberFormat("en-US").format
-
-	console.info(RESET)
-	console.info(`Extracting files ${isDry ? `${YELLOW}(dry mode, no real saving)` : ''}`)
-
-	for (const file of correct) {
-		const { filename = "", label = "", content = "", encoding = "utf-8" } = file
-		const text = String(content)
-		if (filename.startsWith("@")) {
-			const command = filename.slice(1)
-			const Command = commands.get(command)
-			if (Command) {
-				const cmd = new Command({ cwd: process.cwd(), file, parsed })
-				for await (const str of cmd.run()) {
-					console.info(str)
-				}
-			} else {
-				console.error(`${RED}! Unknown command: ${filename}${RESET}`)
-				console.error('! Available commands:')
-				Array.from(commands.entries()).forEach(([name, Command]) => {
-					console.error(` - ${name} - ${Command.help}`)
-				})
-			}
-		} else {
-			const absPath = path.resolve(baseDir, filename)
-			if ("" === text.trim()) {
-				console.info(`${YELLOW}- ${filename} - ${BOLD}empty content${RESET} - to remove file use command @rm`)
-				continue
-			}
-			if (!isDry) {
-				await fs.save(absPath, text, encoding)
-			}
-			const suffix = label && !filename.includes(label) || label !== files.get(filename)
-				? `— ${MAGENTA}${label}${RESET}` : ""
-			const size = Buffer.byteLength(text)
-			const SAVE = `${GREEN}+`
-			const SKIP = `${YELLOW}•`
-			console.info(`${isDry ? SKIP : SAVE}${RESET} ${filename} (${ITALIC}${format(size)} bytes${RESET}) ${suffix}`)
-		}
-	}
-
-	// const empties = failed.filter(err => err.content.trim() === "").map(err => err.line)
-	// if (empties.length) {
-	// 	console.warn(`${YELLOW}• Empty rows #${empties.join(", #")}`)
-	// }
-	/** @type {Map<string, FileError[]>} */
-	const others = new Map()
-	failed
-		// .filter(err => err.content.trim() !== "")
-		.forEach(err => {
-			if (!others.has(err.error)) {
-				others.set(err.error, [])
-			}
-			const arr = others.get(err.error)
-			arr.push(err)
-		})
-	for (const [str, arr] of others.entries()) {
-		console.error(`${RED}! Error: ${str}`)
-		const max = arr.reduce((acc, err) => acc = Math.max(acc, String(err.line).length), 0)
-		arr.forEach(err => {
-			console.error(`  # ${String(err.line).padStart(max, " ")} > ${err.content}`)
-		})
-		console.error(RESET)
+	const stream = unpackAnswer(parsed, isDry, baseDir)
+	for await (const str of stream) {
+		console.info(str)
 	}
 }
 

@@ -12,6 +12,8 @@ import Git from "./Git.js"
 import AI from "../llm/AI.js"
 import { BOLD, GREEN, ITALIC, RESET } from "./ANSI.js"
 import { generateSystemPrompt } from "../llm/system.js"
+import MarkdownProtocol from "./Markdown.js"
+import { unpackAnswer } from "../llm/unpack.js"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -110,7 +112,7 @@ export async function initialiseChat(ChatClassOrOpts, maybeFs, namedOpts = {}) {
 		const systemFiles = ["system.md", "agent.md"]
 		for (const file of systemFiles) {
 			if (await fs.exists(file)) {
-				const content = await fs.load(file)
+				const content = await fs.load(file) || ""
 				console.info(`${GREEN}+ ${file}${RESET} loaded ${ITALIC}${format(Buffer.byteLength(content))} bytes${RESET}`)
 				system.content += "\n\n" + content
 			}
@@ -188,49 +190,69 @@ export function startStreaming(ai, model, chat, options) {
  * Decode the answer markdown and append the test run command.
  *
  * @param {Chat} chat           – Chat instance (used for paths)
- * @param {Function} runCommand – `(cmd:string)=>Promise<{stdout:string,stderr:string,exitCode:number}>`
- * @returns {Promise<void>}
+ * @param {(cmd:string, options?: { onData?: (data) => void })=>Promise<{stdout:string,stderr:string,exitCode:number}>} runCommand
+ * @param {boolean} [isYes] Is always Yes to user prompts.
+ * @returns {Promise<number>}
  */
-export async function decodeAnswerAndRunTests(chat, runCommand) {
-	// prepend unpack block
-	await chat.db.append(
-		"prompt.md",
-		`echo '\`\`\`bash' > ${chat.dir}/prompt.md\n`
-	)
-	await chat.db.append(
-		"prompt.md",
-		`node bin/llimo-unpack.js ${chat.dir}/answer.md # >> ${chat.dir}/prompt.md 2>&1\n`
-	)
+export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
+	const logs = []
+	const answer = chat.messages.slice().pop()
+	if ("assistant" !== answer?.role) {
+		throw new Error(`Recent message is not an assistant's but "${answer?.role}"`)
+	}
+	/** @type {string} */
+	const content = String(answer.content)
+	const parsed = await MarkdownProtocol.parse(content)
+	let prompt = isYes ? "yes" : ""
+	logs.push("% llimo-unpack")
+	logs.push("```bash")
+	if (!isYes) {
+		const stream = unpackAnswer(parsed, true)
+		for await (const str of stream) {
+			logs.push(str)
+			console.info(str)
+		}
 
-	const { stdout: unpackStdout } = await runCommand(
-		`node bin/llimo-unpack.js ${chat.dir}/answer.md`
-	)
-	await chat.db.append("prompt.md", unpackStdout)
-	await chat.db.append("prompt.md", `echo '\`\`\`' # >> ${chat.dir}/prompt.md\n`)
+		// @todo ask "Unpack current package? (Y)es, No, ., <message>"
+		// user can answer with:
+		// ENTER - yes
+		// Yes - yes
+		// yes - yes
+		// y - yes
+		// No - no
+		// no - no
+		// n - no
+		// . - pack current chat input file (usually me.md) and send as next message (attachments allowed)
+		// <message> - provide a message and send as next message (plain text, no attachments) and return
+		prompt = "yes"
+	}
+	if ("yes" === prompt) {
+		const stream = unpackAnswer(parsed)
+		for await (const str of stream) {
+			console.info(str)
+			logs.push(str)
+		}
+	}
+	logs.push("```")
+	await chat.db.save("prompt.md", logs.join("\n"))
 
-	// run tests
-	await chat.db.append(
-		"prompt.md",
-		`pnpm test # >> ${chat.dir}/prompt.md\n`
-	)
-	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test")
-	await chat.db.append("prompt.md", testStderr + testStdout)
+	// @todo add progress with 3 revent lines of output
+	const onData = () => {}
+
+	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test:all", { onData })
+	logs.push("$ pnpm test:all")
+	logs.push("```bash")
+	logs.push(testStderr)
+	logs.push(testStdout)
+	logs.push("```")
+	await chat.db.save("prompt.md", logs.join("\n"))
 
 	const testFailed =
 		testStdout.includes("fail") &&
 		testStdout.split("fail")[1].trim().split(" ")[0] !== "0"
 	if (!testFailed) {
 		console.info(`All tests passed, no typed mistakes.`)
+		return 0
 	}
-}
-
-/**
- * Helper to commit the current step.
- *
- * @param {Git} git
- * @param {string} message
- * @returns {Promise<void>}
- */
-export async function commitStep(git, message) {
-	await git.commitAll(message)
+	return 1
 }
