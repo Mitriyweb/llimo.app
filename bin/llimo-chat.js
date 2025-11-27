@@ -21,7 +21,6 @@ import {
 	packPrompt,
 	startStreaming,
 	decodeAnswerAndRunTests,
-	commitStep,
 } from "../src/utils/chatSteps.js"
 import ModelProvider from "../src/llm/ModelProvider.js"
 import { formatChatProgress } from "../src/utils/chatProgress.js" // ← fixed import path
