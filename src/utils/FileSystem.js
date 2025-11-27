@@ -31,6 +31,16 @@ export default class FileSystem {
 		} = input
 		this.cwd = String(cwd)
 		this.#path = new Path({ cwd })
+		/** @type {Map<string, (path: string, encoding: BufferEncoding) => Promise<any>>} */
+		this.loaders = new Map([
+			[".jsonl", this._jsonlLoader.bind(this)],
+			[".json", this._jsonLoader.bind(this)],   // JSON loader
+		])
+		/** @type {Map<string, (path: string, data: any, options: any) => Promise<void>>} */
+		this.savers = new Map([
+			[".jsonl", this._jsonlSaver.bind(this)],
+			[".json", this._jsonSaver.bind(this)],   // JSON saver
+		])
 	}
 	get path() {
 		return this.#path
@@ -48,7 +58,6 @@ export default class FileSystem {
 			return false
 		}
 	}
-
 	/**
 	 * Read file content
 	 * @param {string} path
@@ -58,7 +67,28 @@ export default class FileSystem {
 	async readFile(path, encoding = 'utf-8') {
 		return fs.readFile(path, encoding)
 	}
+	/**
+	 * Load a file – behaviour mirrors the original implementation:
+	 *   * If the file does **not** exist → `undefined`
+	 *   * If an extension is registered in `loaders` → use that loader
+	 *   * Otherwise → plain text read (`utf‑8` by default)
+	 *
+	 * @param {string} path
+	 * @param {BufferEncoding} [encoding='utf-8']
+	 * @returns {Promise<any|undefined>}
+	 */
+	async load(path, encoding = 'utf-8') {
+		const abs = this.path.resolve(path)
+		if (!await this.access(abs)) return undefined
 
+		const ext = this.path.extname(path)
+		const fn = this.loaders.get(ext)
+		if (fn) {
+			return await fn(abs, encoding)
+		}
+		// fallback – plain text
+		return await this.readFile(abs, encoding)
+	}
 	/**
 	 * Write file content
 	 * @param {string} path
@@ -69,7 +99,6 @@ export default class FileSystem {
 	async writeFile(path, content, options) {
 		return fs.writeFile(path, content, options)
 	}
-
 	/**
 	 * Create directory
 	 * @param {string} path
@@ -79,7 +108,6 @@ export default class FileSystem {
 	async mkdir(path, options) {
 		return fs.mkdir(path, options)
 	}
-
 	/**
 	 * Get file stats
 	 * @param {string} path
@@ -88,7 +116,6 @@ export default class FileSystem {
 	async stat(path) {
 		return fs.stat(path)
 	}
-
 	/**
 	 * Open file handle
 	 * @param {string} path
@@ -97,7 +124,6 @@ export default class FileSystem {
 	async open(path) {
 		return fs.open(path)
 	}
-
 	/**
 	 * Check if path exists and get stats
 	 * @param {string} path
@@ -111,7 +137,6 @@ export default class FileSystem {
 			return false
 		}
 	}
-
 	/**
 	 * Read directory contents
 	 * @param {string} path
@@ -121,7 +146,6 @@ export default class FileSystem {
 	async readdir(path, options) {
 		return fs.readdir(path, options)
 	}
-
 	/**
 	 * Normalise a path for pattern matching – strip trailing slashes.
 	 * @param {string} p
@@ -130,7 +154,6 @@ export default class FileSystem {
 	#normalize(p) {
 		return p.replace(/\/+$/, '')
 	}
-
 	/**
 	 * Check if a path matches any ignore pattern
 	 * @param {string} relPath The relative path to check (from startPath)
@@ -163,7 +186,6 @@ export default class FileSystem {
 
 		return false
 	}
-
 	/**
 	 * Recursively browse a directory.
 	 * @param {string} path The starting path.
@@ -174,7 +196,6 @@ export default class FileSystem {
 	 * @returns {Promise<string[]>} A promise that resolves to an array of file/directory paths.
 	 */
 	async browse(path, options = {}) {
-		debugger
 		const { recursive = false, ignore = [], onRead } = options
 		const startPath = this.path.resolve(path)
 		const rel = this.path.relative(this.cwd, startPath)
@@ -226,7 +247,6 @@ export default class FileSystem {
 		await _traverse(startPath, rel)
 		return results
 	}
-
 	/**
 	 * Relative proxy of stat().
 	 * @param {string} path
@@ -236,18 +256,76 @@ export default class FileSystem {
 		const abs = this.path.resolve(path)
 		return await this.stat(abs)
 	}
-
 	/**
-	 * Relative proxy of readFile().
+	 * JSON loader for .jsonl files.
 	 * @param {string} path
-	 * @param {BufferEncoding} [encoding]
-	 * @returns {Promise<string>}
+	 * @param {BufferEncoding} [encoding="utf-8"]
+	 * @returns {Promise<any[]>}
 	 */
-	async load(path, encoding) {
-		const abs = this.path.resolve(path)
-		return await this.readFile(abs, encoding)
+	async _jsonlLoader(path, encoding = "utf-8") {
+		const jsonl = await this.readFile(path, encoding)
+		const rows = jsonl.split("\n").map(s => s.trim()).filter(Boolean)
+		const result = []
+		for (const row of rows) {
+			try {
+				const data = JSON.parse(row)
+				result.push(data)
+			} catch (/** @type {any} */ err) {
+				result.push(err)
+			}
+		}
+		return result
 	}
-
+	/**
+	 * JSON loader for standard .json files.
+	 * @param {string} path
+	 * @param {BufferEncoding} [encoding="utf-8"]
+	 * @returns {Promise<any>}
+	 */
+	async _jsonLoader(path, encoding = "utf-8") {
+		const raw = await this.readFile(path, encoding)
+		return JSON.parse(raw)
+	}
+	/**
+	 * @param {string} path
+	 * @param {any} rows
+	 * @param {any} [options]
+	 * @returns {Promise<void>}
+	 */
+	async _jsonlSaver(path, rows, options = {}) {
+		let str = ""
+		const { flag } = options
+		if ("a" === flag) {
+			// append to the end of file
+			str = JSON.stringify(rows)
+			await fs.appendFile(path, str, options)
+		} else {
+			if (!Array.isArray(rows)) {
+				throw new Error("JSONL accept only rows (array of any type of data)")
+			}
+			for (const row of rows) str += JSON.stringify(row) + "\n"
+			await fs.writeFile(path, str, options)
+		}
+	}
+	/**
+	 * JSON saver – writes a plain JSON file.
+	 * @param {string} path
+	 * @param {any} data
+	 * @param {any} [options]
+	 * @returns {Promise<void>}
+	 */
+	async _jsonSaver(path, data, options = {}) {
+		const { flag } = options
+		if ("a" === flag) {
+			if ("string" !== data) {
+				throw new Error("Cannot append JSON file with object data, only string is allowed for append or use save instead of append.")
+			}
+			await fs.appendFile(path, data, options)
+			return
+		}
+		const payload = JSON.stringify(data, null, 2)
+		await fs.writeFile(path, payload, options)
+	}
 	/**
 	 * Relative proxy of mkdir() & writeFile().
 	 * @param {string} path
@@ -259,9 +337,14 @@ export default class FileSystem {
 		const abs = this.path.resolve(path)
 		const dir = this.path.dirname(abs)
 		await fs.mkdir(dir, { recursive: true, mode: options?.mode || 0o777 })
+		// save by extension
+		const ext = this.path.extname(path)
+		const fn = this.savers.get(ext)
+		if (fn) {
+			return await fn(abs, data, options)
+		}
 		return await fs.writeFile(abs, data, options)
 	}
-
 	/**
 	 * Relative proxy of mkdir() & writeFile(path, data, { flag: "a" }).
 	 * @param {string} path

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto"
 import FileSystem from "./FileSystem.js"
 
+/** @typedef {{ role: string, content: string | { text: string, type: string } }} ChatMessage */
+
 /**
  * Manages chat history and files
  */
@@ -13,6 +15,8 @@ export default class Chat {
 	root
 	/** @type {string} */
 	dir
+	/** @type {import("ai").ModelMessage[]} */
+	messages = []
 	/** @type {FileSystem} Access to the current working directory file system */
 	#fs
 	/** @type {FileSystem} access to the chat directory file system */
@@ -22,11 +26,14 @@ export default class Chat {
 	 * @param {Partial<Chat>} [input={}]
 	 */
 	constructor(input = {}) {
-		const { id = randomUUID(), cwd = process.cwd(), root = "chat" } = input
+		const {
+			id = randomUUID(), cwd = process.cwd(), root = "chat", messages = []
+		} = input
 		this.id = String(id)
 		this.cwd = String(cwd)
 		this.root = String(root)
 		this.#fs = new FileSystem({ cwd })
+		this.messages = messages
 		this.dir = this.#fs.path.resolve(root, id)
 		this.#db = new FileSystem({ cwd: this.dir })
 	}
@@ -53,41 +60,44 @@ export default class Chat {
 	}
 
 	/**
-	 * Get path to messages file
-	 * @returns {string}
-	 */
-	getMessagesPath() {
-		return this.#path.resolve(this.dir, "messages.jsonl")
-	}
-
-	/**
 	 * Add a message to the history
-	 * @param {Object} message
-	 * @param {string} message.role
-	 * @param {string} message.content
-	 * @param {Object} [message.usage]
-	 * @param {number} [message.usage.inputTokens]
-	 * @param {number} [message.usage.outputTokens]
-	 * @param {number} [message.usage.cacheTokens]
-	 * @param {number} [message.usage.totalCost]
+	 * @param {import("ai").ModelMessage} message
 	 */
-	async addMessage(message) {
-		const messagesPath = this.getMessagesPath()
-		const line = JSON.stringify(message) + "\n"
-		await this.#fs.writeFile(messagesPath, line, { flag: "a" })
+	add(message) {
+		this.messages.push(message)
 	}
 
 	/**
-	 * Get all messages
-	 * @returns {Promise<Object[]>}
+	 * Returns tokens count for all messages.
+	 * @returns {number}
 	 */
-	async getMessages() {
-		const messagesPath = this.getMessagesPath()
-		if (!(await this.#fs.exists(messagesPath))) {
-			return []
+	getTokensCount() {
+		return this.messages.reduce((acc, msg) => acc + msg.content.length / 4, 0)
+	}
+
+	async clear() {
+		await this.db.save("messages.jsonl", [])
+	}
+
+	/**
+	 * @returns {Promise<boolean>}
+	 */
+	async load() {
+		if (await this.db.exists("messages.jsonl")) {
+			const rows = await this.db.load("messages.jsonl") ?? []
+			for (const row of rows) {
+				if (row instanceof Error) {
+					throw row
+				}
+				this.add(row)
+			}
+			return true
 		}
-		const content = await this.#fs.readFile(messagesPath, "utf-8")
-		return content.split("\n").filter(Boolean).map(line => JSON.parse(line))
+		return false
+	}
+
+	async save() {
+		await this.db.save("messages.jsonl", this.messages)
 	}
 
 	/**

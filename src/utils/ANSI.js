@@ -94,3 +94,15 @@ export const BG_COLORS = {
 	BRIGHT_CYAN: BG_BRIGHT_CYAN,
 	BRIGHT_WHITE: BG_BRIGHT_WHITE,
 }
+
+export const CLEAR_LINE = "\x1b[2K"
+
+export const OVERWRITE_LINE = "\r\x1b[K"
+
+export function overwriteLine(str = "") {
+	return "\r\x1b[K" + str
+}
+
+export function cursorUp(rows = 1) {
+	return `\x1b[${rows}A`
+}

@@ -1,4 +1,4 @@
-import { RESET, GREEN, RED, YELLOW } from "../../utils/ANSI.js"
+import { DIM, RESET, GREEN, RED, YELLOW } from "../../utils/ANSI.js"
 import Command from "./Command.js"
 
 /** @typedef {import("../../FileProtocol.js").ParsedFile} ParsedFile */
@@ -39,7 +39,7 @@ export default class ValidateCommand extends Command {
 		})
 		const requested = Array.from(this.parsed.requested ?? []).map(([file]) => file)
 		if (JSON.stringify(realLabel) !== JSON.stringify(validateLabel)) {
-			yield `${YELLOW}! LLiMo following format errors ------------------------------`
+			yield `${DIM}${YELLOW}! LLiMo following format errors ------------------------------`
 			yield `  Unexpected response "${this.parsed.validate?.label}"`
 			yield `  but provided (parsed response): ${realLabel.files} file(s), ${realLabel.commands} command(s)`
 			yield `  ------------------------------------------------------------`
@@ -53,19 +53,19 @@ export default class ValidateCommand extends Command {
 		if (this.parsed.isValid) {
 			yield `${GREEN}+${RESET} Expected validation of files ${GREEN}100% valid${RESET}`
 		} else {
-			yield `${RED}!${RESET} Validation of responses files fail`
+			yield `${DIM}${RED}! Validation of responses files fail${RESET}`
 			const PASS = `${GREEN}+`
 			const FAIL = `${RED}-`
 			if (requested.length) {
-				yield `   Files to validate (LLiMo version):`
+				yield `   ${DIM}Files to validate (LLiMo version):${RESET}`
 				for (const filename of requested) {
-					yield `    ${files.includes(filename) ? PASS : FAIL} ${filename}${RESET}`
+					yield `    ${DIM}${files.includes(filename) ? PASS : FAIL} ${filename}${RESET}`
 				}
 			}
 			if (files?.length) {
 				console.error(`   Files parsed from the answer:`)
 				for (const filename of files) {
-					yield `    ${requested.includes(filename) ? PASS : FAIL} ${filename}${RESET}`
+					yield `    ${DIM}${requested.includes(filename) ? PASS : FAIL} ${filename}${RESET}`
 				}
 			}
 		}

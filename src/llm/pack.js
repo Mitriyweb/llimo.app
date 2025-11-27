@@ -24,7 +24,6 @@ const format = no => {
  * @returns {Promise<{ text: string, injected: string[], errors: string[] }>} - The generated markdown string with packed files.
  */
 export async function packMarkdown(options = {}) {
-	debugger
 	const {
 		input = "", cwd = process.cwd(), onRead = undefined, ignore = [".git", "node_modules"]
 	} = options
@@ -34,6 +33,7 @@ export async function packMarkdown(options = {}) {
 	const output = []
 	const injected = []
 	const errors = []
+	const added = new Set()
 
 	for (const line of lines) {
 		const extracted = Markdown.extractPath(line)
@@ -79,8 +79,11 @@ export async function packMarkdown(options = {}) {
 					for (const file of matchedFiles) {
 						if (file.endsWith("/")) continue // skip directories
 
-						// Build the path relative to the original cwd (e.g. "src/File.js").
 						const relativeFilePath = closestDir === "." ? file : `${closestDir}/${file}`
+						if (added.has(relativeFilePath)) continue
+						added.add(relativeFilePath)
+
+						// Build the path relative to the original cwd (e.g. "src/File.js").
 						const filePath = path.resolve(relativeFilePath)
 
 						if (listOnly) {
@@ -110,6 +113,7 @@ export async function packMarkdown(options = {}) {
 				}
 			} else {
 				// Single file handling
+				if (added.has(relativePath)) continue
 				try {
 					const content = await fs.readFile(absPath, "utf-8")
 					const filename = name || path.basename(relativePath)

@@ -9,6 +9,9 @@ import { ReadStream } from "node:tty"
 import Chat from "./Chat.js"
 import FileSystem from "./FileSystem.js"
 import Git from "./Git.js"
+import AI from "../llm/AI.js"
+import { BOLD, GREEN, ITALIC, RESET } from "./ANSI.js"
+import { generateSystemPrompt } from "../llm/system.js"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -19,7 +22,6 @@ import Git from "./Git.js"
  * @returns {Promise<{input:string,inputFile:string|null}>}
  */
 export async function readInput(argv, fs, stdin = process.stdin) {
-	debugger
 	let input = ""
 	let inputFile = null
 
@@ -39,12 +41,48 @@ export async function readInput(argv, fs, stdin = process.stdin) {
  * Initialise a {@link Chat} instance (or re‑use an existing one) and
  * persist the current chat ID.
  *
- * @param {typeof Chat} ChatClass – the class, **not** an instance
- * @param {FileSystem} fs
- * @param {string} [root="chat"]
- * @returns {Promise<{chat:any,currentFile:string}>}
+ * The original implementation accepted a single options object.
+ * For compatibility with the test suite we also support the legacy
+ * positional signature: `initialiseChat(ChatClass, fsInstance)`.
+ *
+ * @param {typeof Chat|object} ChatClassOrOpts – either the Chat class
+ *   itself (positional form) or an options object (named form).
+ * @param {FileSystem} [maybeFs] – required only when using the positional form.
+ * @param {object} [namedOpts] – additional options when using the positional form.
+ * @returns {Promise<{chat: Chat, currentFile: string}>}
  */
-export async function initialiseChat(ChatClass, fs, root = "chat") {
+export async function initialiseChat(ChatClassOrOpts, maybeFs, namedOpts = {}) {
+	// -----------------------------------------------------------------
+	// Detect calling convention
+	// -----------------------------------------------------------------
+	let ChatClass
+	let fs
+	let root = "chat"
+	let isNew = false
+
+	if (typeof ChatClassOrOpts === "function") {
+		// Positional form: initialiseChat(ChatClass, fsInstance, {root?, isNew?})
+		ChatClass = ChatClassOrOpts
+		fs = maybeFs ?? new FileSystem()
+		if (namedOpts) {
+			if (namedOpts.root !== undefined) root = namedOpts.root
+			if (namedOpts.isNew !== undefined) isNew = namedOpts.isNew
+		}
+	} else {
+		// Object form – the original API
+		const {
+			ChatClass: CC,
+			fs: fsOpt = new FileSystem(),
+			root: r = "chat",
+			isNew: n = false,
+		} = ChatClassOrOpts
+		ChatClass = CC
+		fs = fsOpt
+		root = r
+		isNew = n
+	}
+
+	const format = new Intl.NumberFormat("en-US").format
 	const currentFile = fs.path.resolve(root, "current")
 	let id
 
@@ -53,11 +91,36 @@ export async function initialiseChat(ChatClass, fs, root = "chat") {
 	const chat = new ChatClass({ id, root, cwd: fs.cwd })
 	await chat.init()
 
-	if (id === chat.id) {
-		console.info(`+ ${chat.id} chat loaded`)
+	if (id === chat.id && !isNew) {
+		if (await chat.load()) {
+			console.info(`+ loaded ${format(chat.messages.length)} messages`)
+		} else {
+			console.info(`+ ${chat.id} empty chat loaded`)
+		}
 	} else {
-		console.info(`- no chat history found`)
-		console.info(`+ ${chat.id} new chat created`)
+		if (!isNew) {
+			console.info(`- no chat history found`)
+		}
+		console.info(`${GREEN}+ ${chat.id} new chat created${RESET}`)
+		await chat.clear()
+
+		const system = { role: "system", content: "" }
+		system.content += await generateSystemPrompt()
+
+		const systemFiles = ["system.md", "agent.md"]
+		for (const file of systemFiles) {
+			if (await fs.exists(file)) {
+				const content = await fs.load(file)
+				console.info(`${GREEN}+ ${file}${RESET} loaded ${ITALIC}${format(Buffer.byteLength(content))} bytes${RESET}`)
+				system.content += "\n\n" + content
+			}
+		}
+
+		if (system.content) {
+			console.info(`  system instructions ${ITALIC}${BOLD}${format(Buffer.byteLength(system.content))} bytes${RESET}`)
+		}
+
+		chat.add(system)
 	}
 	await fs.save(currentFile, chat.id)
 
@@ -106,20 +169,17 @@ export async function packPrompt(packMarkdown, input, chat) {
 /**
  * Stream the AI response.
  *
- * The function **does not** `await` the stream – the caller decides when to
- * iterate over it.
+ * The function **does not** `await` the stream – the caller decides when
+ * to iterate over it.
  *
- * @param {any} ai                – instance of {@link AI}
- * @param {string} modelId
- * @param {string} packedPrompt
- * @param {Array}  messages
+ * @param {AI} ai
+ * @param {string} model
+ * @param {Chat} chat
+ * @param {import("../llm/AI.js").StreamOptions} options
  * @returns {{stream:AsyncIterable<any>, result:any}}
  */
-export function startStreaming(ai, modelId, packedPrompt, messages) {
-	const result = ai.streamText(modelId, [
-		{ role: "user", content: packedPrompt },
-		...messages,
-	])
+export function startStreaming(ai, model, chat, options) {
+	const result = ai.streamText(model, chat.messages, options)
 	const stream = result.textStream ?? result
 	return { stream, result }
 }
