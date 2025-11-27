@@ -11,14 +11,15 @@ export default class Git {
 	 * @param {Partial<Git>} [input={}]
 	 */
 	constructor(input = {}) {
-		const { cwd = process.cwd() } = input
+		const { cwd = process.cwd(), dry = false } = input
 		this.cwd = String(cwd)
+		this.dry = Boolean(dry)
 	}
 
 	/**
 	 * Execute a git command
 	 * @param {string[]} args
-	 * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
+	 * @returns {Promise<{stdout: string, stderr: string, exitCode: number, command: string}>}
 	 */
 	async exec(args, options = {}) {
 		const {
@@ -26,6 +27,10 @@ export default class Git {
 			onError = (chunk) => { },
 		} = options
 		return new Promise((resolve) => {
+			const command = ["git", ...args].join(" ")
+			if (this.dry) {
+				return { stdout: "", stderr: "", exitCode: 0, command }
+			}
 			const child = spawn("git", args, {
 				cwd: this.cwd,
 				stdio: ["pipe", "pipe", "pipe"],
@@ -43,7 +48,7 @@ export default class Git {
 			})
 
 			child.on("close", (code) => {
-				resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code || 0 })
+				resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code || 0, command })
 			})
 		})
 	}
@@ -61,8 +66,9 @@ export default class Git {
 	 * @param {string} message
 	 */
 	async commitAll(message) {
-		await this.exec(["add", "-A"])
-		await this.exec(["commit", "-m", message])
+		const result = []
+		result.push(await this.exec(["add", "-A"]))
+		result.push(await this.exec(["commit", "-m", message]))
 	}
 
 	/**
@@ -71,7 +77,7 @@ export default class Git {
 	 */
 	async renameBranch(newName) {
 		const currentBranch = await this.getCurrentBranch()
-		await this.exec(["branch", "-m", currentBranch, newName])
+		return await this.exec(["branch", "-m", currentBranch, newName])
 	}
 
 	/**
@@ -79,7 +85,7 @@ export default class Git {
 	 * @param {string} name
 	 */
 	async push(name) {
-		await this.exec(["push", "-u", "origin", name])
+		return await this.exec(["push", "-u", "origin", name])
 	}
 
 	/**

@@ -115,7 +115,7 @@ async function loadModels() {
 async function main(argv = process.argv.slice(2)) {
 	const fs = new FileSystem()
 	const path = new Path()
-	const git = new Git()
+	const git = new Git({ dry: true })
 	const models = await loadModels()
 	const ai = new AI({ models })
 
@@ -302,10 +302,10 @@ async function main(argv = process.argv.slice(2)) {
 		// 6. decode answer & run tests
 		const testsCode = await decodeAnswerAndRunTests(chat, runCommand, isYes)
 		const input = await chat.db.load("prompt.md")
-		packed = await packPrompt(packMarkdown, input, chat)
+		packedPrompt = await packPrompt(packMarkdown, input, chat)
 
 		// 7. check if tests passed – same logic as original script
-		if (0 === testsCode) {
+		if (true === testsCode) {
 			// Task is complete, let's commit and exit
 			await git.renameBranch(DONE_BRANCH)
 			await git.push(DONE_BRANCH)

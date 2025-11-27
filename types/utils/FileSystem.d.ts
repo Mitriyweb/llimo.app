@@ -5,8 +5,17 @@
  * File system operations wrapper to allow testing
  */
 export default class FileSystem {
-    /** @type {Path} */
-    path: Path;
+    /**
+     * @param {Partial<FileSystem>} [input={}]
+     */
+    constructor(input?: Partial<FileSystem>);
+    /** @type {string} */
+    cwd: string;
+    /** @type {Map<string, (path: string, encoding: BufferEncoding) => Promise<any>>} */
+    loaders: Map<string, (path: string, encoding: BufferEncoding) => Promise<any>>;
+    /** @type {Map<string, (path: string, data: any, options: any) => Promise<void>>} */
+    savers: Map<string, (path: string, data: any, options: any) => Promise<void>>;
+    get path(): Path;
     /**
      * Check if file exists
      * @param {string} path
@@ -20,6 +29,17 @@ export default class FileSystem {
      * @returns {Promise<string>}
      */
     readFile(path: string, encoding?: BufferEncoding): Promise<string>;
+    /**
+     * Load a file – behaviour mirrors the original implementation:
+     *   * If the file does **not** exist → `undefined`
+     *   * If an extension is registered in `loaders` → use that loader
+     *   * Otherwise → plain text read (`utf‑8` by default)
+     *
+     * @param {string} path
+     * @param {BufferEncoding} [encoding='utf-8']
+     * @returns {Promise<any|undefined>}
+     */
+    load(path: string, encoding?: BufferEncoding): Promise<any | undefined>;
     /**
      * Write file content
      * @param {string} path
@@ -38,9 +58,9 @@ export default class FileSystem {
     /**
      * Get file stats
      * @param {string} path
-     * @returns {Promise<Object>}
+     * @returns {Promise<Stats>}
      */
-    stat(path: string): Promise<any>;
+    stat(path: string): Promise<Stats>;
     /**
      * Open file handle
      * @param {string} path
@@ -53,8 +73,81 @@ export default class FileSystem {
      * @returns {Promise<boolean>}
      */
     exists(path: string): Promise<boolean>;
-    save(path: any, data: any, options: any): Promise<void>;
+    /**
+     * Read directory contents
+     * @param {string} path
+     * @param {any} [options]
+     * @returns {Promise<string[]>}
+     */
+    readdir(path: string, options?: any): Promise<string[]>;
+    /**
+     * Recursively browse a directory.
+     * @param {string} path The starting path.
+     * @param {object} [options={}]
+     * @param {boolean} [options.recursive=false] Whether to browse recursively.
+     * @param {string[]} [options.ignore=[]] An array of directory/file patterns to ignore (supports glob patterns).
+     * @param {(dir: string, entries: string[]) => Promise<void>} [options.onRead] Callback for each directory read.
+     * @returns {Promise<string[]>} A promise that resolves to an array of file/directory paths.
+     */
+    browse(path: string, options?: {
+        recursive?: boolean | undefined;
+        ignore?: string[] | undefined;
+        onRead?: ((dir: string, entries: string[]) => Promise<void>) | undefined;
+    }): Promise<string[]>;
+    /**
+     * Relative proxy of stat().
+     * @param {string} path
+     * @returns {Promise<Stats>}
+     */
+    info(path: string): Promise<Stats>;
+    /**
+     * JSON loader for .jsonl files.
+     * @param {string} path
+     * @param {BufferEncoding} [encoding="utf-8"]
+     * @returns {Promise<any[]>}
+     */
+    _jsonlLoader(path: string, encoding?: BufferEncoding): Promise<any[]>;
+    /**
+     * JSON loader for standard .json files.
+     * @param {string} path
+     * @param {BufferEncoding} [encoding="utf-8"]
+     * @returns {Promise<any>}
+     */
+    _jsonLoader(path: string, encoding?: BufferEncoding): Promise<any>;
+    /**
+     * @param {string} path
+     * @param {any} rows
+     * @param {any} [options]
+     * @returns {Promise<void>}
+     */
+    _jsonlSaver(path: string, rows: any, options?: any): Promise<void>;
+    /**
+     * JSON saver – writes a plain JSON file.
+     * @param {string} path
+     * @param {any} data
+     * @param {any} [options]
+     * @returns {Promise<void>}
+     */
+    _jsonSaver(path: string, data: any, options?: any): Promise<void>;
+    /**
+     * Relative proxy of mkdir() & writeFile().
+     * @param {string} path
+     * @param {any} data
+     * @param {any} [options]
+     * @returns {Promise<void>}
+     */
+    save(path: string, data: any, options?: any): Promise<void>;
+    /**
+     * Relative proxy of mkdir() & writeFile(path, data, { flag: "a" }).
+     * @param {string} path
+     * @param {any} data
+     * @param {any} [options]
+     * @returns {Promise<void>}
+     */
+    append(path: string, data: any, options?: any): Promise<void>;
+    #private;
 }
 export type MkDirOptions = import("node:fs").Mode | import("node:fs").MakeDirectoryOptions | null;
 import Path from './Path.js';
 import { Stream } from 'node:stream';
+import { Stats } from 'node:fs';

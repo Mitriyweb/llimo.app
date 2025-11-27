@@ -3,6 +3,12 @@
  */
 export default class Path {
     /**
+     * @param {Partial<Path>} [input={}]
+     */
+    constructor(input?: Partial<Path>);
+    /** @type {string} */
+    cwd: string;
+    /**
      * Get directory name
      * @param {string} path
      * @returns {string}

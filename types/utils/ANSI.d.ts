@@ -1,3 +1,5 @@
+export function overwriteLine(str?: string): string;
+export function cursorUp(rows?: number): string;
 export const RESET: "" | "\u001B[0m";
 export const BOLD: "" | "\u001B[1m";
 export const DIM: "" | "\u001B[2m";
@@ -76,3 +78,5 @@ export namespace BG_COLORS {
     export { BG_BRIGHT_CYAN as BRIGHT_CYAN };
     export { BG_BRIGHT_WHITE as BRIGHT_WHITE };
 }
+export const CLEAR_LINE: "\u001B[2K";
+export const OVERWRITE_LINE: "\r\u001B[K";

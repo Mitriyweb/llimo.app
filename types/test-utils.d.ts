@@ -1,19 +1,17 @@
 /**
- * Runs a Node.js script with optional input and arguments.
+ * Execute a Node.js script in an isolated temporary directory
  * @param {Object} options
- * @param {string} options.scriptPath - Path to the script.
- * @param {string} [options.inputData] - Data to pipe to stdin.
- * @param {string[]} [options.args] - Arguments to pass.
- * @param {string} [options.cwd] - Working directory.
- * @param {string} [options.tempDir] - Temp dir to use as cwd.
- * @returns {Promise<{stdout: string, stderr: string, exitCode: number, tempDir: string}>}
+ * @param {string} options.cwd - Original working directory
+ * @param {string} options.scriptPath - Path to the script to execute
+ * @param {string[]} [options.args=[]] - Arguments to pass to the script
+ * @param {string} [options.input] - Data to pipe to stdin
+ * @returns {Promise<{ stdout:string, stderr:string, exitCode:number, tempDir:string }>}
  */
-export function runNodeScript({ scriptPath, inputData, args, cwd, tempDir }: {
+export function runNodeScript({ cwd, scriptPath, args, input }: {
+    cwd: string;
     scriptPath: string;
-    inputData?: string | undefined;
     args?: string[] | undefined;
-    cwd?: string | undefined;
-    tempDir?: string | undefined;
+    input?: string | undefined;
 }): Promise<{
     stdout: string;
     stderr: string;
@@ -21,7 +19,13 @@ export function runNodeScript({ scriptPath, inputData, args, cwd, tempDir }: {
     tempDir: string;
 }>;
 /**
- * Cleans up a temporary directory.
- * @param {string} tempDir
+ * Clean up a temporary directory safely
+ * @param {string} tempDir - Directory to clean up
  */
 export function cleanupTempDir(tempDir: string): Promise<void>;
+/**
+ * Create a temporary workspace with test files
+ * @param {Object} files - Map of filename -> content
+ * @returns {Promise<string>} - Path to temporary directory
+ */
+export function createTempWorkspace(files?: any): Promise<string>;

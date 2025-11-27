@@ -8,12 +8,12 @@
 import { ReadStream } from "node:tty"
 import Chat from "./Chat.js"
 import FileSystem from "./FileSystem.js"
-import Git from "./Git.js"
 import AI from "../llm/AI.js"
-import { BOLD, GREEN, ITALIC, RESET } from "./ANSI.js"
+import { BOLD, GREEN, ITALIC, RESET, overwriteLine, cursorUp } from "./ANSI.js"
 import { generateSystemPrompt } from "../llm/system.js"
 import MarkdownProtocol from "./Markdown.js"
 import { unpackAnswer } from "../llm/unpack.js"
+import readline from "node:readline"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -188,11 +188,14 @@ export function startStreaming(ai, model, chat, options) {
 
 /**
  * Decode the answer markdown and append the test run command.
+ * Returns true - if decoded and all tests passed,
+ *         false - if decoded and tests fail,
+ *         "." | "no" | string - if user did not accept answer and provided details.
  *
  * @param {Chat} chat           – Chat instance (used for paths)
  * @param {(cmd:string, options?: { onData?: (data) => void })=>Promise<{stdout:string,stderr:string,exitCode:number}>} runCommand
  * @param {boolean} [isYes] Is always Yes to user prompts.
- * @returns {Promise<number>}
+ * @returns {Promise<boolean | string>}
  */
 export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
 	const logs = []
@@ -204,28 +207,49 @@ export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
 	const content = String(answer.content)
 	const parsed = await MarkdownProtocol.parse(content)
 	let prompt = isYes ? "yes" : ""
+
 	logs.push("% llimo-unpack")
 	logs.push("```bash")
 	if (!isYes) {
+		// Dry‑run unpack to show what would be written
 		const stream = unpackAnswer(parsed, true)
 		for await (const str of stream) {
 			logs.push(str)
 			console.info(str)
 		}
 
-		// @todo ask "Unpack current package? (Y)es, No, ., <message>"
-		// user can answer with:
-		// ENTER - yes
-		// Yes - yes
-		// yes - yes
-		// y - yes
-		// No - no
-		// no - no
-		// n - no
-		// . - pack current chat input file (usually me.md) and send as next message (attachments allowed)
-		// <message> - provide a message and send as next message (plain text, no attachments) and return
-		prompt = "yes"
-	}
+		// -------------------------------------------------
+		// Interactive question – ask the user whether to apply
+		// -------------------------------------------------
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout,
+			terminal: true,
+		})
+		const answerUser = await new Promise(resolve => {
+			rl.question(
+				"Unpack current package? (Y)es, No, ., <message>: ",
+				ans => {
+					rl.close()
+					resolve(ans.trim().toLowerCase())
+				}
+			)
+		})
+		const lower = String(answerUser).trim().toLocaleLowerCase()
+		if (["yes", "y", ""].includes(lower)) {
+			prompt = "yes"
+		}
+		else if (["no", "n"].includes(lower)) {
+			return "no"
+		}
+		else if (["."].includes(lower)) {
+			return "."
+		}
+		else {
+			return answerUser
+		}
+	} // end !isYes
+
 	if ("yes" === prompt) {
 		const stream = unpackAnswer(parsed)
 		for await (const str of stream) {
@@ -236,8 +260,22 @@ export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
 	logs.push("```")
 	await chat.db.save("prompt.md", logs.join("\n"))
 
-	// @todo add progress with 3 revent lines of output
-	const onData = () => {}
+	// -------------------------------------------------
+	// Run `pnpm test:all` and show recent output (max 3 lines)
+	// -------------------------------------------------
+	const recent = []
+	let prevLines = 0
+	const onData = (chunk) => {
+		const txt = String(chunk)
+		const lines = txt.split(/\r?\n/).filter(Boolean)
+		for (const line of lines) {
+			recent.push(line)
+			if (recent.length > 3) recent.shift()
+		}
+		if (prevLines) process.stdout.write(cursorUp(prevLines))
+		prevLines = recent.length
+		recent.forEach(l => console.info(overwriteLine(l)))
+	}
 
 	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test:all", { onData })
 	logs.push("$ pnpm test:all")
@@ -252,7 +290,7 @@ export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
 		testStdout.split("fail")[1].trim().split(" ")[0] !== "0"
 	if (!testFailed) {
 		console.info(`All tests passed, no typed mistakes.`)
-		return 0
+		return true
 	}
-	return 1
+	return false
 }
