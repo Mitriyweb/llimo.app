@@ -166,8 +166,6 @@ export default class ModelProvider {
 			return new Map(cached.data.map((m) => [m.id, m]))
 		}
 
-		// Remote fetch – we only need to query providers we already know about.
-		// At the moment AI registers two providers; add more here if needed.
 		/** @type {AvailableProvider[]} */
 		const providerNames = ["cerebras", "openrouter", "huggingface"]
 		const all = []
@@ -191,14 +189,18 @@ export default class ModelProvider {
 			}
 		}
 
-		// Persist cache for future calls when we have any data.
 		if (all.length) {
 			await this.#writeCache(all)
 		}
 
 		/** @todo fix: Type 'Map<string | undefined, Partial<ModelInfo>>' is not assignable to type 'Map<string, ModelInfo>'.
-	  Type 'string | undefined' is not assignable to type 'string'.
-	    Type 'undefined' is not assigned to type 'string'.ts(2322) */
-		return new Map(all.map((m) => [m.id, m]))
+			  Type 'string | undefined' is not assignable to type 'string'.
+			    Type 'undefined' is not assigned to type 'string'.ts(2322) */
+		// Ensure we only include entries with a defined string id.
+		const cleanEntries = all
+			.filter((m) => typeof m.id === "string" && m.id.length > 0)
+			.map((m) => [m.id, m])
+
+		return new Map(cleanEntries)
 	}
 }

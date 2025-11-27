@@ -58,16 +58,24 @@ function isRateLimit(err) {
 /**
  * Execute a shell command, return stdout / stderr / exit code
  * @param {string} command
- * @param {string} [cwd=process.cwd()]
+ * @param {object} [options]
+ * @param {string} [options.cwd]
+ * @param {(data) => void} [options.onData]
  * @returns {Promise<{ stdout: string, stderr: string, exitCode: number }>}
  */
-async function runCommand(command, cwd = process.cwd()) {
+async function runCommand(command, { cwd = process.cwd(), onData = () => { } }) {
 	return new Promise((resolve) => {
 		const child = spawn(command, [], { shell: true, cwd, stdio: ["pipe", "pipe", "pipe"] })
 		let stdout = ""
 		let stderr = ""
-		child.stdout.on("data", (d) => (stdout += d))
-		child.stderr.on("data", (d) => (stderr += d))
+		child.stdout.on("data", (d) => {
+			stdout += d
+			onData(d)
+		})
+		child.stderr.on("data", (d) => {
+			stderr += d
+			onData(new Error(d))
+		})
 		child.on("close", (code) => resolve({ stdout, stderr, exitCode: code }))
 	})
 }
@@ -148,6 +156,10 @@ async function main(argv = process.argv.slice(2)) {
 	let consecutiveErrors = 0
 	const format = new Intl.NumberFormat("en-US").format
 	const valuta = new Intl.NumberFormat("en-US", { currency: "USD" }).format
+
+	// Define branch names in one place – easy to change later.
+	const DONE_BRANCH = `2511/llimo-chat/done`
+	const FAIL_BRANCH = `2511/llimo-chat/fail`
 
 	while (true) {
 		console.info(`\nstep ${step}. ${new Date().toISOString()}`)
@@ -295,17 +307,15 @@ async function main(argv = process.argv.slice(2)) {
 		// 7. check if tests passed – same logic as original script
 		if (0 === testsCode) {
 			// Task is complete, let's commit and exit
-			// @todo remove the hardcoded name, define name in the beggining
-			await git.renameBranch(`2511/llimo-chat/done`)
-			await git.push(`2511/llimo-chat/done`)
+			await git.renameBranch(DONE_BRANCH)
+			await git.push(DONE_BRANCH)
 			break
 		}
 		else {
 			consecutiveErrors++
 			if (consecutiveErrors >= MAX_ERRORS) {
 				console.error(`LLiMo stuck after ${MAX_ERRORS} consecutive errors.`)
-			// @todo remove the hardcoded name, define name in the beggining
-				await git.renameBranch(`2511/llimo-chat/fail`)
+				await git.renameBranch(FAIL_BRANCH)
 				break
 			}
 		}

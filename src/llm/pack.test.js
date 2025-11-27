@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test"
 import assert from "node:assert"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { packMarkdown } from "./pack.js"
@@ -33,7 +33,6 @@ describe("pack module", () => {
 		const onRead = (dir, entries) => {
 			out.push({ dir, entries })
 		}
-		debugger
 		const { injected, text } = await packMarkdown({ input, cwd: tempDir, onRead })
 		assert.deepStrictEqual(out, [
 			{ dir: "src", entries: ["src/File.js", "src/index.js"] },
