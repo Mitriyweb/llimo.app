@@ -1,30 +1,31 @@
 /**
  * Isolated helper functions for {@link bin/llimo-chat.js}.
  *
- * They do **not** depend on any global state, making them easy to unit‑test.
+ * They do **not** depend on any global state, making them easy to unit-test.
  *
  * @module utils/chatSteps
  */
-import { ReadStream } from "node:tty"
-import readline from "node:readline"
+import { Stats } from 'node:fs'
 
 import Chat from "./Chat.js"
 import AI from "./AI.js"
 import { generateSystemPrompt } from "./system.js"
 import { unpackAnswer } from "./unpack.js"
-import { BOLD, GREEN, ITALIC, RESET, overwriteLine, cursorUp } from "../utils/ANSI.js"
+import { BOLD, GREEN, ITALIC, RESET, RED, YELLOW } from "../utils/ANSI.js"
 import FileSystem from "../utils/FileSystem.js"
 import MarkdownProtocol from "../utils/Markdown.js"
+import Ui from "../cli/Ui.js"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
  *
- * @param {string[]} argv                CLI arguments (already sliced)
+ * @param {string[]} argv CLI arguments (already sliced)
  * @param {FileSystem} fs
- * @param {ReadStream} [stdin=process.stdin]
- * @returns {Promise<{input:string,inputFile:string|null}>}
+ * @param {Ui} ui User interface instance
+ * @param {NodeJS.ReadStream} [stdin] Input stream
+ * @returns {Promise<{input: string, inputFile: string | null}>}
  */
-export async function readInput(argv, fs, stdin = process.stdin) {
+export async function readInput(argv, fs, ui, stdin = process.stdin) {
 	let input = ""
 	let inputFile = null
 
@@ -33,9 +34,15 @@ export async function readInput(argv, fs, stdin = process.stdin) {
 		for await (const chunk of stdin) input += chunk
 	} else if (argv.length > 0) {
 		inputFile = fs.path.resolve(argv[0])
-		input = await fs.readFile(inputFile, "utf-8")
+		try {
+			input = await fs.readFile(inputFile, "utf-8")
+		} catch (/** @type {any} */err) {
+			ui.console.error(`Error reading input file: ${err.message}`)
+			throw err
+		}
 	} else {
-		throw new Error("❌ No input provided.")
+		ui.console.error("No input provided.")
+		throw new Error("No input provided.")
 	}
 	return { input, inputFile }
 }
@@ -44,24 +51,21 @@ export async function readInput(argv, fs, stdin = process.stdin) {
  * Initialise a {@link Chat} instance (or re‑use an existing one) and
  * persist the current chat ID.
  *
- * The original implementation accepted a single options object.
- * For compatibility with the test suite we also support the legacy
- * positional signature: `initialiseChat(ChatClass, fsInstance)`.
- *
- * @param {object} [input] either the Chat class
- *   itself (positional form) or an options object (named form).
+ * @param {object} input either the Chat class itself (positional form) or an options object (named form).
  * @param {typeof Chat} [input.ChatClass] required only when using the positional form.
  * @param {FileSystem} [input.fs] required only when using the positional form.
  * @param {string} [input.root] chat root directory
  * @param {boolean} [input.isNew] additional options when using the positional form.
+ * @param {Ui} input.ui User interface instance
  * @returns {Promise<{chat: Chat, currentFile: string}>}
  */
-export async function initialiseChat(input = {}) {
+export async function initialiseChat(input) {
 	const {
 		ChatClass = Chat,
 		fs = new FileSystem(),
 		isNew = false,
 		root = "chat",
+		ui,
 	} = input
 
 	const format = new Intl.NumberFormat("en-US").format
@@ -76,15 +80,15 @@ export async function initialiseChat(input = {}) {
 
 	if (id === chat.id && !isNew) {
 		if (await chat.load()) {
-			console.info(`+ loaded ${format(chat.messages.length)} messages from existing chat ${chat.id}`)
+			ui.console.info(`+ loaded ${format(chat.messages.length)} messages from existing chat ${chat.id}`)
 		} else {
-			console.info(`+ ${chat.id} empty chat loaded`)
+			ui.console.info(`+ ${chat.id} empty chat loaded`)
 		}
 	} else {
 		if (!isNew) {
-			console.info(`- no chat history found`)
+			ui.console.info(`- no chat history found`)
 		}
-		console.info(`${GREEN}+ ${chat.id} new chat created${RESET}`)
+		ui.console.info(`${GREEN}+ ${chat.id} new chat created${RESET}`)
 		await chat.clear()
 
 		const system = { role: "system", content: "" }
@@ -94,13 +98,13 @@ export async function initialiseChat(input = {}) {
 		for (const file of systemFiles) {
 			if (await fs.exists(file)) {
 				const content = await fs.load(file) || ""
-				console.info(`${GREEN}+ ${file}${RESET} loaded ${ITALIC}${format(Buffer.byteLength(content))} bytes${RESET}`)
+				ui.console.info(`${GREEN}+ ${file}${RESET} loaded ${ITALIC}${format(Buffer.byteLength(content))} bytes${RESET}`)
 				system.content += "\n\n" + content
 			}
 		}
 
 		if (system.content) {
-			console.info(`  system instructions ${ITALIC}${BOLD}${format(Buffer.byteLength(system.content))} bytes${RESET}`)
+			ui.console.info(`  system instructions ${ITALIC}${BOLD}${format(Buffer.byteLength(system.content))} bytes${RESET}`)
 		}
 
 		chat.add(system)
@@ -113,36 +117,38 @@ export async function initialiseChat(input = {}) {
 /**
  * Copy the original input file into the chat directory for later reference.
  *
- * @param {string|null} inputFile   absolute path of the source file (or null)
- * @param {string}      input       raw text (used when `inputFile` is null)
- * @param {Chat}        chat
+ * @param {string|null} inputFile absolute path of the source file (or null)
+ * @param {string} input raw text (used when `inputFile` is null)
+ * @param {Chat} chat
+ * @param {import("../cli/Ui.js").default} ui User interface instance
  * @returns {Promise<void>}
  */
-export async function copyInputToChat(inputFile, input, chat) {
+export async function copyInputToChat(inputFile, input, chat, ui) {
 	if (!inputFile) return
 	const file = chat.db.path.basename(inputFile)
 	const full = chat.db.path.resolve(file)
 	await chat.db.save(file, input)
-	console.info(`> preparing ${file} (${inputFile})`)
-	console.info(`+ ${file} (${full})`)
-	console.info(`  copied to chat session`)
+	ui.console.info(`> preparing ${file} (${inputFile})`)
+	ui.console.info(`+ ${file} (${full})`)
+	ui.console.info(`  copied to chat session`)
 }
 
 /**
  * Pack the input into the LLM prompt, store it and return statistics.
  *
- * @param {Function} packMarkdown – function that returns `{text, injected}`
- * @param {string}   input
- * @param {Chat}     chat      – Chat instance (used for `savePrompt`)
- * @returns {Promise<{packedPrompt:string,injected:string[],promptPath:string,stats:any}>}
+ * @param {Function} packMarkdown function that returns `{text, injected}`
+ * @param {string} input
+ * @param {Chat} chat Chat instance (used for `savePrompt`)
+ * @param {import("../cli/Ui.js").default} ui User interface instance
+ * @returns {Promise<{ packedPrompt: string, injected: string[], promptPath: string, stats: Stats }>}
  */
-export async function packPrompt(packMarkdown, input, chat) {
+export async function packPrompt(packMarkdown, input, chat, ui) {
 	const { text: packedPrompt, injected } = await packMarkdown({ input })
 	const promptPath = await chat.savePrompt(packedPrompt)
 
 	const stats = await chat.fs.stat(promptPath)
 	const format = new Intl.NumberFormat("en-US").format
-	console.info(
+	ui.console.info(
 		`Prompt size: ${format(stats.size)} bytes — ${injected.length} file(s).`
 	)
 
@@ -158,8 +164,8 @@ export async function packPrompt(packMarkdown, input, chat) {
  * @param {AI} ai
  * @param {string} model
  * @param {Chat} chat
- * @param {import("../llm/AI.js").StreamOptions} options
- * @returns {{stream:AsyncIterable<any>, result:any}}
+ * @param {object} options Stream options
+ * @returns {{stream: AsyncIterable<any>, result: any}}
  */
 export function startStreaming(ai, model, chat, options) {
 	const result = ai.streamText(model, chat.messages, options)
@@ -168,110 +174,160 @@ export function startStreaming(ai, model, chat, options) {
 }
 
 /**
- * Decode the answer markdown and append the test run command.
- * Returns true - if decoded and all tests passed,
- *         false - if decoded and tests fail,
- *         "." | "no" | string - if user did not accept answer and provided details.
+ * Decode the answer markdown, unpack if confirmed, run tests, parse results, and ask user for continuation.
  *
- * @param {Chat} chat           – Chat instance (used for paths)
- * @param {(cmd:string, options?: { onData?: (data) => void })=>Promise<{stdout:string,stderr:string,exitCode:number}>} runCommand
- * @param {boolean} [isYes] Is always Yes to user prompts.
- * @returns {Promise<boolean | string>}
+ * @param {import("../cli/Ui.js").default} ui User interface instance
+ * @param {Chat} chat Chat instance (used for paths)
+ * @param {object} runCommand Function to execute shell commands
+ * @param {boolean} [isYes] Always yes to user prompts
+ * @returns {Promise<{testsCode: boolean | string, shouldContinue: boolean}>}
  */
-export async function decodeAnswerAndRunTests(chat, runCommand, isYes = false) {
+export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = false) {
 	const logs = []
 	const answer = chat.messages.slice().pop()
 	if ("assistant" !== answer?.role) {
 		throw new Error(`Recent message is not an assistant's but "${answer?.role}"`)
 	}
 	/** @type {string} */
-	const content = String(answer.content)
-	const parsed = await MarkdownProtocol.parse(content)
-	let prompt = isYes ? "yes" : ""
+	const fullResponse = String(answer.content)
+
+	// Skip unpack if response is an AI error
+	if (fullResponse.includes("AI API failed") || fullResponse.includes("Error")) {
+		console.info(`${YELLOW}⚠️ Skipping unpack due to AI error in response${RESET}`)
+		return { testsCode: false, shouldContinue: false }
+	}
+
+	const parsed = await MarkdownProtocol.parse(fullResponse)
 
 	logs.push("#### llimo-unpack")
 	logs.push("```bash")
+
 	if (!isYes) {
-		// Dry‑run unpack to show what would be written
+		// Dry-run unpack to show what would be written
 		const stream = unpackAnswer(parsed, true)
 		for await (const str of stream) {
 			logs.push(str)
-			console.info(str)
+			ui.console.info(str)
 		}
 
-		// -------------------------------------------------
-		// Interactive question – ask the user whether to apply
-		// -------------------------------------------------
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
-			terminal: true,
-		})
-		const answerUser = await new Promise(resolve => {
-			rl.question(
-				"Unpack current package? (Y)es, No, ., <message>: ",
-				ans => {
-					rl.close()
-					resolve(ans.trim().toLowerCase())
-				}
-			)
-		})
-		const lower = String(answerUser).trim().toLocaleLowerCase()
-		if (["yes", "y", ""].includes(lower)) {
-			prompt = "yes"
+		// Ask user whether to apply
+		const answerUser = await ui.askYesNo("Unpack current package? (Y)es, No, ., <message>: ")
+		if (answerUser === "no") {
+			return { testsCode: "no", shouldContinue: false }
+		} else if (answerUser === ".") {
+			return { testsCode: ".", shouldContinue: false }
+		} else if (answerUser !== "yes") {
+			chat.add({ role: "user", content: answerUser })
+			return { testsCode: answerUser, shouldContinue: false }
 		}
-		else if (["no", "n"].includes(lower)) {
-			return "no"
-		}
-		else if (["."].includes(lower)) {
-			return "."
-		}
-		else {
-			return answerUser
-		}
-	} // end !isYes
+	}
 
-	if ("yes" === prompt) {
-		const stream = unpackAnswer(parsed)
-		for await (const str of stream) {
-			console.info(str)
-			logs.push(str)
-		}
+	// Actual unpack
+	const stream = unpackAnswer(parsed)
+	for await (const str of stream) {
+		ui.console.info(str)
+		logs.push(str)
 	}
 	logs.push("```")
 	await chat.db.save("prompt.md", logs.join("\n"))
 
-	// -------------------------------------------------
-	// Run `pnpm test:all` and show recent output (max 3 lines)
-	// -------------------------------------------------
-	const recent = []
+	// Run `pnpm test:all` with live output
+	ui.console.info("! Running tests...")
+	let recent = []
 	let prevLines = 0
-	const onData = (chunk) => {
-		const txt = String(chunk)
-		const lines = txt.split(/\r?\n/).filter(Boolean)
-		for (const line of lines) {
-			recent.push(line)
-			if (recent.length > 3) recent.shift()
-		}
-		if (prevLines) process.stdout.write(cursorUp(prevLines))
-		prevLines = recent.length
-		recent.forEach(l => console.info(overwriteLine(l)))
-	}
+	const onDataLive = (d) => process.stdout.write(d)  // Simple live output without overwriting
+	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test:all", { onData: onDataLive })
 
-	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test:all", { onData })
+	// Append test output to log
 	logs.push("#### pnpm test:all")
 	logs.push("```bash")
 	logs.push(testStderr)
 	logs.push(testStdout)
 	logs.push("```")
-	await chat.db.save("prompt.md", logs.join("\n"))
+	await chat.db.append("prompt.md", logs.join("\n"))
 
-	const testFailed =
-		testStdout.includes("fail") &&
-		testStdout.split("fail")[1].trim().split(" ")[0] !== "0"
-	if (!testFailed) {
-		console.info(`All tests passed, no typed mistakes.`)
-		return true
+	// Parse test results from stdout (TAP format) and stderr (tsc errors)
+	const failMatch = testStdout.match(/# fail (\d+)/)
+	const cancelledMatch = testStdout.match(/# cancelled (\d+)/)
+	const passedMatch = testStdout.match(/# pass (\d+)/)
+	const todoMatch = testStdout.match(/# todo (\d+)/)
+	const skipMatch = testStdout.match(/# skipped (\d+)/)
+	const typeErrorLines = testStderr.match(/error TS/g) || [] // Count TypeScript errors
+
+	const fail = failMatch ? parseInt(failMatch[1], 10) : 0
+	const cancelled = cancelledMatch ? parseInt(cancelledMatch[1], 10) : 0
+	const passed = passedMatch ? parseInt(passedMatch[1], 10) : 0
+	const todo = todoMatch ? parseInt(todoMatch[1], 10) : 0
+	const skip = skipMatch ? parseInt(skipMatch[1], 10) : 0
+	const types = typeErrorLines ? typeErrorLines.length : 0
+
+	// Build colored summary: "Tests: 0 fail | 0 cancelled | 60 passed | 0 todo | 0 skip | 0 types"
+	let summary = "Tests: "
+	summary += fail > 0 ? `${RED}${fail} fail${RESET}` : "0 fail"
+	summary += " | "
+	summary += cancelled > 0 ? `${YELLOW}${cancelled} cancelled${RESET}` : "0 cancelled"
+	summary += " | "
+	summary += passed > 0 ? `${GREEN}${passed} passed${RESET}` : "0 passed"
+	summary += " | "
+	summary += todo > 0 ? `${YELLOW}${todo} todo${RESET}` : "0 todo"
+	summary += " | "
+	summary += skip > 0 ? `${YELLOW}${skip} skip${RESET}` : "0 skip"
+	summary += " | "
+	summary += types > 0 ? `${YELLOW}${types} types${RESET}` : "0 types"
+
+	ui.console.info(summary)
+
+	let shouldContinue = true
+
+	// Ask continuation questions only if not --yes
+	if (!isYes) {
+		if (fail > 0 || cancelled > 0 || types > 0) {
+			const ans = await ui.askYesNo("Do you want to continue fixing fail tests? (Y)es, No, ., <message> % ")
+			if (ans !== "yes") {
+				shouldContinue = false
+				if (ans !== "no" && ans !== ".") {
+					chat.add({ role: "user", content: ans })
+				}
+				return { testsCode: ans === "yes" ? true : false, shouldContinue: false }
+			}
+		}
+		if (shouldContinue && todo > 0) {
+			const ans = await ui.askYesNo("Do you want to continue with todo tests fixing? (Y)es, No, ., <message> % ")
+			if (ans !== "yes") {
+				shouldContinue = false
+				if (ans !== "no" && ans !== ".") {
+					chat.add({ role: "user", content: ans })
+				}
+				return { testsCode: false, shouldContinue: false }
+			}
+		}
+		if (shouldContinue && skip > 0) {
+			const ans = await ui.askYesNo("Do you want to continue with skipped tests fixing? (Y)es, No, ., <message> % ")
+			if (ans !== "yes") {
+				shouldContinue = false
+				if (ans !== "no" && ans !== ".") {
+					chat.add({ role: "user", content: ans })
+				}
+				return { testsCode: false, shouldContinue: false }
+			}
+		}
+		if (shouldContinue && fail === 0 && cancelled === 0 && types === 0 && todo === 0 && skip === 0) {
+			// All passed - ask if to continue or exit
+			const ans = await ui.askYesNo("All tests passed. Do you want to continue? (Y)es, N to exit, ., <message> % ")
+			shouldContinue = ans === "yes"
+			if (ans !== "yes" && ans !== "no" && ans !== ".") {
+				chat.add({ role: "user", content: ans })
+			}
+			return { testsCode: true, shouldContinue }
+		}
 	}
-	return false
+
+	const testFailed = fail > 0 || cancelled > 0 || types > 0
+	const testsCode = !testFailed
+
+	if (!testFailed) {
+		ui.console.info("All tests passed, no typed mistakes.")
+	}
+
+	return { testsCode, shouldContinue }
 }

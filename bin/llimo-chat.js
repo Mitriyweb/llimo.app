@@ -6,11 +6,13 @@ import {
 	GREEN,
 	Path,
 	RESET,
+	RED,
 	YELLOW,
 	cursorUp,
 	overwriteLine,
 } from "../src/utils.js"
 import AI from "../src/llm/AI.js"
+import TestAI from "../src/llm/TestAI.js"
 import Git from "../src/utils/Git.js"
 import Chat from "../src/llm/Chat.js"
 import { packMarkdown } from "../src/llm/pack.js"
@@ -23,18 +25,53 @@ import {
 	decodeAnswerAndRunTests,
 } from "../src/llm/chatSteps.js"
 import ModelProvider from "../src/llm/ModelProvider.js"
-import { formatChatProgress } from "../src/llm/chatProgress.js" // ← fixed import path
-import Usage from "../src/llm/LanguageModelUsage.js"
+import { formatChatProgress } from "../src/llm/chatProgress.js"
+import LanguageModelUsage from "../src/llm/LanguageModelUsage.js"
+import Ui from "../src/cli/Ui.js"
 
 const PROGRESS_FPS = 30
 const MAX_ERRORS = 9
-// const DEFAULT_MODEL = "gpt-oss-120b"
-// const DEFAULT_MODEL = "zai-glm-4.6"
-// const DEFAULT_MODEL = "qwen-3-235b-a22b-instruct-2507"
-// const DEFAULT_MODEL = "qwen-3-32b"
-// const DEFAULT_MODEL = "x-ai/grok-code-fast-1"
 const DEFAULT_MODEL = "x-ai/grok-4-fast"
 
+/**
+ * Simple argument parser to extract flags and clean positional args.
+ * @param {string[]} argv - Raw arguments (process.argv.slice(2))
+ * @returns {{ cleanArgv: string[], isNew: boolean, isYes: boolean, testMode: string | null, testDir: string | null }}
+ */
+function parseArgs(argv) {
+	const flags = { isNew: false, isYes: false, testMode: null, testDir: null }
+	const cleanArgv = []
+	let i = 0
+
+	while (i < argv.length) {
+		const arg = argv[i]
+		if (arg === "--new") {
+			flags.isNew = true
+		} else if (arg === "--yes") {
+			flags.isYes = true
+		} else if (arg.startsWith("--test=")) {
+			flags.testMode = arg.split("=")[1]
+		} else if (arg === "--test-dir") {
+			i++
+			if (i < argv.length) {
+				flags.testDir = argv[i]
+			} else {
+				console.error("! --test-dir requires a directory path")
+				process.exit(1)
+			}
+		} else {
+			cleanArgv.push(arg)
+		}
+		i++
+	}
+
+	// If testMode without dir, assume it's a chat ID relative to 'chat/'
+	if (flags.testMode && !flags.testDir) {
+		flags.testDir = `chat/${flags.testMode}`
+	}
+
+	return { ...flags, cleanArgv }
+}
 
 /**
  * Create progress interval to call the fn() with provided fps.
@@ -70,7 +107,7 @@ function isRateLimit(err) {
  * @param {(data) => void} [options.onData]
  * @returns {Promise<{ stdout: string, stderr: string, exitCode: number }>}
  */
-async function runCommand(command, { cwd = process.cwd(), onData = () => { } }) {
+async function runCommand(command, { cwd = process.cwd(), onData = (d) => process.stdout.write(d) } = {}) {
 	return new Promise((resolve) => {
 		const child = spawn(command, [], { shell: true, cwd, stdio: ["pipe", "pipe", "pipe"] })
 		let stdout = ""
@@ -124,51 +161,191 @@ async function main(argv = process.argv.slice(2)) {
 	const fs = new FileSystem()
 	const path = new Path()
 	const git = new Git({ dry: true })
-	const models = await loadModels()
-	const ai = new AI({ models })
+	const ui = new Ui()
 
-	const isNew = argv.includes("--new")
-	const isYes = argv.includes("--yes")
-
-	// Verify model existence
-	/** @type {import("../src/llm/AI.js").ModelInfo} */
-	const model = ai.getModel(DEFAULT_MODEL)
-	if (!model) {
-		console.error(`❌ Model '${DEFAULT_MODEL}' not found`)
-		process.exit(1)
-	}
+	// Parse arguments
+	const { cleanArgv, isNew, isYes, testMode, testDir } = parseArgs(argv)
 
 	const format = new Intl.NumberFormat("en-US").format
 	const pricing = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format
 	const valuta = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 }).format
 
+	let ai
+	if (testMode || testDir) {
+		console.info(`${GREEN}🧪 Test mode enabled with chat directory: ${testDir}${RESET}`)
+		ai = new TestAI()
+	} else {
+		const models = await loadModels()
+		ai = new AI({ models })
+
+		// Verify model existence
+		/** @type {import("../src/llm/AI.js").ModelInfo} */
+		const model = ai.getModel(DEFAULT_MODEL)
+		if (!model) {
+			console.error(`❌ Model '${DEFAULT_MODEL}' not found`)
+			process.exit(1)
+		}
+
+		const inputPer1MT = parseFloat(model.pricing?.prompt || "0") * 1e6
+		const outputPer1MT = parseFloat(model.pricing?.completion || "0") * 1e6
+		const cachePer1MT = parseFloat(model.pricing?.input_cache_read || "0") + parseFloat(model.pricing?.input_cache_write || "0")
+
+		console.info(`> ${model.id} selected with modality ${model.architecture?.modality ?? "?"}`)
+		console.info(`  pricing: → ${pricing(inputPer1MT)} ← ${pricing(outputPer1MT)} (cache: ${pricing(cachePer1MT)})`)
+		console.info(`  provider: ${model.provider}`)
+
+		// Validate API key before proceeding
+		try {
+			ai.getProvider(model.provider)
+		} catch (err) {
+			console.error(`❌ ${err.stack || err.message}`)
+			process.exit(1)
+		}
+	}
+
+	// 1. read input (stdin / file) - use cleanArgv to avoid flags
+	let input = ""
+	let inputFile = null
+	if (cleanArgv.length > 0) {
+		inputFile = fs.path.resolve(cleanArgv[0])
+		try {
+			input = await fs.readFile(inputFile, "utf-8")
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				console.error(`❌ Input file not found: ${inputFile}`)
+				process.exit(1)
+			}
+			throw err
+		}
+	} else if (!process.stdin.isTTY) {
+		// piped stdin
+		for await (const chunk of process.stdin) input += chunk
+	} else {
+		// No input provided - in test mode, load from prompt.md if exists, else error
+		if (testMode || testDir) {
+			const testFs = new FileSystem({ cwd: testDir })
+			try {
+				input = await testFs.load("prompt.md") || ""
+				console.info(`${YELLOW}⚠️ No input provided in test mode; using prompt.md from ${testDir} (or empty)${RESET}`)
+				if (!input) input = "Simulated test prompt"  // Default for empty test
+			} catch {
+				console.error(`❌ No input provided and no prompt.md in test dir: ${testDir}`)
+				process.exit(1)
+			}
+		} else {
+			throw new Error("❌ No input provided. Pipe to stdin, provide a file, or use --test-dir with prompt.md.")
+		}
+	}
+
+	// 2. initialise / load chat
+	const { chat } = await initialiseChat({ ui, ChatClass: Chat, fs, isNew })
+	const testChatDir = testDir || chat.dir  // Use provided dir or current chat.dir
+
+	if (testMode || testDir) {
+		// In test mode, override model to test-model and use files from testChatDir
+		// Skip real API calls, simulate one step
+		console.info(`${GREEN}🔄 Simulating chat step using files from ${testChatDir}${RESET}`)
+		const startTime = Date.now()
+		const unknown = []
+		let fullResponse = ""
+		let reasoning = ""
+		let usage = new LanguageModelUsage()
+		let timeInfo
+		const clock = { startTime, reasonTime: undefined, answerTime: undefined }
+
+		const chatting = createProgress(
+			() => {
+				const lines = formatChatProgress({
+					elapsed: (Date.now() - startTime) / 1e3,
+					usage,
+					clock,
+					/* For test mode, create a dummy model */
+					model: { pricing: { prompt: 0, completion: 0 }, architecture: { modality: "text" } },
+					format: (() => "0"),  // format
+					valuta: (() => "$0"),  // valuta
+				})
+				if (lines.length) process.stdout.write(cursorUp(lines.length) + overwriteLine(lines[lines.length - 1]))
+			},
+			startTime,
+			PROGRESS_FPS
+		)
+
+		const chatDb = new FileSystem({ cwd: testChatDir })
+		try {
+			const chunks = []
+			/** @type {import("../src/llm/AI.js").StreamOptions} */
+			const options = {
+				cwd: testChatDir,
+				onChunk: (el) => {
+					const chunk = el.chunk
+					const words = String(chunk.text || "").split(/\s+/)
+					if ("reasoning-delta" === chunk.type) {
+						reasoning += chunk.text
+						usage.reasoningTokens += words.length
+						usage.totalTokens += words.length
+						if (!clock.reasonTime) clock.reasonTime = Date.now()
+					} else if ("text-delta" === chunk.type) {
+						usage.outputTokens += words.length
+						usage.totalTokens += words.length
+						if (!clock.answerTime) clock.answerTime = Date.now()
+					} else if ("raw" === chunk.type) {
+						timeInfo = chunk.rawValue?.time_info
+					} else {
+						unknown.push(["Unknown chunk.type", chunk])
+					}
+					chunks.push(chunk)
+				},
+			}
+
+			console.debug(timeInfo)
+
+			chat.add({ role: "user", content: input })
+
+			usage.inputTokens = chat.getTokensCount()
+
+			const { stream, result } = startStreaming(ai, "test-model", chat, options)
+
+			await chatDb.save("stream.md", "")
+			const parts = []
+			for await (const part of stream) {
+				if ("string" === typeof part || "text-delta" == part.type) {
+					fullResponse += part.text ?? part
+					await chatDb.append("stream.md", part.text ?? part)
+				} else if ("usage" == part.type) {
+					usage = new LanguageModelUsage(part.usage)
+				}
+				parts.push(part)
+			}
+
+			// persist raw result for debugging (in test mode, use existing files)
+			await chatDb.save("response.json", result)
+			await chatDb.save("stream.json", parts)
+			await chatDb.save("chunks.json", chunks)
+			await chatDb.save("unknown.json", unknown)
+			await chatDb.save("reason.md", reasoning)
+
+			// In test mode, only one simulation step
+			console.info(`${GREEN}✅ Test simulation complete${RESET}`)
+			process.exit(0)
+		} catch (err) {
+			console.error(`❌ Test mode error:`, err.stack ?? err.message)
+			process.exit(1)
+		} finally {
+			clearInterval(chatting)
+		}
+	}
+
+	// Normal real AI mode continues...
+	const model = ai.getModel(DEFAULT_MODEL)
 	const inputPer1MT = parseFloat(model.pricing?.prompt || "0") * 1e6
 	const outputPer1MT = parseFloat(model.pricing?.completion || "0") * 1e6
 	const cachePer1MT = parseFloat(model.pricing?.input_cache_read || "0") + parseFloat(model.pricing?.input_cache_write || "0")
 
-	console.info(`> ${model.id} selected with modality ${model.architecture?.modality ?? "?"}`)
-	console.info(`  pricing: → ${pricing(inputPer1MT)} ← ${pricing(outputPer1MT)} (cache: ${pricing(cachePer1MT)})`)
-	console.info(`  provider: ${model.provider}`)
-
-	// Validate API key before proceeding
-	try {
-		ai.getProvider(model.provider)
-	} catch (err) {
-		console.error(`❌ ${err.stack || err.message}`)
-		process.exit(1)
-	}
-
-	// 1. read input (stdin / file)
-	const { input, inputFile } = await readInput(argv, fs)
-
-	// 2. initialise / load chat
-	const { chat } = await initialiseChat({ ChatClass: Chat, fs, isNew })
-
 	// 3. copy source file to chat directory (if any)
-	await copyInputToChat(inputFile, input, chat)
+	await copyInputToChat(inputFile, input, chat, ui)
 
 	// 4. pack prompt – prepend system.md if present
-	const packed = await packPrompt(packMarkdown, input, chat)
+	const packed = await packPrompt(packMarkdown, input, chat, ui)
 	let packedPrompt = packed.packedPrompt
 
 	// 5. chat loop
@@ -195,9 +372,9 @@ async function main(argv = process.argv.slice(2)) {
 		let fullResponse = ""
 		let reasoning = ""
 		let prev = 0
-		let usage = new Usage()
+		let usage = new LanguageModelUsage()
 		let timeInfo
-		const clock = { startTime, reasonTime: 0, answerTime: 0 }
+		const clock = { startTime, reasonTime: undefined, answerTime: undefined }
 
 		const chatting = createProgress(
 			() => {
@@ -256,19 +433,19 @@ async function main(argv = process.argv.slice(2)) {
 					fullResponse += part.text ?? part
 					await chatDb.append("stream.md", part.text ?? part)
 				} else if ("usage" == part.type) {
-					usage = part.usage
+					usage = new LanguageModelUsage(part.usage)
 				}
 				parts.push(part)
 			}
 
 			if ("resolved" === result._totalUsage?.status?.type) {
-				usage = result._totalUsage.status.value
+				usage = new LanguageModelUsage(result._totalUsage.status.value)
 			} else {
 				unknown.push(["Unknown _totalUsage.status type", result._totalUsage?.status?.type])
 			}
 			if (result._steps?.status?.type === "resolved") {
 				const step0 = result._steps.status.value?.[0]
-				if (step0?.usage) usage = step0.usage
+				if (step0?.usage) usage = new LanguageModelUsage(step0.usage)
 				// keep header‑rate‑limit information for future use
 				if (step0?.response?.headers) {
 					const limits = Object.entries(step0.response.headers).filter(([k]) =>
@@ -287,13 +464,23 @@ async function main(argv = process.argv.slice(2)) {
 			await chatDb.save("unknown.json", unknown)
 			await chatDb.save("reason.md", reasoning)
 		} catch (err) {
-			if (isRateLimit(err)) {
-				console.warn(`${YELLOW}⚠️ Rate limit reached – waiting before retry${RESET}`)
-				await new Promise((r) => setTimeout(r, 6e3))
-				continue
+			clearInterval(chatting)
+			// Graceful API error handling
+			let shortMsg = "Unknown API error"
+			if (err.name === "RetryError" || err.name === "APICallError") {
+				shortMsg = err.message.split("\n")[0] || shortMsg
+				console.error(`${RED}❌ API Error: ${shortMsg}${RESET}`)
+				if (isRateLimit(err)) {
+					console.warn(`${YELLOW}⚠️ Rate limit reached – waiting before retry${RESET}`)
+					await new Promise((r) => setTimeout(r, 6e3))
+					continue
+				}
+				fullResponse = `AI API failed: ${shortMsg}`
+				usage.outputTokens = fullResponse.split(/\s+/).length || 0
+			} else {
+				console.error(`❌ Fatal error in llimo‑chat (AI):`, err.message)
+				process.exit(1)
 			}
-			console.error(`❌ Fatal error in llimo‑chat (AI):`, err.stack ?? err.message)
-			process.exit(1)
 		} finally {
 			clearInterval(chatting)
 		}
@@ -319,24 +506,24 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ answer.md (${path.resolve(chat.dir, "answer.md")})`)
 
 		// 6. decode answer & run tests
-		const testsCode = await decodeAnswerAndRunTests(chat, runCommand, isYes)
-		const input = await chat.db.load("prompt.md")
-		const data = await packPrompt(packMarkdown, input, chat)
+		const testsCode = await decodeAnswerAndRunTests(ui, chat, async (cmd, opts = {}) => runCommand(cmd, { ...opts, onData: (d) => process.stdout.write(d) }), isYes)
+		const inputPrompt = await chat.db.load("prompt.md")
+		const data = await packPrompt(packMarkdown, inputPrompt || input, chat, ui)
 		packedPrompt = data.packedPrompt
 
 		// 7. check if tests passed – same logic as original script
 		if (true === testsCode) {
 			// Task is complete, let's commit and exit
 			console.info(`  ${GREEN}+ Task is complete${RESET}`)
-			await git.renameBranch(DONE_BRANCH)
-			await git.push(DONE_BRANCH)
+			await git.renameBranch(`2511/llimo-chat/done`)
+			await git.push(`2511/llimo-chat/done`)
 			break
 		}
 		else {
 			consecutiveErrors++
 			if (consecutiveErrors >= MAX_ERRORS) {
 				console.error(`LLiMo stuck after ${MAX_ERRORS} consecutive errors.`)
-				await git.renameBranch(FAIL_BRANCH)
+				await git.renameBranch(`2511/llimo-chat/fail`)
 				break
 			}
 		}
@@ -351,6 +538,6 @@ async function main(argv = process.argv.slice(2)) {
 /* -------------------------------------------------------------------------- */
 
 main().catch((err) => {
-	console.error("❌ Fatal error in llimo‑chat:", err.stack || err.message)
+	console.error("❌ Fatal error in llimo‑chat:", err.message)
 	process.exit(1)
 })

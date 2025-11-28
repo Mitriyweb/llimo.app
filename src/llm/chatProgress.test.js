@@ -8,16 +8,17 @@ describe("formatChatProgress – pure formatting logic", () => {
 		const usage = { inputTokens: 1200, reasoningTokens: 300, outputTokens: 500, totalTokens: 2000 }
 		const now = 1e6
 		const clock = {
-			startTime: now - 5e4,
-			reasonTime: now - 3e3,
-			answerTime: now - 2e3,
+			startTime: now - 5e4,  // 50 seconds ago
+			reasonTime: now - 3e3,  // 3s ago
+			answerTime: now - 2e3,  // 2s ago
 		}
+		// Use pricing per 1M tokens: 0.00035 per token = 350 per 1M
 		const model = new ModelInfo({
-			pricing: { prompt: 0.00035, completion: 0.00075 },
+			pricing: { prompt: 350, completion: 750 },
 		})
 
+		// Remove explicit 'elapsed' to use calculation from clock
 		const lines = formatChatProgress({
-			elapsed: 5,
 			usage,
 			clock,
 			model,

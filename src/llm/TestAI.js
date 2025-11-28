@@ -1,5 +1,7 @@
 import AI from "./AI.js"
 import FileSystem from "../utils/FileSystem.js"
+import LanguageModelUsage from "./LanguageModelUsage.js"
+import ModelInfo from "./ModelInfo.js"
 
 /**
  * TestAI extends AI to simulate chat responses using pre-recorded files from chat directory.
@@ -10,9 +12,11 @@ import FileSystem from "../utils/FileSystem.js"
  * - messages.jsonl: overrides chat messages if present
  * - reason.md: reasoning content
  * - answer.md: full response content
- * - response.json: auxiliary data (ignored)
+ * - response.json: auxiliary data (usage, etc.)
  * - stream.md: additional stream text (appended)
- * - tests.txt, todo.md, unknown.json: logged but not used for response
+ * - tests.txt: logged but not used for response (e.g., expected test outputs)
+ * - todo.md: logged but not used for response (e.g., remaining tasks)
+ * - unknown.json: logged but not used for response (e.g., unhandled data)
  * - me.md: ignored, as it's user input
  * - prompt.md: ignored, as prompt is already packed
  */
@@ -35,12 +39,12 @@ export default class TestAI extends AI {
 
 	/**
 	 * Simulates streaming by reading chunks from files and yielding them with delays.
-	 * Loads chat state from files if available.
+	 * Loads chat state from files if available. Handles all specified chat files.
 	 * @param {string} modelId - Must be "test-model"
 	 * @param {import('ai').ModelMessage[]} messages - Current chat messages
 	 * @param {object} options - Streaming options
 	 * @param {string} options.cwd - Chat directory (where files are located)
-	 * @returns {Promise<{ fullResponse: string, reasoning: string, usage: import("../llm/AI.js").Usage, chunks: any[], stream: AsyncIterable<any> }>}
+	 * @returns {Promise<{ textStream: AsyncIterable<any>, fullResponse: string, reasoning: string, usage: LanguageModelUsage, chunks: any[] }>}
 	 */
 	async streamText(modelId, messages, options = {}) {
 		if (modelId !== "test-model") {
@@ -69,7 +73,7 @@ export default class TestAI extends AI {
 			}
 		}
 
-		// Load overridden messages if present
+		// Load overridden messages if present (messages.jsonl)
 		let overriddenMessages = messages
 		try {
 			const messagesData = await fs.load("messages.jsonl")
@@ -97,33 +101,35 @@ export default class TestAI extends AI {
 			fullResponse += String(streamMd || "")
 		} catch {}
 
-		// Load usage from hypothetical response.json or estimate
-		let usage = { inputTokens: 0, reasoningTokens: 0, outputTokens: 0, totalTokens: 0 }
+		// Load usage from response.json or estimate
+		let usage = new LanguageModelUsage()
 		try {
 			const responseData = await fs.load("response.json")
 			if (responseData && responseData.usage) {
-				usage = responseData.usage
+				usage = new LanguageModelUsage(responseData.usage)
 			}
 		} catch {
-			usage.inputTokens = overriddenMessages.reduce((acc, msg) => acc + (msg.content.length / 4), 0)
+			usage.inputTokens = Math.round(overriddenMessages.reduce((acc, msg) => acc + (String(msg.content).length / 4), 0))
 			usage.reasoningTokens = reasoning.split(/\s+/).length
 			usage.outputTokens = fullResponse.split(/\s+/).length
 			usage.totalTokens = usage.inputTokens + usage.reasoningTokens + usage.outputTokens
 		}
 
-		// Log other files for debugging
+		// Log other files for debugging (tests.txt, todo.md, unknown.json)
 		try {
 			const tests = await fs.load("tests.txt")
-			console.debug("Tests from tests.txt:", tests)
+			if (tests) console.debug("Tests from tests.txt:", tests)
 		} catch {}
 		try {
 			const todo = await fs.load("todo.md")
-			console.debug("Todo from todo.md:", todo)
+			if (todo) console.debug("Todo from todo.md:", todo)
 		} catch {}
 		try {
-			const unknown = await fs.load("unknown.json")
-			console.debug("Unknown data:", unknown)
+			const unknownData = await fs.load("unknown.json")
+			if (unknownData) console.debug("Unknown data:", unknownData)
 		} catch {}
+
+		// Ignore me.md and prompt.md as per spec
 
 		// Create async iterator for streaming simulation
 		async function* createStream() {
@@ -131,9 +137,12 @@ export default class TestAI extends AI {
 				if (chunk.type === "text-delta" || typeof chunk === "string") {
 					await new Promise(resolve => setTimeout(resolve, 10)) // Simulate delay
 					if (options.onChunk) options.onChunk({ chunk })
+					yield chunk.text ?? chunk
+				} else if ("function" === typeof chunk.part) {
+					yield chunk.part() // From stream.json format
+				} else {
+					yield chunk
 				}
-				if ("function" === typeof chunk.part) yield chunk.part // From stream.json format
-				else yield chunk
 			}
 			// Yield usage at end
 			if (options.onChunk) options.onChunk({ type: "usage", usage })
@@ -141,11 +150,11 @@ export default class TestAI extends AI {
 		}
 
 		return {
+			textStream: createStream(),
 			fullResponse,
 			reasoning,
 			usage,
 			chunks,
-			stream: createStream(),
 		}
 	}
 
@@ -154,7 +163,7 @@ export default class TestAI extends AI {
 	 */
 	async generateText(modelId, messages, options = {}) {
 		const result = await this.streamText(modelId, messages, options)
-		await Array.fromAsync(result.stream) // Consume stream
+		await Array.fromAsync(result.textStream) // Consume stream
 		return { text: result.fullResponse, usage: result.usage }
 	}
 }

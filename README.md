@@ -28,22 +28,25 @@ pnpm test:all  # Перевірити базові тести, включаюч�
 ```
 
 ### 2. Симуляція чату з файлами (Test Mode)
-Використовуйте флаг `--test` або `--test-dir` у `llimo-chat.js`:
+Використовуйте флаг `--test-dir` у `llimo-chat.js`. Флаги тепер правильно парсяться, і clean argv використовується для input.
 
-- `--test=chat-id`: Використовує директорію з поточного чату (chat/chat-id).
 - `--test-dir=/path/to/chat/dir`: Використовує зовнішню директорію (e.g., розпакований архів від користувача).
-- `--input file.md`: Опціонально, надати промпт для симуляції (інакше використовується поточний).
+- `--test=chat-id`: Альтернатива; шукає `chat/chat-id`.
+- Input: Якщо не надано (файл або stdin), у test mode завантажується з `prompt.md` у test dir (або default "Simulated test prompt").
 
 Приклад відтворення помилки з архіву:
 ```bash
 # Розпакуйте архів користувача в temp/chat-repro
 unzip user-chat.zip -d temp/chat-repro
 
-# Запустіть симуляцію
-node bin/llimo-chat.js --test-dir=temp/chat-repro --input repro-prompt.md
+# Запустіть симуляцію (без input - використовує prompt.md)
+llimo-chat --test-dir temp/chat-repro
 
-# Або глобально
-npx llimo-chat --test-dir=temp/chat-repro
+# Або з кастомним input
+llimo-chat --test-dir temp/chat-repro repro-prompt.md
+
+# З флагами (e.g., auto-yes для unpack)
+llimo-chat --test-dir temp/chat-repro --yes
 ```
 
 Вивід:
@@ -51,6 +54,7 @@ npx llimo-chat --test-dir=temp/chat-repro
 - Виконує unpack, run tests, git (якщо потрібно).
 - Логує дебаг (tests.txt тощо) у console.debug.
 - Прогрес-бари та метрики (usage) базуються на файлах.
+- Якщо prompt.md відсутній, використовує default input.
 
 ### 3. Створення тестових файлів для нових сценаріїв
 Створіть директорію з файлами для тестування помилки/сценарію:
@@ -68,6 +72,11 @@ cat > answer.md << 'EOF'
 Incomplete answer due to error.
 EOF
 
+cat > prompt.md << 'EOF'
+# Simulated prompt for test
+This is input loaded when no external file provided.
+EOF
+
 cat > response.json << 'EOF'
 {"usage": {"inputTokens": 100, "outputTokens": 50, "totalTokens": 150}, "error": "Simulated"}
 EOF
@@ -79,22 +88,29 @@ EOF
 
 Запустіть:
 ```bash
-node bin/llimo-chat.js --test-dir=test-chat-scenario --input test-prompt.md
+llimo-chat --test-dir=test-chat-scenario
+# Використовує prompt.md як input
 ```
 
 ### 4. Інтеграція з тестами
 - **Автоматизовані тести**: Використовуйте `TestAI.test.js` як шаблон. Додавайте it() для конкретних сценаріїв з mkdtemp + writeFile.
 - **CI/CD**: Додайте скрипт у package.json:
   ```bash
-  pnpm test:scenario --test-dir=tests/scenarios/bug-repro
+  "test:scenario": "llimo-chat --test-dir=tests/scenarios/bug-repro --yes"
   ```
 - **Відтворення від користувача**:
   1. Користувач надсилає архів (zip з chat dir).
   2. Розпакуйте: `unzip user-bug.zip -d repro/`.
-  3. Запустіть: `node bin/llimo-chat.js --test-dir=repro --yes` (щоб автоматично unpack та test).
+  3. Запустіть: `llimo-chat --test-dir=repro --yes` (щоб автоматично unpack та test).
   4. Проаналізуйте лог: unpack помилок, test results, git changes.
 
-### 5. Розширення (Future)
+### 5. Common Errors & Fixes
+- **ENOENT on flags**: Виправлено парсингом - флаги тепер ігноруються в cleanArgv.
+- **No input in test mode**: Автоматично використовує `prompt.md` з test dir.
+- **Missing test dir**: Помилка з exit(1) та інструкцією.
+- **Debug logs**: Використовуйте `DEBUG=* llimo-chat ...` для console.debug (tests.txt, etc.).
+
+### 6. Розширення (Future)
 - `@todo`: Команда `llimo-test create <scenario>` для генерації шаблонів файлів.
 - `@todo`: Плагін для vitest/jest інтеграції (e.g., test.each з chat dirs).
 - `@todo`: Валідація файлів (e.g., ensure chunks.json має правильну структуру).

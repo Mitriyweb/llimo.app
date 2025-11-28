@@ -7,9 +7,11 @@
  * - messages.jsonl: overrides chat messages if present
  * - reason.md: reasoning content
  * - answer.md: full response content
- * - response.json: auxiliary data (ignored)
+ * - response.json: auxiliary data (usage, etc.)
  * - stream.md: additional stream text (appended)
- * - tests.txt, todo.md, unknown.json: logged but not used for response
+ * - tests.txt: logged but not used for response (e.g., expected test outputs)
+ * - todo.md: logged but not used for response (e.g., remaining tasks)
+ * - unknown.json: logged but not used for response (e.g., unhandled data)
  * - me.md: ignored, as it's user input
  * - prompt.md: ignored, as prompt is already packed
  */
@@ -23,28 +25,30 @@ export default class TestAI extends AI {
     });
     /**
      * Simulates streaming by reading chunks from files and yielding them with delays.
-     * Loads chat state from files if available.
+     * Loads chat state from files if available. Handles all specified chat files.
      * @param {string} modelId - Must be "test-model"
      * @param {import('ai').ModelMessage[]} messages - Current chat messages
      * @param {object} options - Streaming options
      * @param {string} options.cwd - Chat directory (where files are located)
-     * @returns {Promise<{ fullResponse: string, reasoning: string, usage: import("../llm/AI.js").Usage, chunks: any[], stream: AsyncIterable<any> }>}
+     * @returns {Promise<{ textStream: AsyncIterable<any>, fullResponse: string, reasoning: string, usage: LanguageModelUsage, chunks: any[] }>}
      */
     streamText(modelId: string, messages: import("ai").ModelMessage[], options?: {
         cwd: string;
     }): Promise<{
+        textStream: AsyncIterable<any>;
         fullResponse: string;
         reasoning: string;
-        usage: import("../llm/AI.js").Usage;
+        usage: LanguageModelUsage;
         chunks: any[];
-        stream: AsyncIterable<any>;
     }>;
     /**
      * Non-streaming version (for completeness, just returns full response).
      */
     generateText(modelId: any, messages: any, options?: {}): Promise<{
         text: string;
-        usage: any;
+        usage: LanguageModelUsage;
     }>;
 }
 import AI from "./AI.js";
+import LanguageModelUsage from "./LanguageModelUsage.js";
+import ModelInfo from "./ModelInfo.js";

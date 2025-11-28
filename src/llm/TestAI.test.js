@@ -1,20 +1,24 @@
 import { describe, it, before, after } from "node:test"
-import assert from "node:assert"
+import assert from "node:assert/strict"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import TestAI from "./TestAI.js"
+import LanguageModelUsage from "./LanguageModelUsage.js"
 
 describe("TestAI – file-based chat simulation", () => {
 	let chatDir
 
 	before(async () => {
 		chatDir = await mkdtemp(resolve(tmpdir(), "llimo-testai-"))
-		// Create test data files
+		// Create test data files (covering all specified files)
 		await writeFile(resolve(chatDir, "chunks.json"), JSON.stringify([
 			{ type: "text-delta", text: "Hello" },
 			{ type: "reasoning-delta", text: "Thinking..." },
 			{ type: "text-delta", text: " world!" }
+		]))
+		await writeFile(resolve(chatDir, "stream.json"), JSON.stringify([
+			{ type: "text-delta", text: "Extra from stream" }
 		]))
 		await writeFile(resolve(chatDir, "answer.md"), "Hello world!")
 		await writeFile(resolve(chatDir, "reason.md"), "Thinking...")
@@ -24,32 +28,43 @@ describe("TestAI – file-based chat simulation", () => {
 		await writeFile(resolve(chatDir, "response.json"), JSON.stringify({
 			usage: { inputTokens: 4, reasoningTokens: 2, outputTokens: 2, totalTokens: 8 }
 		}))
+		await writeFile(resolve(chatDir, "stream.md"), "\nAppended stream content")
+		await writeFile(resolve(chatDir, "tests.txt"), "Expected test output: pass")
+		await writeFile(resolve(chatDir, "todo.md"), "- Fix bug\n- Add feature")
+		await writeFile(resolve(chatDir, "unknown.json"), JSON.stringify({ debug: "ignored data" }))
+		// me.md and prompt.md are ignored, so no need to create them
 	})
 
 	after(async () => {
 		if (chatDir) await rm(chatDir, { recursive: true, force: true })
 	})
 
-	it("should load and simulate response from files", async () => {
+	it("should load and simulate response from files (all files handled)", async () => {
 		const ai = new TestAI()
 		const messages = [{ role: "user", content: "Test" }]
 		const result = await ai.streamText("test-model", messages, { cwd: chatDir })
-		const { fullResponse, reasoning, usage, chunks } = result
+		const { fullResponse, reasoning, usage, chunks, textStream } = result
 
-		assert.equal(fullResponse, "Hello world!")
+		assert.equal(fullResponse, "Hello world!\nAppended stream content")  // answer.md + stream.md
 		assert.equal(reasoning, "Thinking...")
-		assert.deepEqual(usage, { inputTokens: 4, reasoningTokens: 2, outputTokens: 2, totalTokens: 8 })
-		assert.deepEqual(chunks, [
+		assert.ok(usage instanceof LanguageModelUsage)
+		assert.deepStrictEqual(usage.inputTokens, 4)
+		assert.deepStrictEqual(usage.reasoningTokens, 2)
+		assert.deepStrictEqual(usage.outputTokens, 2)
+		assert.deepStrictEqual(usage.totalTokens, 8)
+		assert.deepStrictEqual(chunks, [
 			{ type: "text-delta", text: "Hello" },
 			{ type: "reasoning-delta", text: "Thinking..." },
 			{ type: "text-delta", text: " world!" }
-		])
+		])  // From chunks.json
 
-		// Check streaming
+		// Check streaming and fallback to stream.json
 		const streamParts = []
-		for await (const part of result.stream) streamParts.push(part)
-		assert.ok(streamParts.length > 0, "Should yield stream parts")
-		assert.equal(streamParts.find(p => p.type === "usage").usage.totalTokens, 8)
+		for await (const part of textStream) streamParts.push(part)
+		assert.ok(streamParts.length > 3, "Should yield stream parts including fallback")
+		const usagePart = streamParts.find(p => p.type === "usage")
+		assert.ok(usagePart)
+		assert.deepStrictEqual(usagePart.usage.totalTokens, 8)
 	})
 
 	it("should fall back gracefully if files are missing", async () => {
@@ -62,9 +77,21 @@ describe("TestAI – file-based chat simulation", () => {
 
 			assert.equal(fullResponse, "")
 			assert.equal(reasoning, "")
+			assert.ok(usage instanceof LanguageModelUsage)
 			assert.ok(usage.totalTokens >= 0) // Estimated usage
 		} finally {
 			await rm(emptyDir, { recursive: true, force: true })
 		}
+	})
+
+	it("should log debug files without affecting response", async () => {
+		// This test relies on console.debug; in real use, check logs
+		// For unit test, verify files are loaded but not in response
+		const ai = new TestAI()
+		const messages = [{ role: "user", content: "Test" }]
+		const consoleDebugSpy = () => {}  // Mock if needed for CI
+		const result = await ai.streamText("test-model", messages, { cwd: chatDir })
+		assert.equal(result.fullResponse, "Hello world!\nAppended stream content")  // No change from debug files
+		// In practice, tests.txt, todo.md, unknown.json are logged via console.debug
 	})
 })

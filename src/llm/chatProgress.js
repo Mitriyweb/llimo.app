@@ -1,3 +1,6 @@
+import LanguageModelUsage from "./LanguageModelUsage.js"
+import ModelInfo from "./ModelInfo.js"
+
 /**
  * Helper for generating the chat‑progress lines shown during streaming.
  *
@@ -5,9 +8,9 @@
  * ready‑to‑print strings.  It is unit‑tested in `chatProgress.test.js`.
  *
  * @typedef {Object} ChatProgressInput
- * @property {import("../llm/AI.js").Usage} usage
+ * @property {LanguageModelUsage} usage
  * @property {{ startTime: number, reasonTime?: number, answerTime?: number }} clock
- * @property {import("../llm/AI.js").ModelInfo} model
+ * @property {ModelInfo} model
  * @property {(n:number)=>string} [format]     number formatter (e.g. Intl.NumberFormat)
  * @property {(n:number)=>string} [valuta]     price formatter (prefixed with $)
  * @property {number} [elapsed]                total elapsed seconds (overrides clock calculation)
@@ -30,6 +33,7 @@ export function formatChatProgress(input) {
 			return `$${f(value)}`
 		},
 		now = Date.now(),
+		elapsed = (now - clock.startTime) / 1e3,
 	} = input
 
 	/** @type {Array<Array<any>>} */
@@ -38,15 +42,19 @@ export function formatChatProgress(input) {
 		reasonPrice = 0,
 		answerPrice = 0
 
+	const safeSpent = (spent) => Math.max(0, spent)
+	const safeSpeed = (tokens, spent) => spent > 0 ? Math.round(tokens / spent) : 0
+
 	// Reading (input / prompt) line
 	if (usage.inputTokens) {
-		const nowReading = clock.reasonTime ?? clock.answerTime ?? now
-		const spent = (nowReading - clock.startTime) / 1e3
-		const speed = Math.round(usage.inputTokens / spent)
-		inputPrice = usage.inputTokens * model.pricing.prompt
+		const nowReading = clock.reasonTime ?? clock.answerTime ?? clock.startTime
+		let readingSpent = safeSpent((nowReading - clock.startTime) / 1e3)
+		if (!clock.reasonTime && !clock.answerTime) readingSpent = elapsed  // Full time if no phases
+		const speed = safeSpeed(usage.inputTokens, readingSpent)
+		inputPrice = usage.inputTokens * (model.pricing.prompt / 1e6)
 		rows.push([
 			"reading",
-			spent,
+			readingSpent,
 			usage.inputTokens,
 			format(speed),
 			valuta(inputPrice),
@@ -54,10 +62,10 @@ export function formatChatProgress(input) {
 	}
 
 	// Reasoning (chain‑of‑thought) line
-	if (usage.reasoningTokens) {
-		const spent = ((clock.answerTime ?? now) - (clock.reasonTime ?? clock.startTime)) / 1e3
-		const speed = Math.round(usage.reasoningTokens / spent)
-		reasonPrice = usage.reasoningTokens * model.pricing.completion
+	if (usage.reasoningTokens && clock.reasonTime) {
+		const spent = safeSpent(((clock.answerTime ?? now) - clock.reasonTime) / 1e3)
+		const speed = safeSpeed(usage.reasoningTokens, spent)
+		reasonPrice = usage.reasoningTokens * (model.pricing.completion / 1e6)
 		rows.push([
 			"reasoning",
 			spent,
@@ -68,13 +76,10 @@ export function formatChatProgress(input) {
 	}
 
 	// Answering (output) line
-	if (usage.outputTokens) {
-		const spent =
-			(now -
-				(clock.answerTime ?? clock.reasonTime ?? clock.startTime)) /
-			1e3
-		const speed = Math.round(usage.outputTokens / spent)
-		answerPrice = usage.outputTokens * model.pricing.completion
+	if (usage.outputTokens && clock.answerTime) {
+		const spent = safeSpent((now - clock.answerTime) / 1e3)
+		const speed = safeSpeed(usage.outputTokens, spent)
+		answerPrice = usage.outputTokens * (model.pricing.completion / 1e6)
 		rows.push([
 			"answering",
 			spent,
@@ -86,8 +91,8 @@ export function formatChatProgress(input) {
 
 	const total = usage.inputTokens + usage.outputTokens + usage.reasoningTokens
 	const sum = inputPrice + reasonPrice + answerPrice
-	const whole = (now - clock.startTime) / 1e3
-	rows.unshift(["chat progress", whole, total, Math.round(total / whole), valuta(sum)])
+	const whole = elapsed
+	rows.unshift(["chat progress", whole, total, safeSpeed(total, whole), valuta(sum)])
 
 	/** Transform rows into printable columns */
 	const formattedRows = rows.map(

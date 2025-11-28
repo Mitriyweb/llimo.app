@@ -25,6 +25,7 @@ import {
 } from "../src/llm/chatSteps.js"
 import ModelProvider from "../src/llm/ModelProvider.js"
 import { formatChatProgress } from "../src/llm/chatProgress.js"
+import Ui from "../src/cli/Ui.js"
 
 const PROGRESS_FPS = 30
 const MAX_ERRORS = 9
@@ -73,6 +74,7 @@ async function main(argv = process.argv.slice(2)) {
 	const fs = new FileSystem()
 	const path = new Path()
 	const git = new Git({ dry: true })
+	const ui = new Ui()
 
 	const models = await loadModels()
 
@@ -238,7 +240,7 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ answer.md (${path.resolve(chat.dir, "answer.md")})`)
 
 		// Remaining logic...
-		const testsCode = await decodeAnswerAndRunTests(chat, runCommand, isYes)
+		const testsCode = await decodeAnswerAndRunTests(ui, chat, runCommand, isYes)
 		const inputPrompt = await chat.db.load("prompt.md")
 		packedPrompt = (await packPrompt(packMarkdown, inputPrompt, chat)).packedPrompt
 
