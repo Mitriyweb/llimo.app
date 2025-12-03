@@ -191,12 +191,6 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 	/** @type {string} */
 	const fullResponse = String(answer.content)
 
-	// Skip unpack if response is an AI error
-	if (fullResponse.includes("AI API failed") || fullResponse.includes("Error")) {
-		console.info(`${YELLOW}⚠️ Skipping unpack due to AI error in response${RESET}`)
-		return { testsCode: false, shouldContinue: false }
-	}
-
 	const parsed = await MarkdownProtocol.parse(fullResponse)
 
 	logs.push("#### llimo-unpack")
@@ -218,7 +212,7 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 			return { testsCode: ".", shouldContinue: false }
 		} else if (answerUser !== "yes") {
 			chat.add({ role: "user", content: answerUser })
-			return { testsCode: answerUser, shouldContinue: false }
+			return { testsCode: answerUser, shouldContinue: true }
 		}
 	}
 
@@ -313,12 +307,8 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 		}
 		if (shouldContinue && fail === 0 && cancelled === 0 && types === 0 && todo === 0 && skip === 0) {
 			// All passed - ask if to continue or exit
-			const ans = await ui.askYesNo("All tests passed. Do you want to continue? (Y)es, N to exit, ., <message> % ")
-			shouldContinue = ans === "yes"
-			if (ans !== "yes" && ans !== "no" && ans !== ".") {
-				chat.add({ role: "user", content: ans })
-			}
-			return { testsCode: true, shouldContinue }
+			ui.console.success("All tests passed.")
+			return { testsCode: true, shouldContinue: false }
 		}
 	}
 

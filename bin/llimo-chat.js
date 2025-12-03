@@ -17,7 +17,6 @@ import Git from "../src/utils/Git.js"
 import Chat from "../src/llm/Chat.js"
 import { packMarkdown } from "../src/llm/pack.js"
 import {
-	readInput,
 	initialiseChat,
 	copyInputToChat,
 	packPrompt,
@@ -31,7 +30,12 @@ import Ui from "../src/cli/Ui.js"
 
 const PROGRESS_FPS = 30
 const MAX_ERRORS = 9
-const DEFAULT_MODEL = "x-ai/grok-4-fast"
+// const DEFAULT_MODEL = "gpt-oss-120b"
+// const DEFAULT_MODEL = "zai-glm-4.6"
+// const DEFAULT_MODEL = "qwen-3-235b-a22b-instruct-2507"
+// const DEFAULT_MODEL = "qwen-3-32b"
+// const DEFAULT_MODEL = "x-ai/grok-code-fast-1"
+const DEFAULT_MODEL = process.env.LLIMO_MODEL || "x-ai/grok-4-fast"
 
 /**
  * Simple argument parser to extract flags and clean positional args.
@@ -85,6 +89,10 @@ function createProgress(fn, startTime = Date.now(), fps = PROGRESS_FPS) {
 		const elapsed = (Date.now() - startTime) / 1e3
 		fn({ elapsed, startTime })
 	}, 1e3 / fps)
+}
+
+function isWindowLimit(err) {
+	return [err?.status, err?.statusCode].includes(400) && err?.data?.code === "context_length_exceeded"
 }
 
 /**
@@ -180,7 +188,7 @@ async function main(argv = process.argv.slice(2)) {
 
 		// Verify model existence
 		/** @type {import("../src/llm/AI.js").ModelInfo} */
-		const model = ai.getModel(DEFAULT_MODEL)
+		const model = ai.findModel(DEFAULT_MODEL)
 		if (!model) {
 			console.error(`❌ Model '${DEFAULT_MODEL}' not found`)
 			process.exit(1)
@@ -336,10 +344,7 @@ async function main(argv = process.argv.slice(2)) {
 	}
 
 	// Normal real AI mode continues...
-	const model = ai.getModel(DEFAULT_MODEL)
-	const inputPer1MT = parseFloat(model.pricing?.prompt || "0") * 1e6
-	const outputPer1MT = parseFloat(model.pricing?.completion || "0") * 1e6
-	const cachePer1MT = parseFloat(model.pricing?.input_cache_read || "0") + parseFloat(model.pricing?.input_cache_write || "0")
+	const model = ai.findModel(DEFAULT_MODEL)
 
 	// 3. copy source file to chat directory (if any)
 	await copyInputToChat(inputFile, input, chat, ui)
@@ -353,8 +358,10 @@ async function main(argv = process.argv.slice(2)) {
 	let consecutiveErrors = 0
 
 	// Define branch names in one place – easy to change later.
-	const DONE_BRANCH = `2511/llimo-chat/done`
-	const FAIL_BRANCH = `2511/llimo-chat/fail`
+	// const DONE_BRANCH = `2511/llimo-chat/done`
+	// const FAIL_BRANCH = `2511/llimo-chat/fail`
+	const DONE_BRANCH = ""
+	const FAIL_BRANCH = ""
 
 	while (true) {
 		console.info(`\nstep ${step}. ${new Date().toISOString()}`)
@@ -395,6 +402,7 @@ async function main(argv = process.argv.slice(2)) {
 		)
 
 		const chatDb = new FileSystem({ cwd: chat.dir })
+		let error
 		try {
 			const chunks = []
 			/** @type {import("../src/llm/AI.js").StreamOptions} */
@@ -418,6 +426,9 @@ async function main(argv = process.argv.slice(2)) {
 					}
 					chunks.push(chunk)
 				},
+				onError: (data) => {
+					error = data.error
+				},
 			}
 
 			chat.add({ role: "user", content: packedPrompt })
@@ -437,6 +448,7 @@ async function main(argv = process.argv.slice(2)) {
 				}
 				parts.push(part)
 			}
+			if (error) throw error
 
 			if ("resolved" === result._totalUsage?.status?.type) {
 				usage = new LanguageModelUsage(result._totalUsage.status.value)
@@ -451,7 +463,7 @@ async function main(argv = process.argv.slice(2)) {
 					const limits = Object.entries(step0.response.headers).filter(([k]) =>
 						k.startsWith("x-ratelimit-")
 					)
-					// @todo future: apply limits
+					// @todo future: apply limits to show them in the progress table.
 				}
 			} else {
 				unknown.push(["Unknown _steps.status type", result._steps?.status?.type])
@@ -467,9 +479,14 @@ async function main(argv = process.argv.slice(2)) {
 			clearInterval(chatting)
 			// Graceful API error handling
 			let shortMsg = "Unknown API error"
-			if (err.name === "RetryError" || err.name === "APICallError") {
+			if (["AI_APICallError", "APICallError", "RetryError"].includes(err.name)) {
 				shortMsg = err.message.split("\n")[0] || shortMsg
-				console.error(`${RED}❌ API Error: ${shortMsg}${RESET}`)
+				console.error(`${RED}API Error: ${shortMsg}${RESET}`)
+				if (isWindowLimit(err)) {
+					console.warn(`${YELLOW}Message is too long - choose another model${RESET}`)
+					// @todo select another model
+					continue
+				}
 				if (isRateLimit(err)) {
 					console.warn(`${YELLOW}⚠️ Rate limit reached – waiting before retry${RESET}`)
 					await new Promise((r) => setTimeout(r, 6e3))
@@ -506,7 +523,10 @@ async function main(argv = process.argv.slice(2)) {
 		console.info(`+ answer.md (${path.resolve(chat.dir, "answer.md")})`)
 
 		// 6. decode answer & run tests
-		const testsCode = await decodeAnswerAndRunTests(ui, chat, async (cmd, opts = {}) => runCommand(cmd, { ...opts, onData: (d) => process.stdout.write(d) }), isYes)
+		const { testsCode, shouldContinue } = await decodeAnswerAndRunTests(ui, chat, async (cmd, opts = {}) => runCommand(cmd, { ...opts, onData: (d) => process.stdout.write(String(d)) }), isYes)
+		if (!shouldContinue) {
+			break
+		}
 		const inputPrompt = await chat.db.load("prompt.md")
 		const data = await packPrompt(packMarkdown, inputPrompt || input, chat, ui)
 		packedPrompt = data.packedPrompt
@@ -515,15 +535,19 @@ async function main(argv = process.argv.slice(2)) {
 		if (true === testsCode) {
 			// Task is complete, let's commit and exit
 			console.info(`  ${GREEN}+ Task is complete${RESET}`)
-			await git.renameBranch(`2511/llimo-chat/done`)
-			await git.push(`2511/llimo-chat/done`)
+			if (DONE_BRANCH) {
+				await git.renameBranch(DONE_BRANCH)
+				await git.push(DONE_BRANCH)
+			}
 			break
 		}
 		else {
 			consecutiveErrors++
 			if (consecutiveErrors >= MAX_ERRORS) {
 				console.error(`LLiMo stuck after ${MAX_ERRORS} consecutive errors.`)
-				await git.renameBranch(`2511/llimo-chat/fail`)
+				if (FAIL_BRANCH) {
+					await git.renameBranch(FAIL_BRANCH)
+				}
 				break
 			}
 		}

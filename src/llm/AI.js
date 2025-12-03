@@ -81,13 +81,25 @@ export default class AI {
 	}
 
 	/**
+	 * Find a model from all of the models by partial comparasion.
+	 * @param {string} modelId The full or partial model id.
+	 * @returns {ModelInfo | undefined}
+	 */
+	findModel(modelId) {
+		const str = String(modelId).toLowerCase()
+		for (const [id, info] of this.#models.entries()) {
+			if (String(id).toLowerCase().includes(str)) return info
+		}
+	}
+
+	/**
 	 * Add a model to the internal map (for testing).
 	 *
 	 * @param {string} id
 	 * @param {Partial<ModelInfo>} info
 	 */
 	addModel(id, info) {
-		this.#models.set(id, info)
+		this.#models.set(id, new ModelInfo(info))
 	}
 
 	/**

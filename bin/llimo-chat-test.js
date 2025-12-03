@@ -61,6 +61,9 @@ async function loadModels() {
 
 /**
  * Helper function to create progress interval.
+ * @param {{ elapsed: number, startTime: number } => void} fn
+ * @param {number} [startTime]
+ * @param {number} [fps=PROGRESS_FPS]
  */
 function createProgress(fn, startTime = Date.now(), fps = PROGRESS_FPS) {
 	return setInterval(() => {
