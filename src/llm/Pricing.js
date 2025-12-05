@@ -3,35 +3,35 @@
  */
 export default class Pricing {
 	/** @type {number} - Completion cost per million tokens */
-	completion
+	completion = -1
 	/** @type {number} - Image cost */
-	image
+	image = -1
 	/** @type {number} - Input cache read cost */
-	input_cache_read
+	input_cache_read = -1
 	/** @type {number} - Input cache write cost */
-	input_cache_write
+	input_cache_write = -1
 	/** @type {number} - Internal reasoning cost */
-	internal_reasoning
+	internal_reasoning = -1
 	/** @type {number} - Prompt cost per million tokens */
-	prompt
+	prompt = -1
 	/** @type {number} - Request cost */
-	request
+	request = -1
 	/** @type {number} - Web search cost */
-	web_search
+	web_search = -1
 
 	/**
 	 * @param {Partial<Pricing>} input
 	 */
 	constructor(input = {}) {
 		const {
-			completion = 0,
-			image = 0,
-			input_cache_read = 0,
-			input_cache_write = 0,
-			internal_reasoning = 0,
-			prompt = 0,
-			request = 0,
-			web_search = 0,
+			completion = this.completion,
+			image = this.image,
+			input_cache_read = this.input_cache_read,
+			input_cache_write = this.input_cache_write,
+			internal_reasoning = this.internal_reasoning,
+			prompt = this.prompt,
+			request = this.request,
+			web_search = this.web_search,
 		} = input
 		this.completion = Number(completion)
 		this.image = Number(image)

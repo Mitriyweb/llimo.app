@@ -1,4 +1,4 @@
-import { RESET, GREEN, CYAN } from "../../utils/ANSI.js"
+import { RESET, GREEN, CYAN } from "../../cli/ANSI.js"
 import Command from "./Command.js"
 
 /** @typedef {import("../../FileProtocol.js").ParsedFile} ParsedFile */
@@ -36,7 +36,7 @@ export default class SummaryCommand extends Command {
 		if (!file) return
 
 		const message = (file.content ?? "").trim()
-		
+
 		if (!message) {
 			yield ` ${CYAN}ℹ${RESET} Empty summary`
 			return

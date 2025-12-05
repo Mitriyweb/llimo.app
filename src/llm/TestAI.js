@@ -2,6 +2,7 @@ import AI from "./AI.js"
 import FileSystem from "../utils/FileSystem.js"
 import LanguageModelUsage from "./LanguageModelUsage.js"
 import ModelInfo from "./ModelInfo.js"
+import MarkdownProtocol from "../utils/Markdown.js"
 
 /**
  * TestAI extends AI to simulate chat responses using pre-recorded files from chat directory.
@@ -19,6 +20,8 @@ import ModelInfo from "./ModelInfo.js"
  * - unknown.json: logged but not used for response (e.g., unhandled data)
  * - me.md: ignored, as it's user input
  * - prompt.md: ignored, as prompt is already packed
+ *
+ * Supports per-step simulation by prefixing files with `step${options.step}-`
  */
 export default class TestAI extends AI {
 	/**
@@ -44,6 +47,8 @@ export default class TestAI extends AI {
 	 * @param {import('ai').ModelMessage[]} messages - Current chat messages
 	 * @param {object} options - Streaming options
 	 * @param {string} options.cwd - Chat directory (where files are located)
+	 * @param {number} [options.step] - Step number for per-step files (e.g., chunks-step3.json)
+	 * @param {number} [options.delay=10] - Delay in ms between chunks for simulation speed
 	 * @returns {Promise<{ textStream: AsyncIterable<any>, fullResponse: string, reasoning: string, usage: LanguageModelUsage, chunks: any[] }>}
 	 */
 	async streamText(modelId, messages, options = {}) {
@@ -51,8 +56,9 @@ export default class TestAI extends AI {
 			throw new Error("TestAI only supports 'test-model'")
 		}
 
-		const { cwd } = options
+		const { cwd, step, delay = 10 } = options
 		const fs = new FileSystem({ cwd })
+		const stepPrefix = step ? `step${step}-` : ''
 		let chunks = []
 		let streamEvents = []
 		let fullResponse = ""
@@ -60,15 +66,15 @@ export default class TestAI extends AI {
 
 		// Load chunks.json or fall back to stream.json
 		try {
-			const chunksData = await fs.load("chunks.json")
+			const chunksData = await fs.load(`${stepPrefix}chunks.json`)
 			chunks = Array.isArray(chunksData) ? chunksData : []
 		} catch {
 			try {
-				const streamData = await fs.load("stream.json")
+				const streamData = await fs.load(`${stepPrefix}stream.json`)
 				streamEvents = Array.isArray(streamData) ? streamData : []
 				chunks = streamEvents.map(ev => ev.chunk || ev) // Convert events to chunks
 			} catch {
-				console.warn("No chunks.json or stream.json found, simulating empty response")
+				console.warn(`No ${stepPrefix}chunks.json or ${stepPrefix}stream.json found, simulating empty response`)
 				chunks = []
 			}
 		}
@@ -84,12 +90,12 @@ export default class TestAI extends AI {
 
 		// Load reasoning from reason.md
 		try {
-			reasoning = await fs.load("reason.md") || ""
+			reasoning = await fs.load(`${stepPrefix}reason.md`) || ""
 		} catch {}
 
 		// Load full response from answer.md, or build from chunks
 		try {
-			const answer = await fs.load("answer.md")
+			const answer = await fs.load(`${stepPrefix}answer.md`)
 			if (answer) fullResponse = String(answer)
 		} catch {
 			fullResponse = chunks.filter(c => c.type === "text-delta").map(c => c.text || "").join("")
@@ -97,14 +103,14 @@ export default class TestAI extends AI {
 
 		// Append stream.md content
 		try {
-			const streamMd = await fs.load("stream.md")
+			const streamMd = await fs.load(`${stepPrefix}stream.md`)
 			fullResponse += String(streamMd || "")
 		} catch {}
 
 		// Load usage from response.json or estimate
 		let usage = new LanguageModelUsage()
 		try {
-			const responseData = await fs.load("response.json")
+			const responseData = await fs.load(`${stepPrefix}response.json`)
 			if (responseData && responseData.usage) {
 				usage = new LanguageModelUsage(responseData.usage)
 			}
@@ -117,15 +123,15 @@ export default class TestAI extends AI {
 
 		// Log other files for debugging (tests.txt, todo.md, unknown.json)
 		try {
-			const tests = await fs.load("tests.txt")
+			const tests = await fs.load(`${stepPrefix}tests.txt`)
 			if (tests) console.debug("Tests from tests.txt:", tests)
 		} catch {}
 		try {
-			const todo = await fs.load("todo.md")
+			const todo = await fs.load(`${stepPrefix}todo.md`)
 			if (todo) console.debug("Todo from todo.md:", todo)
 		} catch {}
 		try {
-			const unknownData = await fs.load("unknown.json")
+			const unknownData = await fs.load(`${stepPrefix}unknown.json`)
 			if (unknownData) console.debug("Unknown data:", unknownData)
 		} catch {}
 
@@ -135,7 +141,7 @@ export default class TestAI extends AI {
 		async function* createStream() {
 			for (const chunk of chunks) {
 				if (chunk.type === "text-delta" || typeof chunk === "string") {
-					await new Promise(resolve => setTimeout(resolve, 10)) // Simulate delay
+					await new Promise(resolve => setTimeout(resolve, delay)) // Simulate delay
 					if (options.onChunk) options.onChunk({ chunk })
 					yield chunk.text ?? chunk
 				} else if ("function" === typeof chunk.part) {
@@ -167,3 +173,4 @@ export default class TestAI extends AI {
 		return { text: result.fullResponse, usage: result.usage }
 	}
 }
+

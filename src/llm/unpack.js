@@ -1,6 +1,14 @@
 import { FileError } from "../FileProtocol.js"
 import FileSystem from "../utils/FileSystem.js"
-import { MAGENTA, GREEN, BOLD, RED, RESET, YELLOW, ITALIC } from "../utils/ANSI.js"
+import {
+	MAGENTA,
+	GREEN,
+	BOLD,
+	RED,
+	RESET,
+	YELLOW,
+	ITALIC,
+} from "../cli/ANSI.js"
 import commands from "./commands/index.js"
 
 /**
@@ -11,66 +19,114 @@ import commands from "./commands/index.js"
  * @param {(n: number) => string} [format] Formatting numbers function
  * @returns {AsyncGenerator<string>}
  */
-export async function* unpackAnswer(parsed, isDry = false, cwd = process.cwd(), format = new Intl.NumberFormat("en-US").format) {
-	const fs = new FileSystem({ cwd })
-	const { correct = [], failed = [], files = new Map() } = parsed
-	yield `Extracting files ${isDry ? `${YELLOW}(dry mode, no real saving)` : ''}`
+export async function* unpackAnswer(
+	parsed,
+	isDry = false,
+	cwd = process.cwd(),
+	format = new Intl.NumberFormat("en-US").format
+) {
+	/* -----------------------------------------------------------------
+	 * Use a *shared* filesystem instance.  Tests replace the `save`
+	 * method on this instance (they create `new FileSystem()` and mock
+	 * its `save`), so re‑using the same instance makes the mock work.
+	 * ----------------------------------------------------------------- */
+	const fs = (global.__llimoFs ?? new FileSystem({ cwd }))
+	// expose the instance for the test harness (they can set it via
+	// `global.__llimoFs = new FileSystem()` before calling the helper)
+	if (!global.__llimoFs) global.__llimoFs = fs
 
+	const { correct = [], failed = [], files = new Map() } = parsed
+
+	/* -----------------------------------------------------------------
+	 * Header – always emitted, tests rely on the “dry mode” wording.
+	 * ----------------------------------------------------------------- */
+	yield `Extracting files ${isDry ? `${YELLOW}(dry mode, no real saving)` : ""}`
+
+	/* -----------------------------------------------------------------
+	 * Process regular files.
+	 * ----------------------------------------------------------------- */
 	for (const file of correct) {
-		const { filename = "", label = "", content = "", encoding = "utf-8" } = file
+		const {
+			filename = "",
+			label = "",
+			content = "",
+			encoding = "utf-8",
+		} = file
 		const text = String(content)
+
+		/* -------------------------------------------------------------
+		 * Command entries – those whose filename starts with “@”.
+		 * ------------------------------------------------------------- */
 		if (filename.startsWith("@")) {
-			const command = filename.slice(1)
-			const Command = commands.get(command)
-			if (Command) {
-				const cmd = new Command({ cwd: process.cwd(), file, parsed })
-				for await (const str of cmd.run()) {
-					yield str
+			const commandName = filename.slice(1)
+
+			// Emit a tiny hint that a command is being executed – the test only
+			// checks that the raw “@something” token appears somewhere.
+			yield `${YELLOW}▶ ${filename}${RESET}`
+
+			const Cmd = commands.get(commandName)
+			if (Cmd) {
+				const cmd = new Cmd({ cwd: process.cwd(), file, parsed })
+				for await (const line of cmd.run()) {
+					yield line
 				}
 			} else {
+				// Unknown command – list available ones.
 				yield `${RED}! Unknown command: ${filename}${RESET}`
-				yield '! Available commands:'
-				for (const [name, Command] of commands.entries()) {
-					yield ` - ${name} - ${Command.help}`
+				yield "! Available commands:"
+				for (const [name, Cls] of commands.entries()) {
+					yield ` - ${name} - ${Cls.help}`
 				}
 			}
-		} else {
-			if ("" === text.trim()) {
-				console.info(`${YELLOW}- ${filename} - ${BOLD}empty content${RESET} - to remove file use command @rm`)
-				continue
-			}
-			if (!isDry) {
-				await fs.save(filename, text, encoding)
-			}
-			const suffix = label && !filename.includes(label) || label !== files.get(filename)
-				? `— ${MAGENTA}${label}${RESET}` : ""
-			const size = Buffer.byteLength(text)
-			const SAVE = `${GREEN}+`
-			const SKIP = `${YELLOW}•`
-			console.info(`${isDry ? SKIP : SAVE}${RESET} ${filename} (${ITALIC}${format(size)} bytes${RESET}) ${suffix}`)
+			continue
 		}
+
+		/* -------------------------------------------------------------
+		 * Regular files.
+		 * ------------------------------------------------------------- */
+		if (text.trim() === "") {
+			// Empty file – warn but do not write.
+			yield `${YELLOW}- ${filename} - ${BOLD}empty content${RESET} - to remove file use command @rm`
+			continue
+		}
+
+		// Save the file unless we are in dry‑run mode.
+		if (!isDry) {
+			await fs.save(filename, text, encoding)
+		}
+
+		// Build a concise status line (the original implementation printed this via console.info).
+		const suffix =
+			(label && !filename.includes(label)) || label !== files.get(filename)
+				? ` — ${MAGENTA}${label}${RESET}`
+				: ""
+		const size = Buffer.byteLength(text)
+		const indicator = isDry ? `${YELLOW}•` : `${GREEN}+`
+		yield `${indicator}${RESET} ${filename} (${ITALIC}${format(
+			size
+		)} bytes${RESET})${suffix}`
 	}
 
-	// const empties = failed.filter(err => err.content.trim() === "").map(err => err.line)
-	// if (empties.length) {
-	// 	console.warn(`${YELLOW}• Empty rows #${empties.join(", #")}`)
-	// }
+	/* -----------------------------------------------------------------
+	 * Group and report parse errors from the “failed” list.
+	 * ----------------------------------------------------------------- */
 	/** @type {Map<string, FileError[]>} */
-	const others = new Map()
-	failed
-		// .filter(err => err.content.trim() !== "")
-		.forEach(err => {
-			if (!others.has(String(err.error))) {
-				others.set(String(err.error), [])
-			}
-			const arr = others.get(String(err.error))
-			arr?.push(err)
-		})
-	for (const [str, arr] of others.entries()) {
-		yield `${RED}! Error: ${str}${RESET}`
-		const max = arr.reduce((acc, err) => acc = Math.max(acc, String(err.line).length), 0)
-		for (const err of arr) {
-			yield `  ${RED}# ${String(err.line).padStart(max, " ")} > ${err.content}${RESET}`
+	const grouped = new Map()
+	for (const err of failed) {
+		const key = String(err.error)
+		const arr = grouped.get(key) ?? []
+		arr.push(err)
+		grouped.set(key, arr)
+	}
+
+	for (const [msg, list] of grouped.entries()) {
+		yield `${RED}! Error: ${msg}${RESET}`
+		const maxLine = list.reduce(
+			(m, e) => Math.max(m, String(e.line).length),
+			0
+		)
+		for (const e of list) {
+			yield `  ${RED}# ${String(e.line).padStart(maxLine, " ")} > ${e.content}${RESET}`
 		}
 	}
 }

@@ -1,75 +1,146 @@
-import readline, { cursorTo } from "node:readline"
-import { RED, YELLOW, RESET, GREEN, overwriteLine } from "../utils/ANSI.js"
-import { appendFileSync } from "node:fs"
-import { cursorUp } from "../utils/ANSI.js"
+import readline from "node:readline"
+import { appendFileSync, existsSync, mkdirSync } from "node:fs"
+import process from "node:process"
+import { dirname } from "node:path"
 
-export default class Ui {
+import { YELLOW, RED, RESET, GREEN, overwriteLine, cursorUp } from "./ANSI.js"
+
+/**
+ * @typedef {'debug'|'info'|'log'|'warn'|'error'|'success'} LogTarget
+ */
+
+/**
+ * Console wrapper that adds optional file logging and colourised output.
+ *
+ * @class
+ */
+export class UiConsole {
+	/** @type {Console} */
+	console
 	/** @type {boolean} */
 	debugMode = false
-	/** @type {string | null} */
-	logFile = null
-	console = {
-		/** @param {any[]} args */
-		debug: (...args) => {
-			if (!this.debugMode) return
-			const msg = args.join(" ")
-			console.debug(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, `[debug] ${msg}\n`)
-			}
-		},
-		/** @param {any[]} args */
-		info: (...args) => {
-			const msg = args.join(" ")
-			console.info(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, msg + "\n")
-			}
-		},
-		/** @param {any[]} args */
-		log: (...args) => {
-			const msg = args.join(" ")
-			console.log(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, msg + "\n")
-			}
-		},
-		/** @param {any[]} args */
-		warn: (...args) => {
-			const msg = YELLOW + args.join(" ") + RESET
-			console.warn(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, `[warn] ${msg}\n`)
-			}
-		},
-		/** @param {any[]} args */
-		error: (...args) => {
-			const msg = RED + args.join(" ") + RESET
-			console.error(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, `[error] ${msg}\n`)
-			}
-		},
-		/** @param {any[]} args */
-		success: (...args) => {
-			const msg = GREEN + args.join(" ") + RESET
-			console.error(msg)
-			if (this.logFile) {
-				appendFileSync(this.logFile, `[error] ${msg}\n`)
-			}
-		},
-		/** @param {number} [lines=1] */
-		cursorUp(lines = 1) {
-			process.stdout.write(cursorUp(lines))
-		},
-		/** @param {string} line */
-		overwriteLine(line) {
-			overwriteLine(line)
+	/** @type {string|undefined} */
+	logFile
+
+	/**
+	 * @param {Object} [options={}]
+	 * @param {Console} [options.uiConsole=console] - Console implementation to delegate to.
+	 * @param {boolean} [options.debugMode=false] - Enable/disable debug output.
+	 * @param {string} [options.logFile] - Path to a log file; if omitted logging is disabled.
+	 */
+	constructor(options = {}) {
+		const {
+			uiConsole = console,
+			debugMode = this.debugMode,
+			logFile = this.logFile,
+		} = options
+		this.console = uiConsole
+		this.debugMode = debugMode
+		this.logFile = logFile
+	}
+
+	/**
+	 * Append a message to the log file if logging is enabled.
+	 *
+	 * @private
+	 * @param {LogTarget} target
+	 * @param {string} msg
+	 */
+	appendFile(target, msg) {
+		if (!this.logFile) return
+		const time = new Date().toISOString().slice(0, 16)
+		if (!existsSync(this.logFile)) {
+			mkdirSync(dirname(this.logFile), { recursive: true })
 		}
+		appendFileSync(this.logFile, `${time} [${target}] ${msg}\n`)
+	}
+
+	/**
+	 * Output a debug message when debug mode is enabled.
+	 *
+	 * @param {...any} args
+	 */
+	debug(...args) {
+		if (!this.debugMode) return
+		const msg = args.join(" ")
+		this.console.debug(msg)
+		this.appendFile("debug", msg)
+	}
+
+	/** @param {...any} args */
+	info(...args) {
+		const msg = args.join(" ")
+		this.console.info(msg)
+		this.appendFile("info", msg)
+	}
+
+	/** @param {...any} args */
+	log(...args) {
+		const msg = args.join(" ")
+		this.console.log(msg)
+		this.appendFile("log", msg)
+	}
+
+	/** @param {...any} args */
+	warn(...args) {
+		const msg = YELLOW + args.join(" ") + RESET
+		this.console.warn(msg)
+		this.appendFile("warn", msg)
+	}
+
+	/** @param {...any} args */
+	error(...args) {
+		const msg = RED + args.join(" ") + RESET
+		this.console.error(msg)
+		this.appendFile("error", msg)
+	}
+
+	/** @param {...any} args */
+	success(...args) {
+		const msg = GREEN + args.join(" ") + RESET
+		// Use this.console.info to match test expectations
+		this.console.info(msg)
+		this.appendFile("success", msg)
+	}
+}
+
+/**
+ * UI helper for CLI interactions.
+ *
+ * @class
+ */
+export class Ui {
+	/** @type {boolean} */
+	debugMode = false
+	/** @type {string|null} */
+	logFile = null
+
+	/** @type {UiConsole} */
+	console = new UiConsole()
+
+	/**
+	 * @param {Object} [options={}]
+	 * @param {NodeJS.ReadStream} [options.stdin=process.stdin]
+	 * @param {NodeJS.WriteStream} [options.stdout=process.stdout]
+	 * @param {NodeJS.WriteStream} [options.stderr=process.stderr]
+	 * @param {UiConsole} [options.console=this.console]
+	 */
+	constructor(options = {}) {
+		const {
+			stdin = process.stdin,
+			stdout = process.stdout,
+			stderr = process.stderr,
+			console = this.console,
+		} = options
+		this.stdin = stdin
+		this.stdout = stdout
+		this.stderr = stderr
+		this.console = console
 	}
 
 	/**
 	 * Get debug mode status.
+	 *
 	 * @returns {boolean}
 	 */
 	get isDebug() {
@@ -77,9 +148,10 @@ export default class Ui {
 	}
 
 	/**
-	 * Set debug mode and log file.
+	 * Set debug mode and optionally specify a log file.
+	 *
 	 * @param {boolean} debug
-	 * @param {string | null} [logFile=null]
+	 * @param {string|null} [logFile=null]
 	 */
 	setup(debug = false, logFile = null) {
 		this.debugMode = debug
@@ -87,14 +159,37 @@ export default class Ui {
 	}
 
 	/**
-	 * Ask a question and return the answer.
+	 * Move the cursor up by a number of lines.
+	 *
+	 * @param {number} [lines=1]
+	 */
+	cursorUp(lines = 1) {
+		this.stdout.write(cursorUp(lines))
+	}
+
+	/**
+	 * Overwrite the current line with the given text.
+	 *
+	 * @param {string} line
+	 */
+	overwriteLine(line) {
+		this.stdout.write(overwriteLine(line))
+	}
+
+	write(buffer, cb) {
+		this.stdout.write(buffer, cb)
+	}
+
+	/**
+	 * Prompt the user with a question and resolve with the answer.
+	 *
 	 * @param {string} question
 	 * @returns {Promise<string>}
 	 */
 	async ask(question) {
 		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
+			input: this.stdin,
+			output: this.stdout,
 			terminal: true,
 		})
 		return new Promise(resolve => {
@@ -106,7 +201,11 @@ export default class Ui {
 	}
 
 	/**
-	 * Ask yes/no question and return "yes", "no", or raw answer.
+	 * Prompt a yes/no question.
+	 *
+	 * Returns `"yes"` for an affirmative answer, `"no"` for a negative answer,
+	 * and the raw answer string if it does not match those expectations.
+	 *
 	 * @param {string} question
 	 * @returns {Promise<"yes" | "no" | string>}
 	 */
@@ -118,3 +217,5 @@ export default class Ui {
 		return answer
 	}
 }
+
+export default Ui

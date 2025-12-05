@@ -1,4 +1,4 @@
-import { RESET, YELLOW } from "../../utils/ANSI.js"
+import { RESET, YELLOW } from "../../cli/ANSI.js"
 import Command from "./Command.js"
 
 export default class BashCommand extends Command {

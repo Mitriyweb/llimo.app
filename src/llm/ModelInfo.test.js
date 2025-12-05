@@ -52,10 +52,10 @@ describe("ModelInfo", () => {
 		}
 		const model = new ModelInfo(input)
 		assert.strictEqual(model.pricing.prompt, 0.05)
-		assert.strictEqual(model.pricing.completion, 0)  // default for pricing
+		assert.strictEqual(model.pricing.completion, -1)  // default for pricing
 		assert.strictEqual(model.architecture.modality, "multi")
 		assert.strictEqual(model.top_provider.context_length, 8192)
 		assert.strictEqual(model.top_provider.is_moderated, true)
-		assert.strictEqual(model.top_provider.max_completion_tokens, 0)  // default
+		assert.strictEqual(model.top_provider.max_completion_tokens, -1)  // default
 	})
 })

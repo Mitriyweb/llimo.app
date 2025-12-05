@@ -28,6 +28,18 @@ export default class ChatOptions {
 		alias: "test-dir",
 		default: ""
 	}
+	/** @type {string} */
+	model
+	static model = {
+		alias: "model",
+		default: ""
+	}
+	/** @type {string} */
+	provider
+	static provider = {
+		alias: "provider",
+		default: ""
+	}
 	/** @param {Partial<ChatOptions>} [input] */
 	constructor(input = {}) {
 		const {
@@ -36,12 +48,17 @@ export default class ChatOptions {
 			isYes = Boolean(ChatOptions.isYes.default),
 			testMode = String(ChatOptions.testMode.default),
 			testDir = String(ChatOptions.testDir.default),
+			model = String(ChatOptions.model.default),
+			provider = String(ChatOptions.provider.default),
 			argv = Array.from(ChatOptions.argv.default),
 		} = input
 		this.isNew = Boolean(isNew)
 		this.isYes = Boolean(isYes)
 		this.testMode = String(testMode)
 		this.testDir = String(testDir)
+		this.model = model
+		this.provider = provider
 		this.argv = argv
 	}
 }
+

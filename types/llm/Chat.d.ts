@@ -50,8 +50,9 @@ export default class Chat {
     /**
      * Save the AI response
      * @param {string} answer
+     * @param {number} [step] - Optional step number for per-step files
      */
-    saveAnswer(answer: string): Promise<void>;
+    saveAnswer(answer: string, step?: number): Promise<void>;
     #private;
 }
 export type ChatMessage = {

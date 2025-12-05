@@ -11,8 +11,8 @@
 import process from "node:process"
 import { Readable } from "node:stream"
 
-import { GREEN, RED, RESET, ITALIC, YELLOW, BOLD, MAGENTA } from "../src/utils/ANSI.js"
-import { FileSystem, Path, ReadLine } from "../src/utils.js"
+import { RESET } from "../src/cli/index.js"
+import { FileSystem, Path, ReadLine } from "../src/utils/index.js"
 import Markdown from "../src/utils/Markdown.js"
 import { unpackAnswer } from "../src/llm/unpack.js"
 

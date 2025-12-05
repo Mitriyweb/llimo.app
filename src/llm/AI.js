@@ -34,15 +34,20 @@ export default class AI {
 	/** @type {ModelProvider} */
 	#provider = new ModelProvider()
 
+	/** @type {ModelInfo?} */
+	selectedModel = null
+
 	/**
 	 * @param {object} input
 	 * @param {Array<readonly [string, Partial<ModelInfo>]> | Map<string, Partial<ModelInfo>>} input
 	 */
 	constructor(input = {}) {
 		const {
-			models = []
+			models = [],
+			selectedModel = this.selectedModel,
 		} = input
 		this.#models = new Map(models)
+		this.selectedModel = selectedModel
 	}
 
 	/**
@@ -90,6 +95,21 @@ export default class AI {
 		for (const [id, info] of this.#models.entries()) {
 			if (String(id).toLowerCase().includes(str)) return info
 		}
+	}
+
+	/**
+	 * Find models that matches modelId from all of the models by partial comparasion.
+	 * @param {string} modelId The full or partial model id.
+	 * @returns {ModelInfo[]}
+	 */
+	findModels(modelId) {
+		/** @type {ModelInfo[]} */
+		const result = []
+		const str = String(modelId).toLowerCase()
+		for (const [id, info] of this.#models.entries()) {
+			if (String(id).toLowerCase().includes(str)) result.push(info)
+		}
+		return result
 	}
 
 	/**
@@ -209,4 +229,5 @@ export default class AI {
 		return { text, usage }
 	}
 }
+
 

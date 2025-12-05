@@ -11,7 +11,7 @@ import Chat from "./Chat.js"
 import AI from "./AI.js"
 import { generateSystemPrompt } from "./system.js"
 import { unpackAnswer } from "./unpack.js"
-import { BOLD, GREEN, ITALIC, RESET, RED, YELLOW } from "../utils/ANSI.js"
+import { BOLD, GREEN, ITALIC, RESET, RED, YELLOW } from "../cli/ANSI.js"
 import FileSystem from "../utils/FileSystem.js"
 import MarkdownProtocol from "../utils/Markdown.js"
 import Ui from "../cli/Ui.js"
@@ -178,11 +178,12 @@ export function startStreaming(ai, model, chat, options) {
  *
  * @param {import("../cli/Ui.js").default} ui User interface instance
  * @param {Chat} chat Chat instance (used for paths)
- * @param {object} runCommand Function to execute shell commands
+ * @param {Function} runCommand Function to execute shell commands
  * @param {boolean} [isYes] Always yes to user prompts
+ * @param {number} [step] Optional step number for per-step files
  * @returns {Promise<{testsCode: boolean | string, shouldContinue: boolean}>}
  */
-export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = false) {
+export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = false, step) {
 	const logs = []
 	const answer = chat.messages.slice().pop()
 	if ("assistant" !== answer?.role) {
@@ -230,7 +231,16 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 	let recent = []
 	let prevLines = 0
 	const onDataLive = (d) => process.stdout.write(d)  // Simple live output without overwriting
-	const { stdout: testStdout, stderr: testStderr } = await runCommand("pnpm test:all", { onData: onDataLive })
+	ui.console.debug("pnpm test:all")
+	const {
+		stdout: testStdout, stderr: testStderr
+	} = await runCommand("pnpm", ["test:all"], { onData: onDataLive })
+
+	// Save per-step test output
+	if (step) {
+		const testOutput = testStdout + '\n' + testStderr
+		await chat.db.save(`test-step${step}.txt`, testOutput)
+	}
 
 	// Append test output to log
 	logs.push("#### pnpm test:all")
@@ -321,3 +331,4 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 
 	return { testsCode, shouldContinue }
 }
+

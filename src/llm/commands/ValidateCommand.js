@@ -1,4 +1,4 @@
-import { DIM, RESET, GREEN, RED, YELLOW } from "../../utils/ANSI.js"
+import { DIM, RESET, GREEN, RED, YELLOW } from "../../cli/ANSI.js"
 import Command from "./Command.js"
 
 /** @typedef {import("../../FileProtocol.js").ParsedFile} ParsedFile */

@@ -21,13 +21,12 @@ import Path from "../utils/Path.js"
  *
  * @param {string[]} argv   Command‑line arguments (already sliced).
  * @param {string} stdinData Raw data read from stdin (empty string if none).
+ * @param {FileSystem} [fs] FileSystem instance (for testing)
+ * @param {Path} [pathUtil] Path utility instance (for testing)
+ * @param {ReadLine} [rl] ReadLine instance (for testing)
  * @returns {Promise<{mdStream: import('readline').Interface|null, outputPath?: string, baseDir: string}>}
  */
-export async function parseIO(argv, stdinData) {
-	const fs = new FileSystem()
-	const pathUtil = new Path()
-	const rl = new ReadLine()
-
+export async function parseIO(argv, stdinData, fs = new FileSystem(), pathUtil = new Path(), rl = new ReadLine()) {
 	let mdStream = null
 	let baseDir = process.cwd()
 	let outputPath = undefined
@@ -62,6 +61,9 @@ export async function parseIO(argv, stdinData) {
 			outputPath = pathUtil.resolve(process.cwd(), argv[0])
 			mdStream = rl.createInterface({ input: process.stdin, crlfDelay: Infinity })
 		}
+	} else {
+		// no argv, no stdinData - interactive
+		mdStream = rl.createInterface({ input: process.stdin, crlfDelay: Infinity })
 	}
 	return { mdStream, outputPath, baseDir }
 }

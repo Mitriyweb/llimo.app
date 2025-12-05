@@ -9,6 +9,7 @@
 		"test": "node --test --test-timeout=3333 'src/**/*.test.js'",
 		"test:all": "npm run test && npm run build",
 		"test:chat": "node bin/llimo-chat.js --test=chat-dir",
+		"test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.js\" --test-coverage-exclude=\"src/**/*.test.js\" --test \"src/**/*.test.js\"",
 		"test:reproduce": "node bin/llimo-chat.js --test-dir=/path/to/chat/archive --input test-prompt.md",
 		"prepare": "husky"
 	},

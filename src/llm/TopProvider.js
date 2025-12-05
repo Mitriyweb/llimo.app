@@ -3,20 +3,20 @@
  */
 export default class TopProvider {
 	/** @type {number} - Context length */
-	context_length
+	context_length = -1
 	/** @type {boolean} - Whether the model is moderated */
-	is_moderated
+	is_moderated = false
 	/** @type {number} - Max completion tokens */
-	max_completion_tokens
+	max_completion_tokens = -1
 
 	/**
 	 * @param {Partial<TopProvider>} input
 	 */
 	constructor(input = {}) {
 		const {
-			context_length = 0,
-			is_moderated = false,
-			max_completion_tokens = 0,
+			context_length = this.context_length,
+			is_moderated = this.is_moderated,
+			max_completion_tokens = this.max_completion_tokens,
 		} = input
 		this.context_length = Number(context_length)
 		this.is_moderated = Boolean(is_moderated)

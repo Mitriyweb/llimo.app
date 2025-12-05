@@ -5,9 +5,9 @@ import TopProvider from "./TopProvider.js"
 describe("TopProvider", () => {
 	it("creates with defaults", () => {
 		const tp = new TopProvider()
-		assert.strictEqual(tp.context_length, 0)
+		assert.strictEqual(tp.context_length, -1)
 		assert.strictEqual(tp.is_moderated, false)
-		assert.strictEqual(tp.max_completion_tokens, 0)
+		assert.strictEqual(tp.max_completion_tokens, -1)
 	})
 
 	it("sets values from input", () => {

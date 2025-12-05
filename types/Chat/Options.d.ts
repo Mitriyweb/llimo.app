@@ -18,6 +18,14 @@ export default class ChatOptions {
         alias: string;
         default: string;
     };
+    static model: {
+        alias: string;
+        default: string;
+    };
+    static provider: {
+        alias: string;
+        default: string;
+    };
     /** @param {Partial<ChatOptions>} [input] */
     constructor(input?: Partial<ChatOptions>);
     /** @type {string[]} */
@@ -30,4 +38,8 @@ export default class ChatOptions {
     testMode: string;
     /** @type {string} */
     testDir: string;
+    /** @type {string} */
+    model: string;
+    /** @type {string} */
+    provider: string;
 }

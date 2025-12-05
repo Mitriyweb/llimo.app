@@ -114,9 +114,11 @@ export default class Chat {
 	/**
 	 * Save the AI response
 	 * @param {string} answer
+	 * @param {number} [step] - Optional step number for per-step files
 	 */
-	async saveAnswer(answer) {
-		const answerPath = this.#path.resolve(this.dir, "answer.md")
+	async saveAnswer(answer, step) {
+		const answerPath = this.#path.resolve(this.dir, step ? `answer-step${step}.md` : "answer.md")
 		await this.#fs.writeFile(answerPath, answer)
 	}
 }
+

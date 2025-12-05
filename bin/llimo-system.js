@@ -11,7 +11,7 @@
 import process from "node:process"
 import { generateSystemPrompt } from "../src/llm/system.js"
 import { GREEN, RESET, ITALIC } from "../utils/ANSI.js"
-import { FileSystem } from "../src/utils.js"
+import { FileSystem } from "../src/utils/index.js"
 
 /**
  * Main entry point.

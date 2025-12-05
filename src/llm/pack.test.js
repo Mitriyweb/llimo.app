@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { packMarkdown } from "./pack.js"
-import { FileSystem } from "../utils.js"
+import { FileSystem } from "../utils/index.js"
 
 describe("pack module", () => {
 	let tempDir

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { generateSystemPrompt } from "./system.js"
-import { FileSystem } from "../utils.js"
+import { FileSystem } from "../utils/index.js"
 
 describe("system module", () => {
 	let tempDir

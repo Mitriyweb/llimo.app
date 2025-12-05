@@ -81,9 +81,10 @@ export function startStreaming(ai: AI, model: string, chat: Chat, options: objec
  * @param {Chat} chat Chat instance (used for paths)
  * @param {object} runCommand Function to execute shell commands
  * @param {boolean} [isYes] Always yes to user prompts
+ * @param {number} [step] Optional step number for per-step files
  * @returns {Promise<{testsCode: boolean | string, shouldContinue: boolean}>}
  */
-export function decodeAnswerAndRunTests(ui: import("../cli/Ui.js").default, chat: Chat, runCommand: object, isYes?: boolean): Promise<{
+export function decodeAnswerAndRunTests(ui: import("../cli/Ui.js").default, chat: Chat, runCommand: object, isYes?: boolean, step?: number): Promise<{
     testsCode: boolean | string;
     shouldContinue: boolean;
 }>;

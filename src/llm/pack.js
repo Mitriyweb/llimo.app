@@ -2,7 +2,8 @@
  * Packs files into a single markdown string based on a checklist.
  */
 import micromatch from "micromatch"
-import { FileSystem, Path, RED, GREEN, RESET, YELLOW, ITALIC, MAGENTA } from "../utils.js"
+import { RED, GREEN, RESET, YELLOW, ITALIC, MAGENTA } from "../cli/index.js"
+import { FileSystem, Path } from "../utils/index.js"
 import Markdown from "../utils/Markdown.js"
 
 const numberFormat = new Intl.NumberFormat("en-US").format

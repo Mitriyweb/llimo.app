@@ -22,6 +22,8 @@ export default class AI {
      * @param {Array<readonly [string, Partial<ModelInfo>]> | Map<string, Partial<ModelInfo>>} input
      */
     constructor(input?: object);
+    /** @type {ModelInfo} */
+    selectedModel: ModelInfo;
     /**
      * Refresh model information from remote providers.
      *
@@ -50,6 +52,12 @@ export default class AI {
      * @returns {ModelInfo | undefined}
      */
     findModel(modelId: string): ModelInfo | undefined;
+    /**
+     * Find models that matches modelId from all of the models by partial comparasion.
+     * @param {string} modelId The full or partial model id.
+     * @returns {ModelInfo[]}
+     */
+    findModels(modelId: string): ModelInfo[];
     /**
      * Add a model to the internal map (for testing).
      *

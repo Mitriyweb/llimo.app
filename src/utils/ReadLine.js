@@ -1,7 +1,7 @@
 import readline, { Interface } from 'node:readline'
 import process from 'node:process'
 
-import { BOLD, RESET } from './ANSI.js'
+import { BOLD, RESET } from '../cli/ANSI.js'
 
 /**
  * Normalise the `stopKeys` option.

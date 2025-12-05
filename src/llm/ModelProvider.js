@@ -11,7 +11,7 @@
  *
  * @module llm/ModelProvider
  */
-import { FileSystem } from "../utils.js"
+import { FileSystem } from "../utils/index.js"
 import path from "node:path"
 
 import getCerebrasInfo from "./providers/cerebras.info.js"

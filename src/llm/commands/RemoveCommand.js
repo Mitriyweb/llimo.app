@@ -1,4 +1,4 @@
-import { RESET, GREEN, RED, YELLOW } from "../../utils/ANSI.js"
+import { RESET, GREEN, RED, YELLOW } from "../../cli/ANSI.js"
 import Command from "./Command.js"
 import { promises as fs } from "node:fs"
 import { resolve } from "node:path"
