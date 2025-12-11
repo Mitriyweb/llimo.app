@@ -330,7 +330,7 @@ export default class FileSystem {
 	/**
 	 * Relative proxy of mkdir() & writeFile().
 	 * @param {string} path
-	 * @param {any} data
+	 * @param {any} [data]
 	 * @param {any} [options]
 	 * @returns {Promise<void>}
 	 */

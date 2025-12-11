@@ -3,7 +3,7 @@
  * @property {string} answer
  * @property {string} reason
  * @property {LanguageModelUsage} usage
- * @property {any[]} unknown
+ * @property {any[]} unknowns
  * @property {any} [error]
  */
 /**
@@ -57,7 +57,7 @@ export type sendAndStreamOptions = {
     answer: string;
     reason: string;
     usage: LanguageModelUsage;
-    unknown: any[];
+    unknowns: any[];
     error?: any;
 };
 import AI from "./AI.js";

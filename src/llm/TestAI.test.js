@@ -14,26 +14,30 @@ describe("TestAI – file-based chat simulation", () => {
 	before(async () => {
 		chatDir = await mkdtemp(resolve(tmpdir(), "llimo-testai-"))
 		// Create test data files (covering all specified files)
-		await writeFile(resolve(chatDir, "chunks.json"), JSON.stringify([
+		await writeFile(resolve(chatDir, "step1-chunks.json"), JSON.stringify([
 			{ type: "text-delta", text: "Hello" },
 			{ type: "reasoning-delta", text: "Thinking..." },
 			{ type: "text-delta", text: " world!" }
 		]))
-		await writeFile(resolve(chatDir, "stream.json"), JSON.stringify([
+		await writeFile(resolve(chatDir, "step1-stream.json"), JSON.stringify([
 			{ type: "text-delta", text: "Extra from stream" }
 		]))
-		await writeFile(resolve(chatDir, "answer.md"), "Hello world!")
-		await writeFile(resolve(chatDir, "reason.md"), "Thinking...")
-		await writeFile(resolve(chatDir, "messages.jsonl"), JSON.stringify([
-			{ role: "user", content: "Test prompt" }
+		await writeFile(resolve(chatDir, "step1-answer.md"), "Hello world!")
+		await writeFile(resolve(chatDir, "step1-reason.md"), "Thinking...")
+		await writeFile(resolve(chatDir, "step1-messages.jsonl"), JSON.stringify([
+			{ "role": "system", "content": "You are AI." },
+			{ "role": "user", "content": "Test prompt" },
+			{ "role": "assistant", "content": "Hi there!" },
+			{ "role": "user", "content": "How are you?" },
+			{ "role": "assistant", "content": "Good, thanks." }
 		]))
-		await writeFile(resolve(chatDir, "response.json"), JSON.stringify({
+		await writeFile(resolve(chatDir, "step1-response.json"), JSON.stringify({
 			usage: { inputTokens: 4, reasoningTokens: 2, outputTokens: 2, totalTokens: 8 }
 		}))
-		await writeFile(resolve(chatDir, "stream.md"), "\nAppended stream content")
-		await writeFile(resolve(chatDir, "tests.txt"), "Expected test output: pass")
-		await writeFile(resolve(chatDir, "todo.md"), "- Fix bug\n- Add feature")
-		await writeFile(resolve(chatDir, "unknown.json"), JSON.stringify({ debug: "ignored data" }))
+		await writeFile(resolve(chatDir, "step1-stream.md"), "\nAppended stream content")
+		await writeFile(resolve(chatDir, "step1-tests.txt"), "Expected test output: pass")
+		await writeFile(resolve(chatDir, "step1-todo.md"), "- Fix bug\n- Add feature")
+		await writeFile(resolve(chatDir, "step1-unknown.json"), JSON.stringify({ debug: "ignored data" }))
 		// me.md and prompt.md are ignored, so no need to create them for previous tests
 		// Now add extended test data to cover NaN and cost calculation issues
 	})
@@ -74,7 +78,7 @@ describe("TestAI – file-based chat simulation", () => {
 	it("should load and simulate response from files (all files handled)", async () => {
 		const ai = new TestAI()
 		const messages = [{ role: "user", content: "Test" }]
-		const result = await ai.streamText("test-model", messages, { cwd: chatDir })
+		const result = await ai.streamText("test-model", messages, { cwd: chatDir, step: 1 })
 		const { fullResponse, reasoning, usage, chunks, textStream } = result
 
 		assert.equal(fullResponse, "Hello world!\nAppended stream content")  // answer.md + stream.md
@@ -122,7 +126,7 @@ describe("TestAI – file-based chat simulation", () => {
 		// For unit test, verify files are loaded but not in response
 		const ai = new TestAI()
 		const messages = [{ role: "user", content: "Test" }]
-		const result = await ai.streamText("test-model", messages, { cwd: chatDir })
+		const result = await ai.streamText("test-model", messages, { cwd: chatDir, step: 1 })
 		assert.equal(result.fullResponse, "Hello world!\nAppended stream content")  // No change from debug files
 		// In practice, tests.txt, todo.md, unknown.json are logged via console.debug
 	})

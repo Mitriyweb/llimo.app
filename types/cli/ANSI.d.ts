@@ -12,85 +12,96 @@ export function overwriteLine(str?: string): string;
  * @returns {string} The ANSI escape sequence to move the cursor.
  */
 export function cursorUp(rows?: number): string;
-export let RESET: any;
-export let BOLD: any;
-export let DIM: any;
-export let ITALIC: any;
-export let UNDERLINE: any;
-export let BLINK: any;
-export let RAPID_BLINK: any;
-export let INVERSE: any;
-export let CONCEAL: any;
-export let STRIKETHROUGH: any;
-export let BLACK: any;
-export let RED: any;
-export let GREEN: any;
-export let YELLOW: any;
-export let BLUE: any;
-export let MAGENTA: any;
-export let CYAN: any;
-export let WHITE: any;
-export let BRIGHT_BLACK: any;
-export let BRIGHT_RED: any;
-export let BRIGHT_GREEN: any;
-export let BRIGHT_YELLOW: any;
-export let BRIGHT_BLUE: any;
-export let BRIGHT_MAGENTA: any;
-export let BRIGHT_CYAN: any;
-export let BRIGHT_WHITE: any;
-export let BG_BLACK: any;
-export let BG_RED: any;
-export let BG_GREEN: any;
-export let BG_YELLOW: any;
-export let BG_BLUE: any;
-export let BG_MAGENTA: any;
-export let BG_CYAN: any;
-export let BG_WHITE: any;
-export let BG_BRIGHT_BLACK: any;
-export let BG_BRIGHT_RED: any;
-export let BG_BRIGHT_GREEN: any;
-export let BG_BRIGHT_YELLOW: any;
-export let BG_BRIGHT_BLUE: any;
-export let BG_BRIGHT_MAGENTA: any;
-export let BG_BRIGHT_CYAN: any;
-export let BG_BRIGHT_WHITE: any;
-export let COLORS: any;
-export let BG_COLORS: any;
-export let CLEAR_LINE: any;
-export let OVERWRITE_LINE: any;
-export type AnsiColors = {
-    BLACK: string;
-    RED: string;
-    GREEN: string;
-    YELLOW: string;
-    BLUE: string;
-    MAGENTA: string;
-    CYAN: string;
-    WHITE: string;
-    BRIGHT_BLACK: string;
-    BRIGHT_RED: string;
-    BRIGHT_GREEN: string;
-    BRIGHT_YELLOW: string;
-    BRIGHT_BLUE: string;
-    BRIGHT_MAGENTA: string;
-    BRIGHT_CYAN: string;
-    BRIGHT_WHITE: string;
-};
-export type AnsiBgColors = {
-    BLACK: string;
-    RED: string;
-    GREEN: string;
-    YELLOW: string;
-    BLUE: string;
-    MAGENTA: string;
-    CYAN: string;
-    WHITE: string;
-    BRIGHT_BLACK: string;
-    BRIGHT_RED: string;
-    BRIGHT_GREEN: string;
-    BRIGHT_YELLOW: string;
-    BRIGHT_BLUE: string;
-    BRIGHT_MAGENTA: string;
-    BRIGHT_CYAN: string;
-    BRIGHT_WHITE: string;
-};
+/**
+ * Strip ANSI escape sequences (colour codes, cursor movements, etc.) from a string.
+ *
+ * @param {string} str - Input string that may contain ANSI codes.
+ * @returns {string} The string with all ANSI escape sequences removed.
+ *
+ * The implementation uses a regular expression that matches the most common
+ * ANSI escape sequences (`\x1b[` followed by zero or more digits/semicolons and a
+ * final letter). This covers colour codes, text attributes, cursor controls,
+ * and other CSI sequences. For exotic sequences not covered by the pattern the
+ * function will still return a reasonably cleaned string.
+ */
+export function stripANSI(str: string): string;
+export const RESET: "" | "\u001B[0m";
+export const BOLD: "" | "\u001B[1m";
+export const DIM: "" | "\u001B[2m";
+export const ITALIC: "" | "\u001B[3m";
+export const UNDERLINE: "" | "\u001B[4m";
+export const BLINK: "" | "\u001B[5m";
+export const RAPID_BLINK: "" | "\u001B[6m";
+export const INVERSE: "" | "\u001B[7m";
+export const CONCEAL: "" | "\u001B[8m";
+export const STRIKETHROUGH: "" | "\u001B[9m";
+export const BLACK: "" | "\u001B[30m";
+export const RED: "" | "\u001B[31m";
+export const GREEN: "" | "\u001B[32m";
+export const YELLOW: "" | "\u001B[33m";
+export const BLUE: "" | "\u001B[34m";
+export const MAGENTA: "" | "\u001B[35m";
+export const CYAN: "" | "\u001B[36m";
+export const WHITE: "" | "\u001B[37m";
+export const BRIGHT_BLACK: "" | "\u001B[90m";
+export const BRIGHT_RED: "" | "\u001B[91m";
+export const BRIGHT_GREEN: "" | "\u001B[92m";
+export const BRIGHT_YELLOW: "" | "\u001B[93m";
+export const BRIGHT_BLUE: "" | "\u001B[94m";
+export const BRIGHT_MAGENTA: "" | "\u001B[95m";
+export const BRIGHT_CYAN: "" | "\u001B[96m";
+export const BRIGHT_WHITE: "" | "\u001B[97m";
+export const BG_BLACK: "" | "\u001B[40m";
+export const BG_RED: "" | "\u001B[41m";
+export const BG_GREEN: "" | "\u001B[42m";
+export const BG_YELLOW: "" | "\u001B[43m";
+export const BG_BLUE: "" | "\u001B[44m";
+export const BG_MAGENTA: "" | "\u001B[45m";
+export const BG_CYAN: "" | "\u001B[46m";
+export const BG_WHITE: "" | "\u001B[47m";
+export const BG_BRIGHT_BLACK: "" | "\u001B[100m";
+export const BG_BRIGHT_RED: "" | "\u001B[101m";
+export const BG_BRIGHT_GREEN: "" | "\u001B[102m";
+export const BG_BRIGHT_YELLOW: "" | "\u001B[103m";
+export const BG_BRIGHT_BLUE: "" | "\u001B[104m";
+export const BG_BRIGHT_MAGENTA: "" | "\u001B[105m";
+export const BG_BRIGHT_CYAN: "" | "\u001B[106m";
+export const BG_BRIGHT_WHITE: "" | "\u001B[107m";
+export namespace COLORS {
+    export { BLACK };
+    export { RED };
+    export { GREEN };
+    export { YELLOW };
+    export { BLUE };
+    export { MAGENTA };
+    export { CYAN };
+    export { WHITE };
+    export { BRIGHT_BLACK };
+    export { BRIGHT_RED };
+    export { BRIGHT_GREEN };
+    export { BRIGHT_YELLOW };
+    export { BRIGHT_BLUE };
+    export { BRIGHT_MAGENTA };
+    export { BRIGHT_CYAN };
+    export { BRIGHT_WHITE };
+}
+export namespace BG_COLORS {
+    export { BG_BLACK as BLACK };
+    export { BG_RED as RED };
+    export { BG_GREEN as GREEN };
+    export { BG_YELLOW as YELLOW };
+    export { BG_BLUE as BLUE };
+    export { BG_MAGENTA as MAGENTA };
+    export { BG_CYAN as CYAN };
+    export { BG_WHITE as WHITE };
+    export { BG_BRIGHT_BLACK as BRIGHT_BLACK };
+    export { BG_BRIGHT_RED as BRIGHT_RED };
+    export { BG_BRIGHT_GREEN as BRIGHT_GREEN };
+    export { BG_BRIGHT_YELLOW as BRIGHT_YELLOW };
+    export { BG_BRIGHT_BLUE as BRIGHT_BLUE };
+    export { BG_BRIGHT_MAGENTA as BRIGHT_MAGENTA };
+    export { BG_BRIGHT_CYAN as BRIGHT_CYAN };
+    export { BG_BRIGHT_WHITE as BRIGHT_WHITE };
+}
+export const CLEAR_LINE: "\u001B[2K";
+export const OVERWRITE_LINE: "\r\u001B[K";

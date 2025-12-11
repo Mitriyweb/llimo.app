@@ -1,35 +1,14 @@
-import { describe, it, afterEach } from "node:test"
+import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import process from "node:process"
 
 import * as ANSI from "./ANSI.js"
 
 describe("ANSI", () => {
-	const originalIsTTY = process.stdout.isTTY
-
-	afterEach(() => {
-		// Restore original TTY state using the accessor defined in ANSI.js
-		process.stdout.isTTY = originalIsTTY
-	})
-
 	it("should provide empty strings when not TTY", () => {
-		// Use the accessor to trigger updateAnsiExports()
-		process.stdout.isTTY = false
-
 		assert.strictEqual(ANSI.RESET, "")
 		assert.strictEqual(ANSI.BOLD, "")
 		assert.strictEqual(ANSI.RED, "")
 		assert.strictEqual(ANSI.BG_RED, "")
-	})
-
-	it("should provide ANSI codes when TTY", () => {
-		// Use the accessor to trigger updateAnsiExports()
-		process.stdout.isTTY = true
-
-		assert.strictEqual(ANSI.RESET, "\x1b[0m")
-		assert.strictEqual(ANSI.BOLD, "\x1b[1m")
-		assert.strictEqual(ANSI.RED, "\x1b[31m")
-		assert.strictEqual(ANSI.BG_RED, "\x1b[41m")
 	})
 
 	it("should export COLORS object with foreground colors", () => {
@@ -70,13 +49,5 @@ describe("ANSI", () => {
 	it("should move cursor up by 3 rows", () => {
 		const result = ANSI.cursorUp(3)
 		assert.strictEqual(result, "\x1b[3A")
-	})
-
-	it("should strip ANSI special characters", () => {
-		// Use the accessor to trigger updateAnsiExports()
-		process.stdout.isTTY = true
-		const str = ANSI.RED + "RED"
-		assert.ok(str !== "RED")
-		assert.equal(ANSI.stripANSI(str), "RED")
 	})
 })

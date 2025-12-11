@@ -31,7 +31,7 @@ function isRateLimit(err) {
  * @property {string} answer
  * @property {string} reason
  * @property {LanguageModelUsage} usage
- * @property {any[]} unknown
+ * @property {any[]} unknowns
  * @property {any} [error]
  */
 
@@ -59,7 +59,8 @@ export async function sendAndStream(options) {
 		format, valuta, model, fps = 30,
 	} = options
 	const startTime = Date.now()
-	const unknown = []
+	/** @type {Array<[string, any]>} */
+	const unknowns = []
 	let answer = ""
 	let reason = ""
 	let prev = 0
@@ -74,7 +75,6 @@ export async function sendAndStream(options) {
 		lines.forEach((line) => ui.overwriteLine(line + "\n"))
 	}, fps)
 
-	const chatDb = new FileSystem({ cwd: chat.dir })
 	let error
 	try {
 		const chunks = []
@@ -94,7 +94,7 @@ export async function sendAndStream(options) {
 				} else if ("raw" === chunk.type) {
 					timeInfo = chunk.rawValue?.time_info
 				} else {
-					unknown.push(["Unknown chunk.type", chunk])
+					unknowns.push(["Unknown chunk.type", chunk])
 				}
 				chunks.push(chunk)
 			},
@@ -104,30 +104,33 @@ export async function sendAndStream(options) {
 		}
 
 		chat.add({ role: "user", content: prompt })
+		await chat.save()
 
 		usage.inputTokens = chat.getTokensCount()
 
 		const { stream, result } = startStreaming(ai, model.id, chat, streamOptions)
 
-		const stepPrefix = `step${step}-`
-		await chatDb.save(`${stepPrefix}stream.md`, "")
+		await chat.append("stream", "", step)
+		/** @type {object[]} */
 		const parts = []
 		for await (const part of stream) {
 			if ("string" === typeof part || "text-delta" == part.type) {
 				answer += part.text ?? part
-				await chatDb.append(`${stepPrefix}stream.md`, part.text ?? part)
+				await chat.append("stream", part.text ?? part, step)
 			} else if ("usage" == part.type) {
 				usage = new LanguageModelUsage(part.usage)
 			}
 			parts.push(part)
 		}
+		await chat.save("parts", parts, step)
 		if (error) throw error
 
 		if ("resolved" === result._totalUsage?.status?.type) {
 			usage = new LanguageModelUsage(result._totalUsage.status.value)
 		} else {
-			unknown.push(["Unknown _totalUsage.status type", result._totalUsage?.status?.type])
+			unknowns.push(["Unknowns _totalUsage.status type", result._totalUsage?.status?.type])
 		}
+		await chat.save("usage", usage, step)
 		if (result._steps?.status?.type === "resolved") {
 			const step0 = result._steps.status.value?.[0]
 			if (step0?.usage) usage = new LanguageModelUsage(step0.usage)
@@ -139,16 +142,11 @@ export async function sendAndStream(options) {
 				// @todo future: apply limits to show them in the progress table.
 			}
 		} else {
-			unknown.push(["Unknown _steps.status type", result._steps?.status?.type])
+			unknowns.push(["Unknowns _steps.status type", result._steps?.status?.type])
 		}
 
 		// persist raw result for debugging
-		await chatDb.save(`${stepPrefix}response.json`, result)
-		await chatDb.save(`${stepPrefix}stream.json`, parts)
-		await chatDb.save(`${stepPrefix}chunks.json`, chunks)
-		await chatDb.save(`${stepPrefix}unknown.json`, unknown)
-		await chatDb.save(`${stepPrefix}reason.md`, reason)
-		await chat.saveAnswer(answer, step)
+		await chat.save({ response: result, parts, chunks, unknowns, reason, answer, usage, step })
 
 		clearInterval(chatting)
 
@@ -163,11 +161,11 @@ export async function sendAndStream(options) {
 			ui.console.info(timeInfo)
 		}
 
-		return { answer, reason, usage, unknown }
+		return { answer, reason, usage, unknowns }
 	} catch (/** @type {any} */ err) {
 		clearInterval(chatting)
 		// Graceful API error handling
-		let shortMsg = "Unknown API error"
+		let shortMsg = "Unknowns API error"
 		if (["AI_APICallError", "APICallError", "RetryError"].includes(err.name)) {
 			shortMsg = err.message.split("\n")[0] || shortMsg
 			ui.console.error(`${RED}API Error: ${shortMsg}${RESET}`)
@@ -186,7 +184,7 @@ export async function sendAndStream(options) {
 		} else {
 			throw err
 		}
-		return { answer, reason, usage, unknown, error: err }
+		return { answer, reason, usage, unknowns, error: err }
 	} finally {
 		clearInterval(chatting)
 	}
@@ -210,12 +208,11 @@ export async function postStreamProcess(input) {
 	chat.add({ role: "assistant", content: answer })
 	await chat.save()
 	ui.console.info("")
-	const path = new Path()
 	const git = new Git({ dry: true })
 	if (reason) {
-		ui.console.info(`+ reason-step${step}.md (${path.resolve(chat.dir, `reason-step${step}.md`)})`)
+		ui.console.info(`+ reason (${chat.path("reason.md", step)})`)
 	}
-	ui.console.info(`+ answer-step${step}.md (${path.resolve(chat.dir, `answer-step${step}.md`)})`)
+	ui.console.info(`+ answer (${chat.path("answer.md", step)})`)
 
 	// 6. decode answer & run tests
 	const onData = (d) => ui.write(String(d))

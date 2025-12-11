@@ -5,8 +5,8 @@ import { packPrompt } from "./chatSteps.js"
 import { unpackAnswer } from "./unpack.js"
 import Chat from "./Chat.js"
 import TestAI from "./TestAI.js"
-import MarkdownProtocol from "../utils/Markdown.js"
-import { BLUE, DIM, GREEN, ITALIC, RESET, YELLOW } from "../cli/ANSI.js"
+import Markdown from "../utils/Markdown.js"
+import { BLUE, DIM, GREEN, ITALIC, RED, RESET, YELLOW } from "../cli/ANSI.js"
 import { createTempWorkspace, cleanupTempDir } from "../test-utils.js"
 import FileSystem from "../utils/FileSystem.js"
 import Ui from "../cli/Ui.js"
@@ -16,11 +16,12 @@ class Formats {
 	static IntFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format
 }
 
-/** @typedef {"byte" | "token"} Unit */
-
+/**
+ * @typedef {"byte" | "token"} Unit
+ */
 class Weight {
 	value
-	/** @type {} */
+	/** @type {Unit} */
 	unit
 	constructor(input = {}) {
 		const {
@@ -37,10 +38,10 @@ class Weight {
 }
 
 /**
- *
+ * Calculate weight of messages.
  * @param {import("ai").ModelMessage[]} messages
- * @param {Unit} unit
- * @returns
+ * @param {Unit} unit - Unit for weight calculation
+ * @returns {Weight}
  */
 function weight(messages, unit = "byte") {
 	return new Weight({ value: messages.reduce((a, v) => a += String(v.content).length, 0), unit })
@@ -127,8 +128,6 @@ export default class TestRunner {
 				throw new Error(`Cannot read chat ${id}`)
 			}
 
-			process.exit(0)
-
 			switch (this.options.mode) {
 				case "info":
 					await this.showInfo(chat)
@@ -143,31 +142,44 @@ export default class TestRunner {
 					this.ui.console.error(`Unknown mode: ${this.options.mode}`)
 					process.exit(1)
 			}
+		} catch (error) {
+			throw error // Re-throw for tests to catch
 		} finally {
 			if (cleanupTemp) cleanupTemp()
 		}
 	}
 
+	/**
+	 * @param {Chat} chat
+	 */
 	async showInfo(chat) {
 		this.ui.console.info(`Chat info for ${this.chatDir}`)
 
 		let totalTokens = 0
 		let step = 0
+		let groups = new Map()
+		let files = 0
 		const userSteps = []
 		for (let i = 0; i < chat.messages.length; i++) {
 			const msg = chat.messages[i]
-			if (msg && msg.role === "user") {
+			const tokens = Math.round(msg.content.length / 4)
+			totalTokens += tokens
+			const count = groups.get(msg.role) ?? 0
+			groups.set(msg.role, count + tokens)
+			const parsed = await Markdown.parse(String(msg.content))
+			const atts = parsed.files?.size ?? 0
+			files += atts
+			if (msg.role === "user") {
 				step++
-				const tokens = Math.round(msg.content.length / 4)
-				totalTokens += tokens
 				userSteps.push({ step, tokens })
-				this.ui.console.info(`${step}. User: ${tokens} tokens (cumulative: ${totalTokens})`)
 			}
+			const str = Array.from(groups.entries()).map(
+				([name, num]) => `${name}: ${this.ui.formats.weight("T", num)}T`
+			).join(", ")
+			this.ui.console.info(`${step}. [${msg.role}] ${str}; ${atts}:${files} file(s) (total: ${this.ui.formats.weight("T", totalTokens)}T)`)
 		}
 		this.ui.console.info(`Total estimated tokens: ${totalTokens}`)
-
-		const stepFiles = (await this.fs.readdir(this.chatDir)).filter((f) => f.startsWith("step") && f.endsWith(".json"))
-		this.ui.console.info(`Available step data: ${stepFiles.join(", ") || "none"}`)
+		this.ui.console.info(`Available step data: ${userSteps.length}`)
 
 		if (this.options.step > 0) {
 			const stepInfo = userSteps.find((s) => s.step === this.options.step)
@@ -197,7 +209,7 @@ export default class TestRunner {
 		await this.simulateUnpack(chat)
 		this.ui.console.info(`${GREEN}Simulating tests for step ${this.options.step}${RESET}`)
 
-		const testFile = `test-step${this.options.step}.txt`
+		const testFile = `step/${String(this.options.step).padStart(3, '0')}/tests.txt`
 		let testOutput = ""
 		try {
 			if (this.fs.load && await this.fs.exists(testFile)) {
@@ -259,7 +271,7 @@ export default class TestRunner {
 		await Array.fromAsync(simResult.textStream)
 
 		const fullResponse = simResult.fullResponse
-		const parsed = await MarkdownProtocol.parse(fullResponse)
+		const parsed = await Markdown.parse(fullResponse)
 
 		return { fullResponse, parsed, simResult }
 	}

@@ -1,0 +1,5 @@
+# Tests to run after code updates for this task
+src/cli/argvHelper.test.js
+src/Chat/Options.test.js
+src/llm/TestAI.test.js
+src/llm/Chat.test.js  # For --new archiving

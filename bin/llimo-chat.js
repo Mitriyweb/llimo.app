@@ -2,12 +2,14 @@
 import process from "node:process"
 import { Git, FileSystem } from "../src/utils/index.js"
 import {
-	GREEN, RESET, YELLOW, parseArgv, Ui
+	GREEN, RESET, parseArgv, Ui, selectAndShowModel,
+	MAGENTA
 } from "../src/cli/index.js"
 import {
-	AI, TestAI, Chat, ModelInfo, packMarkdown,
+	AI, TestAI, Chat, packMarkdown,
 	initialiseChat, copyInputToChat, packPrompt,
-	selectModel, handleTestMode, sendAndStream, postStreamProcess
+	handleTestMode, sendAndStream, postStreamProcess,
+	readInput
 } from "../src/llm/index.js"
 import { loadModels, ChatOptions } from "../src/Chat/index.js"
 
@@ -33,98 +35,32 @@ async function main(argv = process.argv.slice(2)) {
 
 	// Parse arguments
 	const command = parseArgv(argv, ChatOptions)
-	const { argv: cleanArgv, isNew, isYes, testMode, testDir, model: modelStr, provider: providerStr } = command
+	const { argv: cleanArgv, isNew, isYes, isTest, testDir } = command
+	const modelStr = command.model || DEFAULT_MODEL
+	const providerStr = command.provider || process.env.LLIMO_PROVIDER || ""
 
 	const format = new Intl.NumberFormat("en-US").format
-	const pricing = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format
 	const valuta = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 }).format
 
 	/** @type {AI} */
 	let ai
-	if (testMode || testDir) {
+	if (isTest) {
 		ui.console.info(`${GREEN}🧪 Test mode enabled with chat directory: ${testDir}${RESET}`)
 		ai = new TestAI()
 	} else {
 		const models = await loadModels(ui)
 		ai = new AI({ models })
-
-		/** @type {ModelInfo} */
-		let model
-		if (modelStr || providerStr) {
-			model = await selectModel(models, modelStr, providerStr, ui, fs)
-		} else {
-			model = ai.findModel(DEFAULT_MODEL)
-			if (!model) {
-				const modelsList = ai.findModels(DEFAULT_MODEL)
-				ui.console.error(`❌ Model '${DEFAULT_MODEL}' not found`)
-				if (modelsList.length) {
-					ui.console.info("Similar models, specify the model")
-					modelsList.forEach(m => ui.console.info(`- ${m.id}`))
-				}
-				process.exit(1)
-			}
-		}
-
-		const inputPer1MT = parseFloat(model.pricing?.prompt || "0") * 1e6
-		const outputPer1MT = parseFloat(model.pricing?.completion || "0") * 1e6
-		const cachePer1MT = parseFloat(model.pricing?.input_cache_read || "0") + parseFloat(model.pricing?.input_cache_write || "0")
-
-		ui.console.info(`> ${model.id} selected with modality ${model.architecture?.modality ?? "?"}`)
-		ui.console.info(`  pricing: → ${pricing(inputPer1MT)} ← ${pricing(outputPer1MT)} (cache: ${pricing(cachePer1MT)})`)
-		ui.console.info(`  provider: ${model.provider}`)
-
-		// Validate API key before proceeding
-		try {
-			ai.getProvider(model.provider)
-		} catch (err) {
-			ui.console.error(err.message)
-			if (err.stack) ui.console.debug(err.stack)
-			process.exit(1)
-		}
-
-		// Assign for later use
-		ai.selectedModel = model
+		ai.selectedModel = await selectAndShowModel(ai, ui, fs, modelStr, providerStr, DEFAULT_MODEL)
 	}
-
 	// 1. read input (stdin / file) - use cleanArgv to avoid flags
-	let input = ""
-	let inputFile = null
-	if (cleanArgv.length > 0) {
-		inputFile = fs.path.resolve(cleanArgv[0])
-		try {
-			input = await fs.readFile(inputFile, "utf-8")
-		} catch (err) {
-			if (err.code === "ENOENT") {
-				ui.console.error(`❌ Input file not found: ${inputFile}`)
-				process.exit(1)
-			}
-			throw err
-		}
-	} else if (!process.stdin.isTTY) {
-		// piped stdin
-		for await (const chunk of process.stdin) input += chunk
-	} else {
-		// No input provided - in test mode, load from prompt.md if exists, else error
-		if (testMode || testDir) {
-			const testFs = new FileSystem({ cwd: testDir })
-			try {
-				input = await testFs.load("prompt.md") || ""
-				ui.console.info(`${YELLOW}⚠️ No input provided in test mode; using prompt.md from ${testDir} (or empty)${RESET}`)
-				if (!input) input = "Simulated test prompt"  // Default for empty test
-			} catch {
-				ui.console.error(`❌ No input provided and no prompt.md in test dir: ${testDir}`)
-				process.exit(1)
-			}
-		} else {
-			throw new Error("❌ No input provided. Pipe to stdin, provide a file, or use --test-dir with prompt.md.")
-		}
-	}
+	const { input, inputFile } = await readInput(cleanArgv, fs, ui)
 
 	// 2. initialise / load chat
 	const { chat } = await initialiseChat({ ui, ChatClass: Chat, fs, isNew })
+	await chat.save("input.md", input)
 	const testChatDir = testDir || chat.dir  // Use provided dir or current chat.dir
 
-	if (testMode || testDir) {
+	if (isTest) {
 		const dummyModel = { pricing: { prompt: 0, completion: 0 }, architecture: { modality: "text" } }
 		await handleTestMode({
 			ai, ui, cwd: testChatDir, input, chat, model: dummyModel, fps: PROGRESS_FPS
@@ -132,26 +68,28 @@ async function main(argv = process.argv.slice(2)) {
 		return // Exits in function
 	}
 
+	let step = chat.assistantMessages.length + 1
+	let consecutiveErrors = 0
+
 	// Normal real AI mode continues...
 	const model = ai.selectedModel || ai.findModel(DEFAULT_MODEL)
 
 	// 3. copy source file to chat directory (if any)
-	await copyInputToChat(inputFile, input, chat, ui)
+	await copyInputToChat(inputFile, input, chat, ui, step)
 
 	// 4. pack prompt – prepend system.md if present
 	const packed = await packPrompt(packMarkdown, input, chat, ui)
 	let prompt = packed.packedPrompt
+	await chat.save("prompt.md", prompt)
 
 	// 5. chat loop – refactored
-	let step = 1
-	let consecutiveErrors = 0
 
 	const DONE_BRANCH = ""
 	const FAIL_BRANCH = ""
 
 	while (true) {
+		await chat.save({ input, prompt, model: ai.selectedModel, step, messages: true })
 		ui.console.info(`\nstep ${step}. ${new Date().toISOString()}`)
-
 		ui.console.info(`\nsending (streaming) [${model.id}](@${model.provider})`)
 
 		// Show batch discount information
@@ -160,10 +98,17 @@ async function main(argv = process.argv.slice(2)) {
 			ui.console.info(`\n! batch processing has ${discount}% discount compared to streaming\n`)
 		}
 
+		if (!isYes) {
+			const ans = await ui.askYesNo(`${MAGENTA}Send prompt to LLiMo? (Y)es, No: ${RESET}`)
+			if ("yes" !== ans) return
+		}
+
+		// 6. send messages and see the stream progress
 		const streamResult = await sendAndStream({
 			ai, chat, ui, step, prompt, format, valuta, model, fps: PROGRESS_FPS
 		})
 
+		// 7. decode response and run the tests
 		const postResult = await postStreamProcess({
 			...streamResult,
 			ai, chat, ui, step, isYes, MAX_ERRORS
@@ -174,10 +119,11 @@ async function main(argv = process.argv.slice(2)) {
 			break
 		}
 
-		const inputPrompt = await chat.db.load("prompt.md")
+		// 8. pack prompt
+		const inputPrompt = await chat.load("input.md")
 		await packPrompt(packMarkdown, inputPrompt || input, chat, ui)
 
-		// 7. check if tests passed – same logic as original script
+		// 9. check if tests passed – same logic as original script
 		if (true === testsCode) {
 			// Task is complete, let's commit and exit
 			ui.console.info(`  ${GREEN}+ Task is complete${RESET}`)
@@ -198,7 +144,7 @@ async function main(argv = process.argv.slice(2)) {
 			}
 		}
 
-		// 8. commit step and continue
+		// 10. commit step and continue
 		// console
 		// await git.commitAll(`step ${step}: response and test results`)
 		step++

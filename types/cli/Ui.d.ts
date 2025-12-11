@@ -1,6 +1,31 @@
 /**
  * @typedef {'debug'|'info'|'log'|'warn'|'error'|'success'} LogTarget
  */
+export class UiFormats {
+    /**
+     * Formats weight (size) of the value, available types:
+     * b - bytes
+     * T - Tokens
+     * @param {"b" | "T"} type
+     * @param {number} value
+     * @param {(value: number) => string} [format]
+     * @returns {string}
+     */
+    weight(type: "b" | "T", value: number, format?: (value: number) => string): string;
+    /**
+     * Formats count (amount) of the value
+     * @param {number} value
+     * @param {(value: number) => string} [format]
+     * @returns {string}
+     */
+    count(value: number, format?: (value: number) => string): string;
+    /**
+     * @param {number} value
+     * @param {number} [digits=2]
+     * @returns {string}
+     */
+    pricing(value: number, digits?: number): string;
+}
 /**
  * Console wrapper that adds optional file logging and colourised output.
  *
@@ -8,22 +33,17 @@
  */
 export class UiConsole {
     /**
-     * @param {Object} [options={}]
-     * @param {Console} [options.uiConsole=console] - Console implementation to delegate to.
-     * @param {boolean} [options.debugMode=false] - Enable/disable debug output.
-     * @param {string} [options.logFile] - Path to a log file; if omitted logging is disabled.
+     * @param {Partial<UiConsole>} [options={}]
      */
-    constructor(options?: {
-        uiConsole?: Console | undefined;
-        debugMode?: boolean | undefined;
-        logFile?: string | undefined;
-    });
-    /** @type {Console} */
+    constructor(options?: Partial<UiConsole>);
+    /** @type {Console} Console implementation to delegate to. */
     console: Console;
-    /** @type {boolean} */
+    /** @type {boolean} Enable/disable debug output. */
     debugMode: boolean;
-    /** @type {string|undefined} */
+    /** @type {string|undefined} Path to a log file; if omitted logging is disabled. */
     logFile: string | undefined;
+    /** @type {string} Prefix for .info() */
+    prefixedStyle: string;
     /**
      * Append a message to the log file if logging is enabled.
      *
@@ -32,6 +52,11 @@ export class UiConsole {
      * @param {string} msg
      */
     private appendFile;
+    /**
+     * Set's the prefix such as color before every message in .info method.
+     * @param {string} prefix
+     */
+    style(prefix?: string): void;
     /**
      * Output a debug message when debug mode is enabled.
      *
@@ -48,6 +73,16 @@ export class UiConsole {
     error(...args: any[]): void;
     /** @param {...any} args */
     success(...args: any[]): void;
+    /**
+     * @todo cover with tests.
+     * @param {any[][]} rows
+     * @param {{divider?: string | number, aligns?: string[]}} [options={}]
+     * @returns {string[]}
+     */
+    table(rows?: any[][], options?: {
+        divider?: string | number;
+        aligns?: string[];
+    }): string[];
 }
 /**
  * UI helper for CLI interactions.
@@ -71,6 +106,8 @@ export class Ui {
     stderr: NodeJS.WriteStream;
     /** @type {UiConsole} */
     console: UiConsole;
+    /** @type {UiFormats} UiFormats instance to format numbers, if omitted new UiFormats() is used. */
+    formats: UiFormats;
     /**
      * Get debug mode status.
      *

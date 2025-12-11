@@ -1,18 +1,22 @@
 export default class ChatOptions {
     static argv: {
+        help: string;
         default: never[];
     };
     static isNew: {
         alias: string;
+        help: string;
         default: boolean;
     };
     static isYes: {
+        help: string;
         alias: string;
         default: boolean;
     };
-    static testMode: {
+    static isTest: {
+        help: string;
         alias: string;
-        default: string;
+        default: boolean;
     };
     static testDir: {
         alias: string;
@@ -34,8 +38,8 @@ export default class ChatOptions {
     isNew: boolean;
     /** @type {boolean} */
     isYes: boolean;
-    /** @type {string} */
-    testMode: string;
+    /** @type {boolean} */
+    isTest: boolean;
     /** @type {string} */
     testDir: string;
     /** @type {string} */

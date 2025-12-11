@@ -40,6 +40,11 @@ export default class AI {
      */
     getModels(): ModelInfo[];
     /**
+     *
+     * @returns {Map<string, ModelInfo>}
+     */
+    getModelsMap(): Map<string, ModelInfo>;
+    /**
      * Get model info by ID.
      *
      * @param {string} modelId

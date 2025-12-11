@@ -77,17 +77,18 @@ export default class FileProtocol {
 		const validate = correct.filter(file => "@validate" === file.filename)[0]
 		let isValid = false
 		const requested = []
+		/** @type {readonly (readonly [any, any])[] | null} */
 		let files = []
+		files = correct.filter(file => "@validate" !== file.filename).map(
+			file => [file.filename, file.label]
+		)
+		const a = files.map(([f]) => f).sort()
 		if (validate) {
-			files = correct.filter(file => "@validate" !== file.filename).map(
-				file => [file.filename, file.label]
-			)
 			validate.content.split("\n").map(s => {
 				if (!s.startsWith("- [") && !s.endsWith(")")) return ""
 				const [label, name = ""] = s.slice(3, -1).split("](")
 				requested.push([name, label])
 			}).filter(Boolean)
-			const a = files.map(([f]) => f).sort()
 			const b = requested.map(([f]) => f).sort()
 			/**
 			 * @description labels are not important for validation of files compare

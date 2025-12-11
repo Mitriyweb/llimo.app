@@ -7,7 +7,7 @@ import path from "node:path"
 import * as chatSteps from "./chatSteps.js"
 import FileSystem from "../utils/FileSystem.js"
 import Chat from "./Chat.js"
-import Ui from "../cli/Ui.js"
+import Ui, { UiFormats } from "../cli/Ui.js"
 
 /* -------------------------------------------------
 	 Helper mocks
@@ -26,8 +26,7 @@ class DummyAI {
 	}
 }
 
-const mockStdin = { isTTY: true }
-const mockUi = new Ui()
+const mockUi = new Ui({ stdin: { isTTY: true } })
 const mockRunCommand = async (cmd, options = {}) => {
 	options.onData?.("mock output\n")
 	return { stdout: "mock output", stderr: "", exitCode: 0 }
@@ -56,7 +55,6 @@ describe("chatSteps – readInput", () => {
 			["test.txt"],
 			fsInstance,
 			mockUi,
-			mockStdin
 		)
 		assert.equal(input, "file content")
 		// inputFile should resolve to the temporary location
@@ -109,12 +107,35 @@ describe("chatSteps – packPrompt (integration with mock)", () => {
 	})
 
 	it("packs prompt and writes file", async () => {
+		/**
+		 * @todo це має працювати по іншому, наприклад у мене є me.md, де Я пишу запити,
+		 * їх потім потрібно разбити по блоках --- і зробити trim() і вже ці блоки
+		 * перевіряти, чи є вони у попередніх повідомленнях.
+		 * для кожної історії повідомлень у inputs.jsonl потрібно записувати всі user
+		 * повідомлення, які були в чаті, так само як і files.jsonl куди потрібно
+		 * записувати всі файли на кожне повідомлення, тобто повне логування кожного
+		 * request/response щоб було легко перевіряти, яка інформація і файли змінились.
+		 *
+		 * Виправ помилки:
+		 * ```bash
+		 * pnpm test
+		 * ...
+		 * ```
+		 *
+		 * - [](src/**)
+		 * - [](package.json)
+		 *
+		 * ---
+		 *
+		 * А тепер така помилка: File not found
+		 */
 		const fakePack = async ({ input }) => ({
 			text: `<<${input}>>`,
 			injected: ["a.js", "b.js"],
 		})
-		const { packedPrompt, injected, promptPath, stats } =
-			await chatSteps.packPrompt(fakePack, "sample", chatInstance, mockUi)
+		const {
+			packedPrompt, injected, promptPath, stats
+		} = await chatSteps.packPrompt(fakePack, "sample", chatInstance, mockUi)
 
 		assert.equal(packedPrompt, "<<sample>>")
 		assert.deepEqual(injected, ["a.js", "b.js"])
@@ -153,7 +174,7 @@ describe("chatSteps – initialiseChat", () => {
 	})
 
 	it("creates new chat with system prompt", async () => {
-		const mockUiMock = { console: { info: () => { } } } // Mock to prevent output
+		const mockUiMock = { console: { info: () => { } }, formats: new UiFormats() } // Mock to prevent output
 		const { chat } = await chatSteps.initialiseChat({
 			fs: fsInstance,
 			ui: mockUiMock,

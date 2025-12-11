@@ -3,11 +3,10 @@
  *
  * @param {string[]} argv CLI arguments (already sliced)
  * @param {FileSystem} fs
- * @param {Ui} ui User interface instance
- * @param {NodeJS.ReadStream} [stdin] Input stream
+ * @param {Ui} ui User interface instance, used for input (stdin) stream only.
  * @returns {Promise<{input: string, inputFile: string | null}>}
  */
-export function readInput(argv: string[], fs: FileSystem, ui: Ui, stdin?: NodeJS.ReadStream): Promise<{
+export function readInput(argv: string[], fs: FileSystem, ui: Ui): Promise<{
     input: string;
     inputFile: string | null;
 }>;
@@ -38,7 +37,7 @@ export function initialiseChat(input: {
  *
  * @param {string|null} inputFile absolute path of the source file (or null)
  * @param {string} input raw text (used when `inputFile` is null)
- * @param {Chat} chat
+ * @param {Chat} chat Chat instance (used for paths)
  * @param {import("../cli/Ui.js").default} ui User interface instance
  * @returns {Promise<void>}
  */
@@ -46,13 +45,18 @@ export function copyInputToChat(inputFile: string | null, input: string, chat: C
 /**
  * Pack the input into the LLM prompt, store it and return statistics.
  *
+ * Enhanced to check file modification times and only append new blocks.
+ * Updated per @todo: split input (from me.md) into blocks by ---, trim them,
+ * filter out blocks that already appear in previous user messages' content,
+ * then pack the new blocks. Log all user blocks to inputs.jsonl and injected files to files.jsonl.
+ *
  * @param {Function} packMarkdown function that returns `{text, injected}`
  * @param {string} input
  * @param {Chat} chat Chat instance (used for `savePrompt`)
- * @param {import("../cli/Ui.js").default} ui User interface instance
+ * @param {Ui} ui User interface instance
  * @returns {Promise<{ packedPrompt: string, injected: string[], promptPath: string, stats: Stats }>}
  */
-export function packPrompt(packMarkdown: Function, input: string, chat: Chat, ui: import("../cli/Ui.js").default): Promise<{
+export function packPrompt(packMarkdown: Function, input: string, chat: Chat, ui: Ui): Promise<{
     packedPrompt: string;
     injected: string[];
     promptPath: string;

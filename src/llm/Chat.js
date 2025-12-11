@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto"
 import FileSystem from "../utils/FileSystem.js"
+import ModelInfo from "./ModelInfo.js"
+import { Stats } from "node:fs"
+import LanguageModelUsage from "./LanguageModelUsage.js"
 
 /** @typedef {{ role: string, content: string | { text: string, type: string } }} ChatMessage */
 
@@ -72,6 +75,26 @@ export default class Chat {
 		return this.messages.filter(m => m.role === "tool")
 	}
 
+	/** @returns {Record<string, string | null>} Allowed files and directories */
+	get allowed() {
+		return {
+			input: "input.md",
+			prompt: "prompt.md",
+			model: "model.json",
+			files: "files.jsonl",
+			inputs: "inputs.jsonl",
+			response: "response.json",
+			parts: "stream.jsonl",
+			stream: "stream.md",
+			chunks: "chunks.jsonl",
+			unknowns: "unknowns.jsonl",
+			answer: "answer.md",
+			reason: "reason.md",
+			usage: "usage.json",
+			messages: null,
+		}
+	}
+
 	/**
 	 * Initialize chat directory
 	 */
@@ -100,25 +123,87 @@ export default class Chat {
 	}
 
 	/**
-	 * @returns {Promise<boolean>}
+	 * @param {string} [target]
+	 * @param {number} [step]
+	 * @returns {Promise<any | boolean>}
 	 */
-	async load() {
-		if (await this.db.exists("messages.jsonl")) {
-			const rows = await this.db.load("messages.jsonl") ?? []
-			for (const row of rows) {
-				if (row instanceof Error) {
-					// Ignore bad rows instead of throwing
-				} else {
-					this.add(row)
-				}
+	async load(target, step) {
+		if (target) {
+			// load specific chat file in the step or root directory
+			if (target.startsWith("/")) target = target.slice(1)
+			if (step) target = "steps/" + String(step).padStart(3, "0") + "/" + target
+			if (await this.db.exists(target)) {
+				return await this.db.load(target)
 			}
-			return true
+			return undefined
+		}
+		else {
+			// load whole chat
+			if (await this.db.exists("messages.jsonl")) {
+				const rows = await this.db.load("messages.jsonl") ?? []
+				for (const row of rows) {
+					if (row instanceof Error) {
+						// Ignore bad rows instead of throwing
+					} else {
+						this.add(row)
+					}
+				}
+				return true
+			}
 		}
 		return false
 	}
 
-	async save() {
-		await this.db.save("messages.jsonl", this.messages)
+	/**
+	 * @typedef {Object} ComplexTarget
+	 * @property {string} input
+	 * @property {string} prompt
+	 * @property {ModelInfo} model
+	 * @property {number} step
+	 * @property {string[]} files
+	 * @property {string[]} inputs
+	 * @property {object} response
+	 * @property {string[]} parts
+	 * @property {object[]} chunks
+	 * @property {Array<[string, any]>} unknowns
+	 * @property {string} answer
+	 * @property {string} reason
+	 * @property {LanguageModelUsage} usage
+	 * @property {import("ai").ModelMessage[]} messages
+	 *
+	 * Saves the whole chat if target is not provided.
+	 * If provided saves the specific target and step.
+	 * @param {string | ComplexTarget} [target]
+	 * @param {any} [data]
+	 * @param {number} [step]
+	 * @returns {Promise<void>}
+	 */
+	async save(target, data, step) {
+		if ("string" === typeof target) {
+			// load specific chat file in the step or root directory
+			if (target.startsWith("/")) target = target.slice(1)
+			const file = this.allowed[target]
+			if (null === file) this.save()
+			if ("string" === typeof file) target = file
+			if (step) target = "steps/" + String(step).padStart(3, "0") + "/" + target
+			await this.db.save(target, data)
+		} else if ("object" === typeof target) {
+			for (const [key, val] of Object.entries(target)) {
+				const file = this.allowed[key]
+				if (null === file) this.save()
+				if ("string" === typeof file) await this.save(file, val, target.step)
+			}
+		} else {
+			await this.db.save("messages.jsonl", this.messages)
+		}
+	}
+
+	/**
+	 * @param {string} path
+	 * @returns {Promise<Stats>}
+	 */
+	async stat(path) {
+		return await this.fs.stat(path)
 	}
 
 	/**
@@ -133,13 +218,36 @@ export default class Chat {
 	}
 
 	/**
-	 * Save the AI response
-	 * @param {string} answer
-	 * @param {number} [step] - Optional step number for per-step files
+	 * Append to a file
+	 * @param {string} path
+	 * @param {string} data
+	 * @param {number} [step]
 	 */
-	async saveAnswer(answer, step) {
-		const answerPath = this.#path.resolve(this.dir, step ? `answer-step${step}.md` : "answer.md")
-		await this.#fs.writeFile(answerPath, answer)
+	async append(path, data, step) {
+		if (path.startsWith("/")) path = path.slice(1)
+		const file = this.allowed[path]
+		if ("string" === typeof file) path = file
+		if (step) path = "steps/" + String(step).padStart(3, "0") + "/" + path
+		await this.db.append(path, data)
+	}
+
+	/**
+	 * @param {string} path
+	 * @param {number} [step]
+	 * @returns {string}
+	 */
+	path(path, step) {
+		let rel = true
+		if (path.startsWith("/")) {
+			path = path.slice(1)
+			rel = false
+		}
+		const file = this.allowed[path] ?? path
+		if ("string" === typeof file) path = file
+		if (step) path = "steps/" + String(step).padStart(3, "0") + "/" + path
+		path = this.#path.resolve(this.dir, path)
+		if (rel) path = this.fs.path.relative(this.fs.path.resolve("."), path)
+		return path
 	}
 }
 

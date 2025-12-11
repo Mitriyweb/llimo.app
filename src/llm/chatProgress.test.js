@@ -33,10 +33,6 @@ describe("formatChatProgress – pure formatting logic", () => {
 		])
 	})
 
-	it.todo("add tests with different chunks to see the closest test to real life", async () => {
-		// @todo write a test to imitate chatProgress
-	})
-
 	it("handles zero tokens gracefully", () => {
 		const usage = new LanguageModelUsage()
 		const clock = { startTime: Date.now() }
@@ -46,4 +42,51 @@ describe("formatChatProgress – pure formatting logic", () => {
 		assert.strictEqual(lines.length, 1)
 		assert.ok(lines[0].startsWith("chat progress"))
 	})
+
+	it("simulates streaming with multiple chunks accurately", () => {
+		const model = new ModelInfo({
+			pricing: { prompt: 0.0035, completion: 0.1, input_cache_read: 0 },  // Set completion to 0.1 for visible costs
+		})
+		let usage = new LanguageModelUsage()
+		const now = Date.now()
+		const clock = { startTime: now - 4100 }
+
+		// Simulate multiple chunks: reading, reasoning, answering
+		const chunks = [
+			{ tokens: 65879, phase: "reading", spent: 3.1 },  // After 3.1s, 65879 tokens
+			{ tokens: 152, phase: "reasoning", spent: 1.1 + 3.1 },  // After additional 1.1s (reasoning), reasoning tokens added
+			{ tokens: 1176, phase: "answering", spent: 0.9 + 4.2 },  // After additional 0.9s (answering)
+		]
+
+		for (const chunk of chunks) {
+			if (chunk.phase === "reading") {
+				usage.inputTokens = chunk.tokens
+				clock.reasonTime = now - 4100 + chunk.spent * 1e3  // Adjust clock for phase
+			} else if (chunk.phase === "reasoning") {
+				usage.reasoningTokens = chunk.tokens
+				clock.answerTime = now - 4100 + chunk.spent * 1e3
+			} else if (chunk.phase === "answering") {
+				usage.outputTokens = chunk.tokens
+			}
+			usage.totalTokens += chunk.tokens
+		}
+
+		const lines = formatChatProgress({
+			usage,
+			clock,
+			model,
+			now,
+			elapsed: 4.1,  // Override for consistency
+		})
+
+		// Verify speed calculations (ensure not NaN)
+		assert.ok(!isNaN(parseFloat(lines[0].split(" | ")[3].replace("T/s", ""))))  // Total speed
+		assert.ok(!isNaN(parseFloat(lines[1].split(" | ")[3].replace("T/s", ""))))  // Reading speed
+
+		// Verify costs (non-zero due to pricing)
+		const readingCost = parseFloat(lines[1].split(" | ")[4].slice(1))
+		assert.ok(readingCost > 0, "Reading cost should be positive")
+		assert.ok(lines.filter(l => l.includes("$0.000000")).length === 0, "No zero costs with pricing")
+	})
 })
+

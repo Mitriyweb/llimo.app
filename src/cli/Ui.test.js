@@ -15,7 +15,7 @@ describe("UiConsole", () => {
 			warn: () => { },
 			error: () => { },
 		}
-		consoleInstance = new UiConsole({ uiConsole: mockConsole, debugMode: false })
+		consoleInstance = new UiConsole({ console: mockConsole, debugMode: false })
 	})
 
 	it("does not output debug when debugMode is false", () => {

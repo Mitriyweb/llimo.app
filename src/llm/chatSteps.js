@@ -11,9 +11,9 @@ import Chat from "./Chat.js"
 import AI from "./AI.js"
 import { generateSystemPrompt } from "./system.js"
 import { unpackAnswer } from "./unpack.js"
-import { BOLD, GREEN, ITALIC, RESET, RED, YELLOW } from "../cli/ANSI.js"
+import { BOLD, GREEN, ITALIC, RED, RESET, YELLOW } from "../cli/ANSI.js"
 import FileSystem from "../utils/FileSystem.js"
-import MarkdownProtocol from "../utils/Markdown.js"
+import Markdown from "../utils/Markdown.js"
 import Ui from "../cli/Ui.js"
 
 /**
@@ -21,27 +21,24 @@ import Ui from "../cli/Ui.js"
  *
  * @param {string[]} argv CLI arguments (already sliced)
  * @param {FileSystem} fs
- * @param {Ui} ui User interface instance
- * @param {NodeJS.ReadStream} [stdin] Input stream
+ * @param {Ui} ui User interface instance, used for input (stdin) stream only.
  * @returns {Promise<{input: string, inputFile: string | null}>}
  */
-export async function readInput(argv, fs, ui, stdin = process.stdin) {
+export async function readInput(argv, fs, ui) {
 	let input = ""
 	let inputFile = null
 
-	if (!stdin.isTTY) {
+	if (!ui.stdin.isTTY) {
 		// piped stdin
-		for await (const chunk of stdin) input += chunk
+		for await (const chunk of ui.stdin) input += chunk
 	} else if (argv.length > 0) {
 		inputFile = fs.path.resolve(argv[0])
 		try {
-			input = await fs.readFile(inputFile, "utf-8")
+			input = await fs.load(inputFile)
 		} catch (/** @type {any} */err) {
-			ui.console.error(`Error reading input file: ${err.message}`)
-			throw err
+			throw new Error(`Error reading input file: ${err.message}`)
 		}
 	} else {
-		ui.console.error("No input provided.")
 		throw new Error("No input provided.")
 	}
 	return { input, inputFile }
@@ -68,7 +65,6 @@ export async function initialiseChat(input) {
 		ui,
 	} = input
 
-	const format = new Intl.NumberFormat("en-US").format
 	const currentFile = fs.path.resolve(root, "current")
 	let id
 
@@ -80,7 +76,7 @@ export async function initialiseChat(input) {
 
 	if (id === chat.id && !isNew) {
 		if (await chat.load()) {
-			ui.console.info(`+ loaded ${format(chat.messages.length)} messages from existing chat ${chat.id}`)
+			ui.console.info(`+ loaded ${ui.formats.count(chat.messages.length)} messages from existing chat ${chat.id}`)
 		} else {
 			ui.console.info(`+ ${chat.id} empty chat loaded`)
 		}
@@ -91,20 +87,21 @@ export async function initialiseChat(input) {
 		ui.console.info(`${GREEN}+ ${chat.id} new chat created${RESET}`)
 		await chat.clear()
 
-		const system = { role: "system", content: "" }
-		system.content += await generateSystemPrompt()
+		/** @type {{ role: "system", content: string }} */
+		const system = { role: "system", content: await generateSystemPrompt() }
 
 		const systemFiles = ["system.md", "agent.md"]
 		for (const file of systemFiles) {
 			if (await fs.exists(file)) {
 				const content = await fs.load(file) || ""
-				ui.console.info(`${GREEN}+ ${file}${RESET} loaded ${ITALIC}${format(Buffer.byteLength(content))} bytes${RESET}`)
+
+				ui.console.info(`${GREEN}+ ${file}${RESET} loaded ${ui.formats.weight("b", Buffer.byteLength(content))}`)
 				system.content += "\n\n" + content
 			}
 		}
 
 		if (system.content) {
-			ui.console.info(`  system instructions ${ITALIC}${BOLD}${format(Buffer.byteLength(system.content))} bytes${RESET}`)
+			ui.console.info(`  system instructions ${BOLD}${ui.formats.weight("b", Buffer.byteLength(system.content))}`)
 		}
 
 		chat.add(system)
@@ -119,15 +116,16 @@ export async function initialiseChat(input) {
  *
  * @param {string|null} inputFile absolute path of the source file (or null)
  * @param {string} input raw text (used when `inputFile` is null)
- * @param {Chat} chat
+ * @param {Chat} chat Chat instance (used for paths)
  * @param {import("../cli/Ui.js").default} ui User interface instance
+ * @param {number} [step=1]
  * @returns {Promise<void>}
  */
-export async function copyInputToChat(inputFile, input, chat, ui) {
+export async function copyInputToChat(inputFile, input, chat, ui, step = 1) {
 	if (!inputFile) return
 	const file = chat.db.path.basename(inputFile)
-	const full = chat.db.path.resolve(file)
-	await chat.db.save(file, input)
+	const full = chat.path(file)
+	await chat.save("input", input, step)
 	ui.console.info(`> preparing ${file} (${inputFile})`)
 	ui.console.info(`+ ${file} (${full})`)
 	ui.console.info(`  copied to chat session`)
@@ -136,23 +134,59 @@ export async function copyInputToChat(inputFile, input, chat, ui) {
 /**
  * Pack the input into the LLM prompt, store it and return statistics.
  *
+ * Enhanced to check file modification times and only append new blocks.
+ * Updated per @todo: split input (from me.md) into blocks by ---, trim them,
+ * filter out blocks that already appear in previous user messages' content,
+ * then pack the new blocks. Log all user blocks to inputs.jsonl and injected files to files.jsonl.
+ *
  * @param {Function} packMarkdown function that returns `{text, injected}`
  * @param {string} input
  * @param {Chat} chat Chat instance (used for `savePrompt`)
- * @param {import("../cli/Ui.js").default} ui User interface instance
+ * @param {Ui} ui User interface instance
  * @returns {Promise<{ packedPrompt: string, injected: string[], promptPath: string, stats: Stats }>}
  */
 export async function packPrompt(packMarkdown, input, chat, ui) {
-	const { text: packedPrompt, injected } = await packMarkdown({ input })
-	const promptPath = await chat.savePrompt(packedPrompt)
+	const fs = new FileSystem({ cwd: chat.cwd })
+	const existingPromptPath = fs.path.resolve(chat.dir, "prompt.md")
 
-	const stats = await chat.fs.stat(promptPath)
-	const format = new Intl.NumberFormat("en-US").format
-	ui.console.info(
-		`Prompt size: ${format(stats.size)} bytes — ${injected.length} file(s).`
+	// Collect previous user message blocks by splitting their content by --- and trimming
+	const previousBlocksSet = new Set(
+		chat.messages
+			.filter(m => m.role === 'user')
+			.map(m => {
+				if ("string" === typeof m.content) {
+					return m.content.split(/---/).map(s => s.trim())
+				}
+				return m
+			})
+			.flat()
 	)
 
-	return { packedPrompt, injected, promptPath, stats }
+	// Split input into blocks by ---, trim each block, and filter out those already in previous messages
+	const newBlocks = input
+		.split(/---/)
+		.map(s => s.trim())
+		.filter(block => block.length > 0 && !previousBlocksSet.has(block))
+
+	// If no new blocks, do nothing or handle as needed (here, we proceed with empty input to avoid errors)
+	const inputText = newBlocks.join('\n---\n')
+
+	const { text: packedPrompt, injected } = await packMarkdown({ input: inputText })
+	await chat.save("prompt", packedPrompt)
+
+	const stats = await fs.stat(chat.db.path.resolve(chat.dir, "prompt.md"))
+	const totalSize = stats.size + chat.messages.map(m => JSON.stringify(m)).join("\n\n").length
+	ui.console.info(`Prompt size: ${ITALIC}${ui.formats.weight("b", stats.size)}${RESET} — ${ui.formats.count(injected.length)} file(s).`)
+	ui.console.info(`Messages size: ${BOLD}${ui.formats.weight("b", totalSize)}${RESET}`)
+
+	// Log all user blocks (including new ones) to inputs.jsonl
+	const allUserBlocks = input.split(/---/).map(s => s.trim()).filter(block => block.length > 0)
+	await chat.save('inputs', allUserBlocks)
+
+	// Log injected files to files.jsonl
+	await chat.save('files', injected)
+
+	return { packedPrompt, injected, promptPath: existingPromptPath, stats }
 }
 
 /**
@@ -249,7 +283,7 @@ export function parseOutput(stdout, stderr, context = {}) {
 	}
 
 	for (let i = 0; i < all.length; i++) {
-		const str = all[i].trimEnd()
+		const str = all[i].trim()
 		for (const [field, vars] of Object.entries(parser)) {
 			for (const v of vars) {
 				if ("string" === typeof v) {
@@ -303,7 +337,7 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 	/** @type {string} */
 	const fullResponse = String(answer.content)
 
-	const parsed = await MarkdownProtocol.parse(fullResponse)
+	const parsed = await Markdown.parse(fullResponse)
 
 	logs.push("#### llimo-unpack")
 	logs.push("```bash")
@@ -379,6 +413,7 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 	let shouldContinue = true
 
 	if (!isYes) {
+		let continuing = false
 		if (fail > 0 || cancelled > 0 || types > 0) {
 			const ans = await ui.askYesNo("Do you want to continue fixing fail tests? (Y)es, No, ., <message> % ")
 			if (ans !== "yes") {
@@ -388,26 +423,29 @@ export async function decodeAnswerAndRunTests(ui, chat, runCommand, isYes = fals
 				}
 				return { testsCode: ans === "yes" ? true : false, shouldContinue: false }
 			}
+			continuing = true
 		}
 		if (shouldContinue && todo > 0) {
 			const ans = await ui.askYesNo("Do you want to continue with todo tests fixing? (Y)es, No, ., <message> % ")
-			if (ans !== "yes") {
+			if (ans !== "yes" && !continuing) {
 				shouldContinue = false
 				if (ans !== "no" && ans !== ".") {
 					chat.add({ role: "user", content: ans })
 				}
 				return { testsCode: false, shouldContinue: false }
 			}
+			continuing = true
 		}
 		if (shouldContinue && skip > 0) {
 			const ans = await ui.askYesNo("Do you want to continue with skipped tests fixing? (Y)es, No, ., <message> % ")
-			if (ans !== "yes") {
+			if (ans !== "yes" && !continuing) {
 				shouldContinue = false
 				if (ans !== "no" && ans !== ".") {
 					chat.add({ role: "user", content: ans })
 				}
 				return { testsCode: false, shouldContinue: false }
 			}
+			continuing = true
 		}
 		if (shouldContinue && fail === 0 && cancelled === 0 && types === 0 && todo === 0 && skip === 0) {
 			ui.console.success("All tests passed.")

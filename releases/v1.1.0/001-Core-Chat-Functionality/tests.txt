@@ -1,0 +1,6 @@
+# Tests to run after code updates for this task
+# Run: node --test --test-timeout=3333 $(cat tests.txt)
+bin/llimo-chat.test.js
+src/llm/pack.test.js
+src/utils/Markdown.test.js
+src/llm/Chat.test.js

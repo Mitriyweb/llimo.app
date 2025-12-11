@@ -76,6 +76,14 @@ export default class AI {
 	}
 
 	/**
+	 *
+	 * @returns {Map<string, ModelInfo>}
+	 */
+	getModelsMap() {
+		return this.#models
+	}
+
+	/**
 	 * Get model info by ID.
 	 *
 	 * @param {string} modelId

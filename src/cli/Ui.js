@@ -3,11 +3,46 @@ import { appendFileSync, existsSync, mkdirSync } from "node:fs"
 import process from "node:process"
 import { dirname } from "node:path"
 
-import { YELLOW, RED, RESET, GREEN, overwriteLine, cursorUp, DIM, stripANSI } from "./ANSI.js"
+import { YELLOW, RED, RESET, GREEN, overwriteLine, cursorUp, DIM, stripANSI, ITALIC } from "./ANSI.js"
 
 /**
  * @typedef {'debug'|'info'|'log'|'warn'|'error'|'success'} LogTarget
  */
+
+export class UiFormats {
+	/**
+	 * Formats weight (size) of the value, available types:
+	 * b - bytes
+	 * T - Tokens
+	 * @param {"b" | "T"} type
+	 * @param {number} value
+	 * @param {(value: number) => string} [format]
+	 * @returns {string}
+	 */
+	weight(type, value, format = new Intl.NumberFormat("en-US").format) {
+		if ("b" === type) {
+			return `${ITALIC}${format(value)} bytes${RESET}`
+		}
+		return String(value)
+	}
+	/**
+	 * Formats count (amount) of the value
+	 * @param {number} value
+	 * @param {(value: number) => string} [format]
+	 * @returns {string}
+	 */
+	count(value, format = new Intl.NumberFormat("en-US").format) {
+		return format(value)
+	}
+	/**
+	 * @param {number} value
+	 * @param {number} [digits=2]
+	 * @returns {string}
+	 */
+	pricing(value, digits = 2) {
+		return new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
+	}
+}
 
 /**
  * Console wrapper that adds optional file logging and colourised output.
@@ -15,28 +50,29 @@ import { YELLOW, RED, RESET, GREEN, overwriteLine, cursorUp, DIM, stripANSI } fr
  * @class
  */
 export class UiConsole {
-	/** @type {Console} */
+	/** @type {Console} Console implementation to delegate to. */
 	console
-	/** @type {boolean} */
+	/** @type {boolean} Enable/disable debug output. */
 	debugMode = false
-	/** @type {string|undefined} */
+	/** @type {string|undefined} Path to a log file; if omitted logging is disabled. */
 	logFile
+	/** @type {string} Prefix for .info() */
+	prefixedStyle = ""
 
 	/**
-	 * @param {Object} [options={}]
-	 * @param {Console} [options.uiConsole=console] - Console implementation to delegate to.
-	 * @param {boolean} [options.debugMode=false] - Enable/disable debug output.
-	 * @param {string} [options.logFile] - Path to a log file; if omitted logging is disabled.
+	 * @param {Partial<UiConsole>} [options={}]
 	 */
 	constructor(options = {}) {
 		const {
-			uiConsole = console,
+			console: uiConsole = console,
 			debugMode = this.debugMode,
 			logFile = this.logFile,
+			prefixedStyle = this.prefixedStyle,
 		} = options
 		this.console = uiConsole
 		this.debugMode = debugMode
 		this.logFile = logFile
+		this.prefixedStyle = String(prefixedStyle)
 	}
 
 	/**
@@ -171,6 +207,8 @@ export class Ui {
 
 	/** @type {UiConsole} */
 	console
+	/** @type {UiFormats} UiFormats instance to format numbers, if omitted new UiFormats() is used. */
+	formats = new UiFormats()
 
 	/**
 	 * @param {Partial<Ui>} [options={}]
@@ -183,6 +221,7 @@ export class Ui {
 			stdout = this.stdout,
 			stderr = this.stderr,
 			console,
+			formats = this.formats,
 		} = options
 		this.debugMode = Boolean(debugMode)
 		this.logFile = String(logFile)
@@ -190,6 +229,7 @@ export class Ui {
 		this.stdout = stdout
 		this.stderr = stderr
 		this.console = console ? console : new UiConsole({ debugMode: this.debugMode })
+		this.formats = formats
 	}
 
 	/**
@@ -292,3 +332,4 @@ export class Ui {
 }
 
 export default Ui
+

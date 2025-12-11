@@ -10,8 +10,8 @@ const numberFormat = new Intl.NumberFormat("en-US").format
 const format = no => {
 	const prefix = no < 1e3 ? GREEN
 		: no < 1e4 ? MAGENTA
-		: no < 1e5 ? YELLOW
-		: RED
+			: no < 1e5 ? YELLOW
+				: RED
 	return prefix + numberFormat(no) + RESET
 }
 
@@ -40,17 +40,19 @@ export async function packMarkdown(options = {}) {
 		const extracted = Markdown.extractPath(line)
 		if (extracted) {
 			const { name, path: relativePath } = extracted
-			const listOnly = "@ls" === name
+			let params = name.split(";")
+			const listOnly = params[0] === "@ls"
+			if (listOnly) {
+				params = params.slice(1)
+			}
 			const absPath = path.resolve(relativePath)
 
 			// Handle ignore patterns supplied via a leading “-” in the checklist label.
-			if (name.startsWith("-")) {
-				name.split(";").forEach(word => {
-					if (word.startsWith("-")) {
-						ignore.push(word.slice(1))
-					}
-				})
-			}
+			params.forEach(word => {
+				if (word.startsWith("-")) {
+					ignore.push(word.slice(1))
+				}
+			})
 
 			// Handle glob patterns
 			if (relativePath.includes("*")) {
@@ -84,11 +86,11 @@ export async function packMarkdown(options = {}) {
 						if (added.has(relativeFilePath)) continue
 						added.add(relativeFilePath)
 
-						// Build the path relative to the original cwd (e.g. "src/File.js").
+						// Build the path relative to the original cwd (e.g. "/var/folders/_2/xxx/src/File.js").
 						const filePath = path.resolve(relativeFilePath)
 
 						if (listOnly) {
-							output.push(file)
+							output.push(relativeFilePath)
 							continue
 						}
 						try {

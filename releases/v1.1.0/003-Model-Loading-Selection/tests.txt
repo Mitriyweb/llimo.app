@@ -1,0 +1,5 @@
+# Tests to run after code updates for this task
+src/Chat/models.test.js
+src/llm/ModelProvider.test.js
+src/cli/selectModel.test.js
+src/llm/AI.test.js
