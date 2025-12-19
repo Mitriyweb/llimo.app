@@ -6,6 +6,13 @@ export default class ChatOptions {
 		default: []
 	}
 	/** @type {boolean} */
+	isDebug
+	static isDebug = {
+		alias: "debug",
+		help: "Debug mode to show more information",
+		default: false,
+	}
+	/** @type {boolean} */
 	isNew
 	static isNew = {
 		alias: "new",
@@ -64,7 +71,9 @@ export default class ChatOptions {
 			provider = ChatOptions.provider.default,
 			argv = ChatOptions.argv.default,
 			maxFails = ChatOptions.maxFails.default,
+			isDebug = ChatOptions.isDebug.default,
 		} = input
+		this.isDebug = Boolean(isDebug)
 		this.isNew = Boolean(isNew)
 		this.isYes = Boolean(isYes)
 		this.isTest = Boolean(isTest)

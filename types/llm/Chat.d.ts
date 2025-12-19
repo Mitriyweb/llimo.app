@@ -22,7 +22,8 @@ export default class Chat {
     messages: import("ai").ModelMessage[];
     /** @type {ChatConfig} */
     config: ChatConfig;
-    get dir(): string;
+    /** @type {string} */
+    dir: string;
     /** @returns {FileSystem} */
     get fs(): FileSystem;
     /** @returns {FileSystem} */

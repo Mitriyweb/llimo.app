@@ -306,8 +306,14 @@ export class Ui {
 		this.stdout.write(overwriteLine(line))
 	}
 
-	write(buffer, cb) {
-		this.stdout.write(buffer, cb)
+	/**
+	 * Writes to stdout.
+	 * @param {Buffer | DataView | Error | string} buffer
+	 * @param {(err?: Error | undefined) => void} [cb]
+	 */
+	write(buffer, cb = () => {}) {
+		if (buffer instanceof Error) buffer = (this.isDebug ? buffer.stack ?? buffer.message : buffer.message) || ""
+		this.stdout.write(String(buffer), cb)
 	}
 
 	/**

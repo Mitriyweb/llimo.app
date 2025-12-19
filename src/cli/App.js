@@ -47,6 +47,8 @@ export class ChatCLiApp {
 	#format
 	/** @type {(value: number | bigint) => string} */
 	#valuta
+	/** @type {Array<{step: number, model: ModelInfo, prompt: string}>} */
+	#steps = []
 	/** @param {Partial<ChatCLiApp>} props */
 	constructor(props) {
 		const {
@@ -71,17 +73,24 @@ export class ChatCLiApp {
 		this.#valuta = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 }).format
 	}
 	async init(input) {
-		const { isNew } = this.options
+		const { isNew, isYes } = this.options
 		const { chat } = await initialiseChat({ ui: this.ui, ChatClass: Chat, fs: this.fs, isNew })
 		this.chat = chat
 
-		let sholdContinue = await this.runCommandFirst(input)
-		if (!sholdContinue) {
+		let shouldContinue = await this.runCommandFirst(input)
+		if (!shouldContinue) {
 			return false
 		}
 
 		await this.initAI()
+		return true
 	}
+	/**
+	 * Run the command before the chat, such as info, test.
+	 * Returns `false` if no need to continue with chat, and `true` if continue.
+	 * @param {string[]} input
+	 * @returns {Promise<boolean>}
+	 */
 	async runCommandFirst(input) {
 		const commands = [
 			InfoCommand,
@@ -90,13 +99,14 @@ export class ChatCLiApp {
 		let shouldContinue = true
 		const found = commands.find(c => c.name === this.options.argv[0])
 		if (found) {
+			this.options.argv.shift()
 			// process the specific command before chatting
 			const cmd = found.create({ argv: input ?? [], chat: this.chat })
 			for await (const chunk of cmd.run()) {
-				if ("boolean" === typeof chunk) {
+				if (typeof chunk === "boolean") {
 					shouldContinue = chunk
-					this.ui.console.debug(`[shouldContinue = ${chunk ? 'yes' : 'no'}]`)
-					continue
+					this.ui.console.debug(`[shouldContinue = ${shouldContinue ? 'yes' : 'no'}]`)
+					break
 				}
 				else if (chunk instanceof UiOutput) {
 					chunk.renderIn(this.ui)
@@ -112,47 +122,64 @@ export class ChatCLiApp {
 		}
 		return shouldContinue
 	}
-	async initAI(defaultModel = "gpt-oss-120b") {
+	async initAI(defaultModel = "gpt-oss-120b", isYes = false) {
 		/** @type {AI} */
-		if (!this.ai.selectedModel) {
-			if (this.options.isTest) {
-				this.ui.console.info(`${GREEN}🧪 Test mode enabled with chat directory: ${this.options.testDir}${RESET}`)
-				this.ai = new TestAI({})
-			} else {
-				const modelStr = this.options.model || process.env.LLIMO_MODEL || this.chat.config?.model || defaultModel
-				const providerStr = this.options.provider || process.env.LLIMO_PROVIDER || this.chat.config?.provider || ""
-				const models = await loadModels(this.ui)
-				const onSelect = (model) => {
-					this.chat.config.model = model.id
-					this.chat.config.provider = model.provider
-				}
-				this.ai = new AI({ models })
-				this.ai.selectedModel = await selectAndShowModel(this.ai, this.ui, modelStr, providerStr, onSelect)
-			}
+		if (!this.ai) {
+			this.ai = new AI()
 		}
+		const modelStr = this.options.model || process.env.LLIMO_MODEL || this.chat.config?.model || defaultModel
+		const providerStr = this.options.provider || process.env.LLIMO_PROVIDER || this.chat.config?.provider || ""
+		const models = await loadModels(this.ui)
+		const onSelect = (model) => {
+			this.chat.config.model = model.id
+			this.chat.config.provider = model.provider
+		}
+		this.ai.setModels(models)
+		if (isYes) {
+			const model = this.ai.getProviderModel(modelStr, providerStr)
+			if (!model) {
+				throw new Error(`Model not found for ${modelStr}@${providerStr}`)
+			}
+			this.ai.selectedModel = model
+			return
+		}
+		this.ai.selectedModel = await selectAndShowModel(this.ai, this.ui, modelStr, providerStr, onSelect)
 	}
+	/**
+	 *
+	 * @returns {Promise<boolean>}
+	 */
 	async readInput() {
 		// 1. read input (stdin / file) - use cleanArgv to avoid flags
-		const { input, inputFile } = await readInput(this.options.argv, this.fs, this.ui)
-		this.input = input
-		this.inputFile = inputFile ?? ""
+		try {
+			const { input, inputFile } = await readInput(this.options.argv, this.fs, this.ui)
+			this.input = input
+			this.inputFile = inputFile ?? ""
+		} catch (err) {
+			const { input, inputFile } = await readInput(["me.md"], this.fs, this.ui)
+			this.input = input
+			this.inputFile = inputFile ?? ""
+		}
+		if (undefined === this.input) {
+			return false
+		}
 
-		await this.chat.save("input.md", input)
+		await this.chat.save("input.md", this.input)
 		const testChatDir = this.options.testDir || this.chat.dir  // Use provided dir or current chat.dir
 
 		if (this.options.isTest) {
 			const dummyModel = new ModelInfo({
+				id: "test-model",
 				pricing: new Pricing({ prompt: 0, completion: 0 }),
 				architecture: new Architecture({ modality: "text" })
 			})
 			await handleTestMode({
-				ai: this.ai, ui: this.ui, cwd: testChatDir, input, chat: this.chat,
+				ai: this.ai, ui: this.ui, cwd: testChatDir, input: this.input, chat: this.chat,
 				model: dummyModel, fps: 33
 			})
 			return false
 		}
 		// Normal real AI mode continues...
-		// const model = this.ai.selectedModel || this.ai.findModel(model)
 		return true
 	}
 	/**
@@ -198,7 +225,6 @@ export class ChatCLiApp {
 			this.ui.console.info(`+ reason (${this.chat.path("reason.md", step)})`)
 		}
 		this.ui.console.info(`+ answer (${this.chat.path("answer.md", step)})`)
-
 		return await decodeAnswer({ ui: this.ui, chat: this.chat, options: this.options })
 	}
 	/**
@@ -217,6 +243,9 @@ export class ChatCLiApp {
 		if (streamed.reason) {
 			this.ui.console.info(`+ reason (${this.chat.path("reason.md", step)})`)
 		}
+		// Save step info including model
+		this.#steps.push({ step, model, prompt })
+		await this.chat.save("steps.jsonl", this.#steps)
 		return streamed
 	}
 	/**
@@ -286,9 +315,18 @@ export class ChatCLiApp {
 		const packed = await packPrompt(packMarkdown, rows.join("\n"), this.chat, this.ui)
 		await this.chat.save("prompt.md", packed.packedPrompt)
 	}
-	async loop() {
+	/**
+	 * Starts the chat:
+	 * 1. Detect the recent step
+	 * 1.1. for Test it should go from the first step
+	 * 1.2. for Real it should go from the recent step
+	 * 2. Prepare input (pack prompt with messages)
+	 * 3. Select a model
+	 * 3.1. for Test it should be selected from saved log
+	 * 3.2. for Real it should use available by the algorithm
+	 */
+	async start() {
 		let step = this.chat.assistantMessages.length + 1
-		// 3. copy source file to chat directory (if any)
 		await copyInputToChat(this.inputFile, this.input, this.chat, this.ui, step)
 
 		// 4. pack prompt – prepend system.md if present
@@ -300,9 +338,14 @@ export class ChatCLiApp {
 
 		const model = this.ai.selectedModel
 		if (!model) {
-			return false
+			throw new Error("LLiMo model is not selected, provide it in env variable LLIMO_MODEL=gpt-oss-120b")
 		}
 
+		return { step, prompt, model }
+	}
+	async loop() {
+		// 3. copy source file to chat directory (if any)
+		let { step, prompt, model } = await this.start()
 		while (true) {
 			let shouldContinue = await this.prepare(prompt, model, step)
 			if (!shouldContinue) break
@@ -314,6 +357,8 @@ export class ChatCLiApp {
 			await this.next(tested.test, step)
 			++step
 		}
+		// Save final steps.jsonl
+		await this.chat.save("steps.jsonl", this.#steps)
 	}
 }
 

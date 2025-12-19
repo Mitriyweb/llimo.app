@@ -38,6 +38,12 @@ export class Alert extends UiOutput {
 			ui.console.info(String(this))
 		}
 	}
+	static error(text = "") {
+		return new Alert({ variant: "error", text })
+	}
+	static info(text = "") {
+		return new Alert({ variant: "info", text })
+	}
 }
 
 export default Alert

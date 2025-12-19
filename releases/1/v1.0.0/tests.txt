@@ -1,0 +1,4 @@
+# Tests to run after code updates for this release
+src/**/*.test.js
+releases/1/v1.0.0/*/task.test.js
+releases/1/v1.0.0/*/index.test.js

@@ -107,7 +107,7 @@ export function startStreaming(ai: AI, model: ModelInfo, chat: Chat, options: ob
  * @property {number} duration
  * @property {number} types
  *
- * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number> }} TestOutput
+ * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number>, guess: TestOutputCounts }} TestOutput
  *
  * @param {string} stdout
  * @param {string} stderr
@@ -198,6 +198,7 @@ export type TestOutput = {
     logs: TestOutputLogs;
     counts: TestOutputCounts;
     types: Set<number>;
+    guess: TestOutputCounts;
 };
 import FileSystem from "../utils/FileSystem.js";
 import Ui from "../cli/Ui.js";

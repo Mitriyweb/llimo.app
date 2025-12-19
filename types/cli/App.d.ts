@@ -17,9 +17,19 @@ export class ChatCLiApp {
     input: string;
     /** @type {string} */
     inputFile: string;
-    init(input: any): Promise<false | undefined>;
-    runCommandFirst(input: any): Promise<boolean>;
+    init(input: any): Promise<boolean>;
+    /**
+     * Run the command before the chat, such as info, test.
+     * Returns `false` if no need to continue with chat, and `true` if continue.
+     * @param {string[]} input
+     * @returns {Promise<boolean>}
+     */
+    runCommandFirst(input: string[]): Promise<boolean>;
     initAI(defaultModel?: string): Promise<void>;
+    /**
+     *
+     * @returns {Promise<boolean>}
+     */
     readInput(): Promise<boolean>;
     /**
      * Returns True to continue chat and False to stop the chat.
@@ -64,7 +74,7 @@ export class ChatCLiApp {
      * @param {number} [step=1]
      */
     next(tested: import("../llm/chatSteps.js").TestOutput, step?: number): Promise<void>;
-    loop(): Promise<false | undefined>;
+    loop(): Promise<void>;
     #private;
 }
 export default ChatCLiApp;

@@ -1,10 +1,12 @@
 /**
  * Utility functions for llimo-chat
  */
-import fs from 'node:fs/promises'
+import fs, { mkdtemp } from 'node:fs/promises'
 import process from 'node:process'
+import os from "node:os"
 import { Stream } from 'node:stream'
 import { Stats } from 'node:fs'
+import { sep } from 'node:path'
 
 import micromatch from 'micromatch'
 
@@ -293,7 +295,7 @@ export default class FileSystem {
 	 * @param {any} [options]
 	 * @returns {Promise<void>}
 	 */
-	async _jsonlSaver(path, rows, options = {}) {
+	async _jsonlSaver(path, rows = [], options = {}) {
 		let str = ""
 		const { flag } = options
 		if ("a" === flag) {
@@ -315,7 +317,7 @@ export default class FileSystem {
 	 * @param {any} [options]
 	 * @returns {Promise<void>}
 	 */
-	async _jsonSaver(path, data, options = {}) {
+	async _jsonSaver(path, data = {}, options = {}) {
 		const { flag } = options
 		if ("a" === flag) {
 			if ("string" !== data) {
@@ -344,7 +346,7 @@ export default class FileSystem {
 		if (fn) {
 			return await fn(abs, data, options)
 		}
-		return await fs.writeFile(abs, data, options)
+		return await fs.writeFile(abs, data ?? "", options)
 	}
 	/**
 	 * Relative proxy of mkdir() & writeFile(path, data, { flag: "a" }).
@@ -355,5 +357,13 @@ export default class FileSystem {
 	 */
 	async append(path, data, options = {}) {
 		return await this.save(path, data, { ...options, flag: "a" })
+	}
+	/**
+	 * @param {string} prefix
+	 * @returns {Promise<string>}
+	 */
+	async mkdtemp(prefix) {
+		const path = prefix.includes(sep) ? this.path.resolve(prefix) : this.path.resolve(os.tmpdir(), prefix)
+		return await mkdtemp(path)
 	}
 }

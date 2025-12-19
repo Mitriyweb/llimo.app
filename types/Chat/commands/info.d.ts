@@ -39,7 +39,11 @@ export class InfoCommand extends UiCommand {
     options: InfoOptions;
     chat: Chat;
     ui: Ui;
-    run(): AsyncGenerator<false | Alert | Table, void, unknown>;
+    /**
+     * @throws
+     * @returns {AsyncGenerator<UiOutput | boolean>}
+     */
+    run(): AsyncGenerator<UiOutput | boolean>;
     /**
      * @returns {Promise<Table>}
      */
@@ -48,5 +52,5 @@ export class InfoCommand extends UiCommand {
 import { UiCommand } from "../../cli/Ui.js";
 import Chat from "../../llm/Chat.js";
 import { Ui } from "../../cli/Ui.js";
-import { Alert } from "../../cli/components/index.js";
+import UiOutput from "../../cli/UiOutput.js";
 import { Table } from "../../cli/components/index.js";

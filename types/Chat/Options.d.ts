@@ -3,6 +3,11 @@ export default class ChatOptions {
         help: string;
         default: never[];
     };
+    static isDebug: {
+        alias: string;
+        help: string;
+        default: boolean;
+    };
     static isNew: {
         alias: string;
         help: string;
@@ -40,6 +45,8 @@ export default class ChatOptions {
     constructor(input?: Partial<ChatOptions>);
     /** @type {string[]} */
     argv: string[];
+    /** @type {boolean} */
+    isDebug: boolean;
     /** @type {boolean} */
     isNew: boolean;
     /** @type {boolean} */

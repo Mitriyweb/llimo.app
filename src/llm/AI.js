@@ -38,16 +38,30 @@ export default class AI {
 	selectedModel = null
 
 	/**
-	 * @param {object} input
-	 * @param {Array<readonly [string, Partial<ModelInfo>[]]> | Map<string, Partial<ModelInfo>[]>} input
+	 * @param {Object} input
+	 * @param {readonly[string, ModelInfo]} [input.models=[]]
+	 * @param {ModelInfo} [input.selectedModel]
 	 */
 	constructor(input = {}) {
 		const {
 			models = [],
 			selectedModel = this.selectedModel,
 		} = input
-		this.#models = new Map(models)
+		this.setModels(models)
 		this.selectedModel = selectedModel
+	}
+
+	/**
+	 * @param {readonly[string, ModelInfo[]] | Map<string, ModelInfo[] | Map<string, ModelInfo>>} models
+	 */
+	setModels(models) {
+		// @todo I need to improve the AI class to make it work nice for Test logs and Real API.
+		//       There are some solution for flatten models already somewhere, so it must be here.
+		const map = new Map(models)
+		for (let [id, arr] of map.entries()) {
+			// if (!Array.isArray(arr)) arr = [arr]
+		}
+		this.#models = new Map(models)
 	}
 
 	/**
@@ -100,8 +114,10 @@ export default class AI {
 	 */
 	findModel(modelId) {
 		const str = String(modelId).toLowerCase()
-		for (const [id, info] of this.#models.entries()) {
-			if (String(id).toLowerCase().includes(str)) return info
+		for (const [id, arr] of this.#models.entries()) {
+			for (const info of arr) {
+				if (String(id).toLowerCase().includes(str)) return info
+			}
 		}
 	}
 

@@ -34,7 +34,7 @@ export default class Chat {
 	/** @type {ChatConfig} */
 	config
 	/** @type {string} */
-	#dir
+	dir
 	/** @type {FileSystem} Access to the current working directory file system */
 	#fs
 	/** @type {FileSystem} access to the chat directory file system */
@@ -46,6 +46,7 @@ export default class Chat {
 	constructor(input = {}) {
 		const {
 			id = randomUUID(), cwd = process.cwd(), root = "chat", messages = [],
+			dir = "",
 			config = new ChatConfig({}),
 		} = input
 		this.id = String(id)
@@ -54,13 +55,9 @@ export default class Chat {
 		this.messages = messages
 		this.config = config
 		this.#fs = new FileSystem({ cwd })
+		this.dir = dir ? dir : this.#fs.path.resolve(root, id)
 		// Fixed: Respect 'dir' input if provided, else construct as before
-		this.#dir = input.dir ? input.dir : this.#fs.path.resolve(root, id)
 		this.#db = new FileSystem({ cwd: this.dir })
-	}
-
-	get dir() {
-		return this.#dir
 	}
 
 	get #path() {
@@ -127,7 +124,7 @@ export default class Chat {
 		this.config = new ChatConfig(data)
 
 		if (!this.id) {
-			this.id = await this.db.load("current")
+			this.id = await this.fs.load(this.root + "/current")
 		}
 	}
 

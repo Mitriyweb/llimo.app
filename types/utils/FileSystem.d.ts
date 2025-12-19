@@ -120,7 +120,7 @@ export default class FileSystem {
      * @param {any} [options]
      * @returns {Promise<void>}
      */
-    _jsonlSaver(path: string, rows: any, options?: any): Promise<void>;
+    _jsonlSaver(path: string, rows?: any, options?: any): Promise<void>;
     /**
      * JSON saver – writes a plain JSON file.
      * @param {string} path
@@ -128,7 +128,7 @@ export default class FileSystem {
      * @param {any} [options]
      * @returns {Promise<void>}
      */
-    _jsonSaver(path: string, data: any, options?: any): Promise<void>;
+    _jsonSaver(path: string, data?: any, options?: any): Promise<void>;
     /**
      * Relative proxy of mkdir() & writeFile().
      * @param {string} path
@@ -145,6 +145,11 @@ export default class FileSystem {
      * @returns {Promise<void>}
      */
     append(path: string, data: any, options?: any): Promise<void>;
+    /**
+     * @param {string} prefix
+     * @returns {Promise<string>}
+     */
+    mkdtemp(prefix: string): Promise<string>;
     #private;
 }
 export type MkDirOptions = import("node:fs").Mode | import("node:fs").MakeDirectoryOptions | null;

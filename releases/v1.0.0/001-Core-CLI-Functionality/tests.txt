@@ -1,3 +1,0 @@
-# Tests to run after implementing this task
-bin/llimo-chat.test.js
-src/cli/argvHelper.test.js

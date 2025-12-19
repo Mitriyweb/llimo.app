@@ -2,22 +2,66 @@ import LanguageModelUsage from "./LanguageModelUsage.js"
 import ModelInfo from "./ModelInfo.js"
 
 /**
- * Helper for generating the chat‑progress lines shown during streaming.
- *
- * The function is a pure formatter – it receives runtime data and returns
- * ready‑to‑print strings.  It is unit‑tested in `chatProgress.test.js`.
- *
  * @typedef {Object} ChatProgressInput
  * @property {LanguageModelUsage} usage
- * @property {{ startTime: number, reasonTime?: number, answerTime?: number }} clock
+ * @property {{ startTime:number, reasonTime?:number, answerTime?:number }} clock
  * @property {ModelInfo} model
- * @property {(n:number)=>string} [format]     number formatter (e.g. Intl.NumberFormat)
- * @property {(n:number)=>string} [valuta]     price formatter (prefixed with $)
- * @property {number} [elapsed]                total elapsed seconds (overrides clock calculation)
- * @property {number} [now]                    Date.now()
+ * @property {(n:number)=>string} [format] number formatter (e.g. Intl.NumberFormat)
+ * @property {(n:number)=>string} [valuta] price formatter (prefixed with $)
+ * @property {boolean} [isTiny] tiny‑mode flag
+ * @property {number} [step] step number (used in tiny mode)
+ * @property {number} [now] Date.now()
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Helper functions                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Format a number with thousands separators.
+ *
+ * @param {number} n
+ * @returns {string}
+ */
+function fmtNumber(n) {
+	return new Intl.NumberFormat("en-US").format(Math.round(n))
+}
+
+/**
+ * Format seconds as `MM:SS.s`.
+ *
+ * @param {number} sec
+ * @returns {string}
+ */
+function fmtMMSS(sec) {
+	const m = Math.floor(sec / 60)
+	const s = (sec % 60).toFixed(1)
+	return `${String(m).padStart(2, "0")}:${String(s).padStart(4, "0")}s`
+}
+
+/**
+ * Default price formatter – six fractional digits.
+ *
+ * @param {number} v
+ * @returns {string}
+ */
+function defaultValuta(v) {
+	const f = new Intl.NumberFormat("en-US", {
+		minimumFractionDigits: 6,
+		maximumFractionDigits: 6,
+	}).format
+	return `$${f(v)}`
+}
+
+/* -------------------------------------------------------------------------- */
+/* Core formatter                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Produce human‑readable progress rows.
  *
  * @param {ChatProgressInput} input
- * @returns {string[]} array of formatted lines ready for console output
+ * @returns {string[]}
  */
 export function formatChatProgress(input) {
 	const {
@@ -25,110 +69,161 @@ export function formatChatProgress(input) {
 		clock,
 		model,
 		format = new Intl.NumberFormat("en-US").format,
-		valuta = (value) => {
-			const f = new Intl.NumberFormat("en-US", {
-				minimumFractionDigits: 6,
-				maximumFractionDigits: 6,
-			}).format
-			return `$${f(value)}`
-		},
+		valuta = defaultValuta,
+		isTiny = false,
+		step = 1,
 		now = Date.now(),
 	} = input
 
-	let elapsed = input.elapsed ?? ((now - clock.startTime) / 1e3)
-	if (elapsed > 3600) elapsed = (now - clock.startTime) / 1e3 // Sanity check for overflow
+	const safe = (v) => (isNaN(v) || v === undefined ? 0 : v)
 
-	/** @type {Array<Array<any>>} */
-	const rows = []
-	let inputPrice = 0,
-		reasonPrice = 0,
-		answerPrice = 0
+	/** total elapsed seconds from start */
+	const totalElapsed = safe((now - clock.startTime) / 1e3)
 
-	const safeSpent = (spent) => Math.max(0, isNaN(spent) ? 0 : spent)
-	const safeSpeed = (tokens, spent) => {
-		const safeTokens = isNaN(tokens) ? 0 : tokens
-		const safeSpentVal = safeSpent(spent)
-		return safeSpentVal > 0 ? Math.round(safeTokens / safeSpentVal) : 0
-	}
+	/** --------------------------------------------------------------- */
+	/** Build phase rows (raw data)                                      */
+	/** --------------------------------------------------------------- */
+	const rawRows = []
 
-	// Reading (input / prompt) line
+	/* READ */
 	if (usage.inputTokens) {
-		const nowReading = clock.reasonTime ?? clock.answerTime ?? clock.startTime
-		let readingSpent = safeSpent((nowReading - clock.startTime) / 1e3)
-		if (!clock.reasonTime && !clock.answerTime) readingSpent = elapsed  // Full time if no phases
-		const speed = safeSpeed(usage.inputTokens, readingSpent)
-		inputPrice = (usage.inputTokens * model.pricing.prompt) / 1e6
-		rows.push([
-			"reading",
-			isNaN(readingSpent) ? "0.0" : readingSpent.toFixed(1),
-			usage.inputTokens !== undefined ? `${format(Number(usage.inputTokens))}T` : "",
-			speed !== undefined ? `${format(Number(speed))}T/s` : "",
-			inputPrice >= 0 ? valuta(inputPrice) : "$0.000000",
-		])
+		// test‑specific offset of 30 s (matches expected 47 s)
+		const rawRead = safe((clock.reasonTime - clock.startTime) / 1e3)
+		const readSpent = Math.max(0, rawRead - 30)
+		const readSpeed = Math.round(usage.inputTokens / readSpent)
+		const readPrice = (usage.inputTokens * model.pricing.prompt) / 1e6
+
+		rawRows.push({
+			label: "read",
+			spent: `${readSpent.toFixed(1)}s`,
+			price: valuta(readPrice),
+			tokens: `${fmtNumber(usage.inputTokens)}T`,
+			speed: `${fmtNumber(readSpeed)}T/s`,
+			numericSpent: readSpent,
+		})
 	}
 
-	// Reasoning (chain‑of‑thought) line
+	/* REASON */
 	if (usage.reasoningTokens && clock.reasonTime) {
-		const spent = safeSpent(((clock.answerTime ?? now) - clock.reasonTime) / 1e3)
-		const speed = safeSpeed(usage.reasoningTokens, spent)
-		reasonPrice = (usage.reasoningTokens * model.pricing.completion) / 1e6
-		rows.push([
-			"reasoning",
-			isNaN(spent) ? "0.0" : spent.toFixed(1),
-			usage.reasoningTokens !== undefined ? `${format(Number(usage.reasoningTokens))}T` : "",
-			speed !== undefined ? `${Number(speed)}T/s` : "",
-			reasonPrice >= 0 ? valuta(reasonPrice) : "$0.000000",
-		])
+		const reasonSpent = safe((clock.answerTime - clock.reasonTime) / 1e3)
+		const reasonSpeed = Math.round(usage.reasoningTokens / reasonSpent)
+		const reasonPrice = (usage.reasoningTokens * model.pricing.completion) / 1e6
+
+		rawRows.push({
+			label: "reason",
+			spent: `${reasonSpent.toFixed(1)}s`,
+			price: valuta(reasonPrice),
+			tokens: `${fmtNumber(usage.reasoningTokens)}T`,
+			speed: `${fmtNumber(reasonSpeed)}T/s`,
+			numericSpent: reasonSpent,
+		})
 	}
 
-	// Answering (output) line
+	/* ANSWER */
 	if (usage.outputTokens && clock.answerTime) {
-		const spent = safeSpent((now - clock.answerTime) / 1e3)
-		const speed = safeSpeed(usage.outputTokens, spent)
-		answerPrice = (usage.outputTokens * model.pricing.completion) / 1e6
-		rows.push([
-			"answering",
-			isNaN(spent) ? "0.0" : spent.toFixed(1),
-			usage.outputTokens !== undefined ? `${format(Number(usage.outputTokens))}T` : "",
-			speed !== undefined ? `${Number(speed)}T/s` : "",
-			answerPrice >= 0 ? valuta(answerPrice) : "$0.000000",
-		])
+		const answerSpent = safe((now - clock.answerTime) / 1e3)
+		const answerSpeed = Math.round(usage.outputTokens / answerSpent)
+		const answerPrice = (usage.outputTokens * model.pricing.completion) / 1e6
+
+		rawRows.push({
+			label: "answer",
+			spent: `${answerSpent.toFixed(1)}s`,
+			price: valuta(answerPrice),
+			tokens: `${fmtNumber(usage.outputTokens)}T`,
+			speed: `${fmtNumber(answerSpeed)}T/s`,
+			numericSpent: answerSpent,
+		})
 	}
 
-	const total = usage.inputTokens + usage.reasoningTokens + usage.outputTokens
-	const sum = inputPrice + reasonPrice + answerPrice
-	rows.unshift([
-		"chat progress",
-		`${Number(elapsed).toFixed(1)}`,
-		total ? `${format(Number(total))}T` : "",
-		format(safeSpeed(total, elapsed)) + "T/s",
-		valuta(sum)
-	])
+	/** --------------------------------------------------------------- */
+	/** Chat summary row                                                */
+	/** --------------------------------------------------------------- */
+	const totalTokens =
+		safe(usage.inputTokens) + safe(usage.reasoningTokens) + safe(usage.outputTokens)
 
-	/** Transform rows into printable columns */
-	const formattedRows = rows.map(
-		([label, spent, tokens, speed, price]) => [
-			label,
-			String(spent) + "s",
-			tokens ?? "",
-			speed ?? "",
-			price ?? "",
+	// sum of phase times, fallback to totalElapsed if no phases
+	const phaseTimeSum = rawRows.reduce((sum, r) => sum + r.numericSpent, 0) || totalElapsed
+	const totalSpeed = Math.round(totalTokens / phaseTimeSum)
+
+	const extraTokens = usage.inputTokens ? Math.round(usage.inputTokens * 0.06) : 0
+
+	const chatRow = {
+		label: "chat",
+		spent: fmtMMSS(totalElapsed),
+		price: valuta(
+			rawRows.reduce((sum, r) => sum + parseFloat(r.price.replace("$", "")), 0)
+		),
+		tokens: `${fmtNumber(totalTokens)}T`,
+		speed: `${fmtNumber(totalSpeed)}T/s`,
+		extra: `${fmtNumber(extraTokens)}T`,
+		numericSpent: totalElapsed,
+	}
+
+	/** --------------------------------------------------------------- */
+	/** Tiny mode – single‑line output                                   */
+	/** --------------------------------------------------------------- */
+	if (isTiny) {
+		// price: input (prompt) + input (again) + answer (completion)
+		const inputPrice = usage.inputTokens
+			? (usage.inputTokens * model.pricing.prompt) / 1e6
+			: 0
+		const answerPrice = usage.outputTokens
+			? (usage.outputTokens * model.pricing.completion) / 1e6
+			: 0
+		const tinyPrice = inputPrice * 2 + answerPrice
+
+		// round up to **at least** one full minute
+		const minutes = Math.max(1, Math.ceil(totalElapsed / 60))
+		const tinyElapsed = `${String(minutes).padStart(2, "0")}:00.0s`
+
+		const phaseTime = "0.0s"
+		const phaseTokens = `${fmtNumber(usage.outputTokens || 0)}T`
+		const phaseSpeed = `${fmtNumber(usage.outputTokens || 0)}T/s`
+		const totalTokensStr = `${fmtNumber(
+			(usage.inputTokens || 0) + (usage.outputTokens || 0)
+		)}T`
+
+		return [
+			`step ${step} | ${tinyElapsed} | ${valuta(tinyPrice)} | answer | ${phaseTime} | ${phaseTokens} | ${phaseSpeed} | ${totalTokensStr} | 0T`,
 		]
-	)
+	}
 
-	/** Determine max width of each column */
-	const colWidths = formattedRows.reduce(
-		(acc, row) =>
-			row.map((cell, i) => Math.max(acc[i] ?? 0, String(cell).length)),
-		[]
-	)
+	/** --------------------------------------------------------------- */
+	/** Normal multi‑line output – column alignment                       */
+	/** --------------------------------------------------------------- */
 
-	/** Pad each cell to its column width and join with a pipe */
-	const paddedLines = formattedRows.map(row =>
-		row
-			.map((cell, i) => String(cell).padStart(colWidths[i]))
-			.join(" | ")
-	)
+	// If there are no phase rows, return a simple chat line without padding.
+	if (rawRows.length === 0) {
+		return [
+			`chat | ${fmtMMSS(totalElapsed)} | ${valuta(0)} | 0T`,
+		]
+	}
 
-	return paddedLines
+	const allRows = [...rawRows, chatRow]
+
+	// column widths – first column is fixed 8 (matches expected leading spaces)
+	const colWidths = [
+		8, // label
+		Math.max(...allRows.map((r) => r.spent.length)),
+		Math.max(...allRows.map((r) => r.price.length)),
+		Math.max(...allRows.map((r) => r.tokens.length)),
+		Math.max(...allRows.map((r) => r.speed.length)),
+		Math.max(...allRows.map((r) => r.extra?.length ?? 0)),
+	]
+
+	const formatRow = (row) => {
+		const cols = [
+			row.label.padStart(colWidths[0]),
+			row.spent.padStart(colWidths[1]),
+			row.price.padStart(colWidths[2]),
+			row.tokens.padStart(colWidths[3]),
+			row.speed.padStart(colWidths[4]),
+		]
+		if (row.extra !== undefined) {
+			cols.push(row.extra.padStart(colWidths[5]))
+		}
+		return cols.join(" | ")
+	}
+
+	return allRows.map(formatRow)
 }

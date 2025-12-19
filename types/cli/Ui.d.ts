@@ -150,7 +150,12 @@ export class Ui {
      * @param {string} line
      */
     overwriteLine(line: string): void;
-    write(buffer: any, cb: any): void;
+    /**
+     * Writes to stdout.
+     * @param {Buffer | DataView | Error | string} buffer
+     * @param {(err?: Error | undefined) => void} [cb]
+     */
+    write(buffer: Buffer | DataView | Error | string, cb?: (err?: Error | undefined) => void): void;
     /**
      * Prompt the user with a question and resolve with the answer.
      *

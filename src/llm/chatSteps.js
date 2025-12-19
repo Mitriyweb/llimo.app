@@ -126,11 +126,10 @@ export async function initialiseChat(input) {
 export async function copyInputToChat(inputFile, input, chat, ui, step = 1) {
 	if (!inputFile) return
 	const file = chat.db.path.basename(inputFile)
-	const full = chat.path(file)
+	const full = chat.path("input")
 	await chat.save("input", input, step)
-	ui.console.info(`> preparing ${file} (${inputFile})`)
-	ui.console.info(`+ ${file} (${full})`)
-	ui.console.info(`  copied to chat session`)
+	ui.console.debug(`> preparing ${file} (${inputFile})`)
+	ui.console.success(`+ ${file} (${full})`)
 }
 
 /**
@@ -181,6 +180,7 @@ export async function packPrompt(packMarkdown, input, chat, ui) {
 	const totalSize = prompt.length + all.length
 	const totalTokens = await chat.calcTokens(prompt + all)
 	ui.console.info(`Prompt size: ${ITALIC}${ui.formats.weight("b", prompt.length)}${RESET} — ${ui.formats.count(injected.length)} file(s).`)
+	injected.forEach(file => ui.console.debug(`+ ${file}`))
 	ui.console.info(`Messages size: ${BOLD}${ui.formats.weight("b", totalSize)}${RESET} ~ ${ui.formats.weight("T", totalTokens)}`)
 
 	// Log all user blocks (including new ones) to inputs.jsonl
@@ -239,7 +239,7 @@ export function startStreaming(ai, model, chat, options) {
  * @property {number} duration
  * @property {number} types
  *
- * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number> }} TestOutput
+ * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number>, guess: TestOutputCounts }} TestOutput
  *
  * @param {string} stdout
  * @param {string} stderr
@@ -258,6 +258,17 @@ export function parseOutput(stdout, stderr) {
 		types: [],
 	}
 	const counts = {
+		fail: 0,
+		cancelled: 0,
+		pass: 0,
+		tests: 0,
+		suites: 0,
+		skip: 0,
+		todo: 0,
+		duration: 0,
+		types: 0,
+	}
+	const guess = {
 		fail: 0,
 		cancelled: 0,
 		pass: 0,
@@ -288,6 +299,13 @@ export function parseOutput(stdout, stderr) {
 
 	for (let i = 0; i < all.length; i++) {
 		const str = all[i].trim()
+		if (str.startsWith("ok ")) {
+			++guess.pass
+			++guess.tests
+		} else if (str.startsWith("not ok ")) {
+			++guess.fail
+			++guess.tests
+		}
 		for (const [field, vars] of Object.entries(parser)) {
 			for (const v of vars) {
 				if ("string" === typeof v) {
@@ -314,7 +332,7 @@ export function parseOutput(stdout, stderr) {
 	// Round duration to three decimal places for consistency
 	counts.duration = Math.round(counts.duration * 1e3) / 1e3
 
-	return { logs, counts, types }
+	return { logs, counts, types, guess }
 }
 
 /**

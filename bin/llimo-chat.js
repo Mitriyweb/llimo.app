@@ -27,9 +27,14 @@ async function main(argv = process.argv.slice(2)) {
 
 	const app = new ChatCLiApp({ fs, git, ui, options: command })
 	// 1. initialise / load chat
-	await app.init(argv)
+	const shouldContinue = await app.init(argv)
+	if (!shouldContinue) {
+		ui.console.success("+ Command complete")
+		return false
+	}
 	const input = await app.readInput()
 	if (!input) {
+		ui.console.error(`Cannot read input from stdin or file ${app.inputFile}`)
 		return false
 	}
 	// 2. run the loop from task to solution [input → response → test → repeat until 100% pass]
