@@ -49,6 +49,13 @@ describe("ModelInfo", () => {
 			pricing: { prompt: 0.05 },
 			architecture: { modality: "multi" },
 			top_provider: { context_length: 8192, is_moderated: true },
+			supported_parameters: ["temperature", "top_p"],
+			default_parameters: { temperature: 0.7 },
+			canonical_slug: "test-slug",
+			created: 1234567890,
+			description: "Test description",
+			hugging_face_id: "hf/test-model",
+			per_request_limit: 100,
 		}
 		const model = new ModelInfo(input)
 		assert.strictEqual(model.pricing.prompt, 0.05)
@@ -57,5 +64,30 @@ describe("ModelInfo", () => {
 		assert.strictEqual(model.top_provider.context_length, 8192)
 		assert.strictEqual(model.top_provider.is_moderated, true)
 		assert.strictEqual(model.top_provider.max_completion_tokens, -1)  // default
+		assert.deepStrictEqual(model.supported_parameters, ["temperature", "top_p"])
+		assert.deepStrictEqual(model.default_parameters, { temperature: 0.7 })
+		assert.strictEqual(model.canonical_slug, "test-slug")
+		assert.strictEqual(model.created, 1234567890)
+		assert.strictEqual(model.description, "Test description")
+		assert.strictEqual(model.hugging_face_id, "hf/test-model")
+		assert.strictEqual(model.per_request_limit, 100)
+	})
+
+	it("copies arrays and objects shallowly", () => {
+		const input = {
+			supported_parameters: ["temp"],
+			default_parameters: { temp: 0.7 },
+		}
+		const model1 = new ModelInfo(input)
+		const model2 = new ModelInfo(input)
+
+		// Modifications don't affect each other
+		model1.supported_parameters.push("top_p")
+		model1.default_parameters.max_tokens = 100
+
+		assert.strictEqual(model1.supported_parameters.length, 2)
+		assert.strictEqual(model2.supported_parameters.length, 1)
+		assert.strictEqual(model1.default_parameters.max_tokens, 100)
+		assert.strictEqual(model2.default_parameters.max_tokens, undefined)
 	})
 })

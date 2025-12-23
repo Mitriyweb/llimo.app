@@ -1,6 +1,7 @@
 import Pricing from "./Pricing.js"
 import Architecture from "./Architecture.js"
 import TopProvider from "./TopProvider.js"
+import Limits from "./Limits.js"
 
 /**
  * Represents information about a model.
@@ -12,8 +13,12 @@ export default class ModelInfo {
 	architecture
 	/** @type {string} */
 	canonical_slug
-	/** @type {number} */
+	/** @type {number} - Maximum context length in tokens */
 	context_length
+	/** @type {number} - Maximum output in tokens */
+	maximum_output
+	/** @type {Limits} - limits of requests and tokens per time */
+	limits
 	/** @type {number} */
 	created
 	/** @type {object} */
@@ -30,13 +35,14 @@ export default class ModelInfo {
 	pricing
 	/** @type {string[]} - Supported parameters */
 	supported_parameters
-	/** @type {string} - Provider name (openai, cerebras, …) */
+	/** @type {string} - Provider name (openai, cerebras, huggingface/cerebras) */
 	provider
 	/** @type {TopProvider} */
 	top_provider
 
 	/**
-	 * @param {Partial<ModelInfo>} input 
+	 * Constructs a ModelInfo instance.
+	 * @param {Partial<ModelInfo>} input - Partial object with model properties.
 	 */
 	constructor(input = {}) {
 		const {
@@ -44,6 +50,7 @@ export default class ModelInfo {
 			architecture = {},
 			canonical_slug = "",
 			context_length = 0,
+			maximum_output = 0,
 			created = 0,
 			default_parameters = {},
 			description = "",
@@ -54,11 +61,13 @@ export default class ModelInfo {
 			supported_parameters = [],
 			provider = "",
 			top_provider = {},
+			limits = {},
 		} = input
 		this.id = String(id)
 		this.architecture = new Architecture(architecture)
 		this.canonical_slug = String(canonical_slug)
 		this.context_length = Number(context_length)
+		this.maximum_output = Number(maximum_output)
 		this.created = Number(created)
 		this.default_parameters = { ...default_parameters }  // Shallow copy to ensure object
 		this.description = String(description)
@@ -69,5 +78,6 @@ export default class ModelInfo {
 		this.supported_parameters = Array.isArray(supported_parameters) ? [...supported_parameters] : []
 		this.provider = String(provider)
 		this.top_provider = new TopProvider(top_provider)
+		this.limits = new Limits(limits)
 	}
 }

@@ -10,12 +10,14 @@ export default class Path {
 	/**
 	 * @param {Partial<Path>} [input={}]
 	 */
-	constructor(input = {}) {{
-		const {
-			cwd = process.cwd(),
-		} = input
-		this.cwd = String(cwd)
-	}}
+	constructor(input = {}) {
+		{
+			const {
+				cwd = process.cwd(),
+			} = input
+			this.cwd = String(cwd)
+		}
+	}
 	/**
 	 * Get directory name
 	 * @param {string} path
@@ -63,6 +65,16 @@ export default class Path {
 	 */
 	basename(path) {
 		return basename(path)
+	}
+
+	/**
+	 * Returns normalized (relative to cwd) path.
+	 * @param {string} path
+	 * @returns {string}
+	 */
+	normalize(path) {
+		const abs = this.resolve(this.cwd, path)
+		return this.relative(this.cwd, path)
 	}
 }
 

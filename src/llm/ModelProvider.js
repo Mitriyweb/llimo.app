@@ -16,6 +16,7 @@ import { FileSystem } from "../utils/index.js"
 import getCerebrasInfo from "./providers/cerebras.info.js"
 import getHuggingFaceInfo from "./providers/huggingface.info.js"
 import ModelInfo from "./ModelInfo.js"
+import Pricing from "./Pricing.js"
 
 /** @typedef {"cerebras" | "openrouter" | "huggingface"} AvailableProvider */
 
@@ -31,32 +32,44 @@ export default class ModelProvider {
 	/** @type {string} absolute path to the cache file */
 	#cachePath
 
-	constructor() {
-		this.#fs = new FileSystem()
+	constructor(input = {}) {
+		const {
+			fs = new FileSystem(),
+		} = input
+		this.#fs = fs
 		// Resolve the cache file relative to the current working directory.
 		this.#cachePath = this.#fs.path.resolve(CACHE_FILE)
 	}
 
+	get cachePath() {
+		return this.#cachePath
+	}
+
 	/**
 	 * Load the cache file if it exists and is fresh.
-	 * @returns {Promise<any | null>}
+	 * @returns {Promise<ModelInfo[] | null>}
 	 */
-	async #loadCache() {
-		if (await this.#fs.access(this.#cachePath)) {
-			const rows = await this.#fs.load(this.#cachePath) ?? []
-			const stats = await this.#fs.info(this.#cachePath)
-			if ((Date.now() - stats.mtimeMs) < CACHE_TTL) {
-				return rows.map(m => new ModelInfo(m))
+	async loadCache() {
+		try {
+			if (await this.#fs.access(this.#cachePath)) {
+				const rows = await this.#fs.load(this.#cachePath) ?? []
+				const stats = await this.#fs.info(this.#cachePath)
+				if ((Date.now() - stats.mtimeMs) < CACHE_TTL) {
+					return rows.map(row => new ModelInfo(row))
+				}
 			}
+		} catch (/** @type {any} */ err) {
+			// Ignore cache read errors – fall back to fresh fetch.
+			console.debug(`Cache load failed: ${err.message}`)
 		}
 		return null
 	}
 
 	/**
-	 * Write fresh data to the cache.
-	 * @param {any} data
+	 * Write fresh data to the cache as JSONL (one model per line).
+	 * @param {ModelInfo[]} data
 	 */
-	async #writeCache(data) {
+	async writeCache(data) {
 		await this.#fs.save(this.#cachePath, data)
 	}
 
@@ -66,31 +79,53 @@ export default class ModelProvider {
 	 * The function knows how to call each supported provider.
 	 *
 	 * @param {AvailableProvider} provider
-	 * @returns {Promise<Array<ModelInfo>>}
+	 * @returns {Promise<Array<Partial<ModelInfo> & {id: string}>>} Raw model data.
 	 */
-	async #fetchFromProvider(provider) {
+	async fetchFromProvider(provider) {
 		switch (provider) {
 			case "cerebras":
-				// Real Cerebras endpoint – requires an Authorization header.
+				if (!process.env.CEREBRAS_API_KEY) {
+					throw new Error("CEREBRAS_API_KEY required for Cerebras models")
+				}
 				return await this.#jsonFetch(`https://api.cerebras.ai/v1/models`, {
 					Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}`
 				})
 			case "openrouter":
-				// OpenRouter model list endpoint – public for most models.
-				return await this.#jsonFetch(`https://openrouter.ai/api/v1/models`)
+				if (!process.env.OPENROUTER_API_KEY) {
+					throw new Error("OPENROUTER_API_KEY required for OpenRouter models")
+				}
+				return await this.#jsonFetch(`https://openrouter.ai/api/v1/models`, {
+					Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`
+				})
 			case "huggingface":
-				// HuggingFace inference providers – model list via router API
-				// This returns both the base HF models and partner models.
-				// See: https://huggingface.co/docs/api-inference/models
-				return await this.#jsonFetch(
-					"https://router.huggingface.co/v1/models",
-					{
-						Authorization: `Bearer ${process.env.HF_TOKEN}`
-					}
-				)
+				const HF_TOKEN = process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY
+				if (!HF_TOKEN) {
+					throw new Error("HF_TOKEN required for Hugging Face models")
+				}
+				// Note: Hugging Face router API may not provide full model list; fallback to static.
+				// Endpoint for inference models: https://huggingface.co/docs/api-inference/models
+				try {
+					return await this.#jsonFetch(
+						"https://router.huggingface.co/v1/models",
+						{ Authorization: `Bearer ${HF_TOKEN}` }
+					)
+				} catch (err) {
+					console.debug(`HF fetch failed, using static: ${err.message}`)
+					return [] // Fallback to static info only.
+				}
 			default:
 				throw new Error(`Unsupported provider "${provider}"`)
 		}
+	}
+
+	/**
+	 *
+	 * @param {string | URL | globalThis.Request} url
+	 * @param {RequestInit} options
+	 * @returns {Promise<Response>}
+	 */
+	async fetch(url, options) {
+		return await fetch(url, options)
 	}
 
 	/**
@@ -102,7 +137,7 @@ export default class ModelProvider {
 	 * @returns {Promise<Array>}
 	 */
 	async #jsonFetch(url, headers = {}) {
-		const resp = await fetch(url, { headers: { ...headers, "Accept": "application/json" } })
+		const resp = await this.fetch(url, { headers: { ...headers, "Accept": "application/json" } })
 		if (!resp.ok) {
 			throw new Error(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`)
 		}
@@ -116,77 +151,101 @@ export default class ModelProvider {
 	}
 
 	/**
-	 * Normalise raw provider payload into the common ModelInfo shape.
-	 *
-	 * @param {Partial<ModelInfo> & {model_id: string} | ModelInfo} item Raw model object from provider.
-	 * @param {AvailableProvider} provider Provider name.
-	 * @param {Array<readonly [string, Partial<ModelInfo>]>} [models=[]]
-	 * @returns {Partial<ModelInfo>}
-	*/
-	#normalise(item, provider, models = []) {
-		/** @type {Map<string, Partial<ModelInfo>>} */
-		const map = new Map(models)
-		const name = String(item.id ?? item['model_id'] ?? "")
-		/** @type {Partial<ModelInfo>} */
-		const base = map.get(name) ?? {}
-		/** @type {Partial<ModelInfo>} */
-		const norm = { ...base, ...item }
-		switch (provider) {
-			case "cerebras":
-				norm.provider = "cerebras"
-				break
-			case "openrouter":
-				// OpenRouter uses *_usd naming.
-				norm.provider = "openrouter"
-				break
-			case "huggingface":
-				// HuggingFace inference API uses unique format – ensure correct provider tag.
-				norm.provider = "huggingface"
-				break
+	 * Flatten multi-provider entries into separate ModelInfo instances.
+	 * @param {Array<ModelInfo & { providers?: Partial<ModelInfo> }>} arr
+	 * @param {AvailableProvider} provider
+	 * @param {Array<[string, Partial<ModelInfo>]>} [predefined]
+	 * @returns {ModelInfo[]}
+	 */
+	_makeFlat(arr, provider, predefined = []) {
+		const map = new Map(predefined)
+		const result = []
+		const push = item => {
+			if (item) {
+				if ("openrouter" === provider) {
+					this.#multiply(item, 1e6)
+				}
+				result.push(item)
+			}
 		}
-		// Map HuggingFace's provider-suffixed models like "openai/gpt-oss-120b:groq"
-		if (provider === "huggingface" && typeof norm.id === "string") {
-			// Remove provider suffix like ":groq"
-			norm.id = norm.id.split(":")[0]
+		for (const model of arr) {
+			const pre = map.get(model.id) ?? {}
+			if (model.providers && Array.isArray(model.providers)) {
+				for (const opts of model.providers) {
+					const pro = provider + "/" + (opts.provider ?? "")
+					if (pro.endsWith("/")) {
+						console.warn("Incorrect model's provider: " + pro)
+						continue
+					}
+					const { providers, ...rest } = model
+					push(new ModelInfo({ ...pre, ...rest, ...opts, provider: pro }))
+				}
+			} else {
+				push(new ModelInfo({ ...pre, ...model, provider: provider ?? model.provider }))
+			}
 		}
-		return norm
+		return result
 	}
 
 	/**
-	 * Return a map of model-id → model-info.
 	 *
-	 * The method first attempts to read a fresh cache. If the cache is missing
-	 * or stale it performs network requests, updates the cache and returns the
-	 * merged data.
-	 * @param {object} options
-	 * @param {(name: string, providers: string[]) => void} [options.onBefore]
-	 * @param {(name: string, raw: any, models: Partial<ModelInfo>[]) => void} [options.onData]
+	 * @param {ModelInfo} model
+	 * @param {number} rate
+	 */
+	#multiply(model, rate = 1) {
+		const fields = [
+			"completion",
+			"input_cache_read",
+			"input_cache_write",
+			"internal_reasoning",
+			"prompt",
+		]
+		model.pricing ??= new Pricing({})
+		for (const field of fields) {
+			if (model.pricing[field] > 0) {
+				model.pricing[field] *= rate
+			}
+		}
+		return model
+	}
+
+	/**
+	 * Return a map of model-id → array of ModelInfo (one per provider variant).
 	 *
-	 * @returns {Promise<Map<string, ModelInfo[]>>}
+	 * Attempts cache first. If stale/missing, fetches from providers, merges with static info,
+	 * updates cache, and returns. Errors per-provider are swallowed, falling back to static.
+	 *
+	 * @param {object} [options={}]
+	 * @param {function(string, string[]): void} [options.onBefore] Called before fetch.
+	 * @param {function(string, any, ModelInfo[]): void} [options.onData] Called after normalization.
+	 * @param {boolean} [options.noCache]
+	 * @returns {Promise<Map<string, ModelInfo>>}
 	 */
 	async getAll(options = {}) {
 		/**
 		 * @param {ModelInfo[]} all
-		 * @returns {Map<string, ModelInfo[]>}
+		 * @returns {Map<string, ModelInfo>}
 		 */
 		const convertMap = (all) => {
 			const map = new Map()
 			all
 				.filter((m) => typeof m.id === "string" && m.id.length > 0)
 				.forEach((m) => {
-					const arr = map.get(m.id) ?? []
-					arr.push(m)
-					map.set(m.id, arr)
+					const id = [m.id, m.provider].join("@")
+					map.set(id, m)
 				})
 			return map
 		}
+
 		const {
 			onBefore = () => { },
 			onData = () => { },
+			noCache = false,
 		} = options
-		/** @type {ModelInfo[]} */
-		const cached = await this.#loadCache()
-		if (cached) {
+
+		// Try cache first.
+		const cached = noCache ? null : await this.loadCache()
+		if (cached && cached.length > 0) {
 			return convertMap(cached)
 		}
 
@@ -198,52 +257,44 @@ export default class ModelProvider {
 			try {
 				onBefore(name, providerNames)
 				let raw = []
-				let predefined = {}
-				if (name === "cerebras") {
-					predefined = getCerebrasInfo()
-				} else if (name === "huggingface") {
-					// Use static fallback models as a base, then merge remote results.
-					predefined = getHuggingFaceInfo()
+				// Fetch if possible, else use static only.
+				try {
+					raw = await this.fetchFromProvider(name)
+				} catch (/** @type {any} */ err) {
+					console.warn(`Fetch failed for ${name}, using static: ${err.message}`)
+					raw = [] // Rely on predefined.
 				}
-				raw = await this.#fetchFromProvider(name)
 
-				const normalized = raw.map((item) => this.#normalise(item, name, predefined.models ?? []))
-				const flat = this.#makeFlat(normalized)
+				const flat = this.flatten(raw, name)
 				onData(name, raw, flat)
 				all.push(...flat)
 			} catch (/** @type {any} */ err) {
-				// Swallow network errors – the cache will be empty and callers can
-				// continue to use statically known models.
-				console.warn(`⚠️  Failed to fetch models from ${name}: ${err.message}`)
+				console.warn(`Failed to process ${name}: ${err.message}`)
 			}
 		}
 
-		if (all.length) {
-			await this.#writeCache(all)
+		if (all.length > 0) {
+			await this.writeCache(all)
 		}
 
-		// Ensure we only include entries with a defined string id.
 		return convertMap(all)
 	}
 
-	#makeFlat(arr) {
-		const result = []
-		for (const model of arr) {
-			if (model.providers) {
-				for (const opts of model.providers) {
-					const provider = model.provider + "/" + (opts.provider ?? "")
-					if (provider.endsWith("/")) {
-						console.warn("Incorrect model's provider: " + provider)
-					}
-					const { providers, ...rest } = model
-					const flat = new ModelInfo({ ...rest, ...opts, provider })
-					result.push(flat)
-				}
-			} else {
-				result.push(model)
-			}
+	/**
+	 * @param {Array} raw
+	 * @param {AvailableProvider} name
+	 */
+	flatten(raw, name) {
+		let predefined = []
+
+		// Load static info for providers with fallbacks.
+		if (name === "cerebras") {
+			predefined = getCerebrasInfo()?.models ?? [] // Assume returns Array<[string, Partial<ModelInfo>]>
+		} else if (name === "huggingface") {
+			predefined = getHuggingFaceInfo()?.models ?? [] // Array<[string, Partial<ModelInfo>]>
 		}
-		return result
+
+		return this._makeFlat(raw, name, predefined)
 	}
 }
 

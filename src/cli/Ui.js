@@ -42,16 +42,39 @@ export class UiFormats {
 	 * @param {number} [digits=2]
 	 * @returns {string}
 	 */
-	pricing(value, digits = 2) {
-		return new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
+	pricing(value, digits = 6) {
+		// Use currency style to ensure the $ sign and correct negative formatting.
+		const options = {
+			style: "currency",
+			currency: "USD",
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits,
+		}
+		return new Intl.NumberFormat("en-US", options).format(value)
+	}
+	/**
+	 * Formats money in USD with currency symbol and six decimals by default.
+	 * Delegates to pricing to keep consistent formatting.
+	 * @param {number} value
+	 * @param {number} [digits=6]
+	 * @returns {string}
+	 */
+	money(value, digits = 6) {
+		return this.pricing(value, digits)
+	}
+	/**
+	 * Formats timer elapsed in mm:ss.s format, caps at 3600s+.
+	 * @param {number} elapsed - Seconds elapsed.
+	 * @returns {string}
+	 */
+	timer(elapsed) {
+		if (elapsed > 3600) elapsed = 3600
+		const mins = Math.floor(elapsed / 60)
+		const secs = Math.round((elapsed % 60) * 10) / 10
+		return `${mins}:${secs.toString().padStart(5, "0")}`
 	}
 }
 
-/**
- * Console wrapper that adds optional file logging and colourised output.
- *
- * @class
- */
 export class UiConsole {
 	/** @type {Console} Console implementation to delegate to. */
 	console
@@ -221,8 +244,6 @@ export class UiCommand {
 	}
 }
 
-
-
 /**
  * UI helper for CLI interactions.
  *
@@ -374,4 +395,3 @@ export class Ui {
 }
 
 export default Ui
-

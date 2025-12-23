@@ -18,12 +18,29 @@
  */
 export default class AI {
     /**
-     * @param {object} input
-     * @param {Array<readonly [string, Partial<ModelInfo>[]]> | Map<string, Partial<ModelInfo>[]>} input
+     * @param {Object} input
+     * @param {readonly[string, ModelInfo[]] | readonly [string, ModelInfo] | Map<string, ModelInfo[] | ModelInfo>} [input.models=[]]
+     * @param {ModelInfo} [input.selectedModel]
      */
-    constructor(input?: object);
+    constructor(input?: {
+        models?: readonly [string, ModelInfo[]] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo[]> | undefined;
+        selectedModel?: ModelInfo | undefined;
+    });
     /** @type {ModelInfo?} */
     selectedModel: ModelInfo | null;
+    /**
+     * Flatten and normalize models to Map<string, ModelInfo[]>. Handles:
+     * - Map: Pass-through.
+     * - Array<[string, ModelInfo[]]>: Direct set.
+     * - Array<[string, ModelInfo]>: Wrap singles in arrays.
+     * - Nested providers (e.g., {providers: [{provider:'a'}]}): Expand to prefixed IDs (e.g., 'model:a').
+     * @param {readonly[string, ModelInfo[]] | readonly [string, ModelInfo] | Map<string, ModelInfo[] | ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}] } models
+     */
+    setModels(models: readonly [string, ModelInfo[]] | readonly [string, ModelInfo] | Map<string, ModelInfo[] | ModelInfo> | readonly [string, Partial<ModelInfo> & {
+        providers?: {
+            provider: string;
+        }[];
+    }]): void;
     /**
      * Refresh model information from remote providers.
      *
@@ -51,6 +68,13 @@ export default class AI {
      * @returns {ModelInfo[]}
      */
     getModel(modelId: string): ModelInfo[];
+    /**
+     * Returns the model for the specific provider with absolute equality.
+     * @param {string} model
+     * @param {string} provider
+     * @returns {ModelInfo | undefined}
+     */
+    getProviderModel(model: string, provider: string): ModelInfo | undefined;
     /**
      * Find a model from all of the models by partial comparasion.
      * @param {string} modelId The full or partial model id.

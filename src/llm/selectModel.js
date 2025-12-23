@@ -1,7 +1,6 @@
 import Ui from "../cli/Ui.js"
 import ModelInfo from "./ModelInfo.js"
-import FileSystem from "../utils/FileSystem.js"
-import Chat from "./Chat.js"
+import { model2row } from "../cli/autocomplete.js"
 
 /**
  * Helper to select a model (and optionally its provider) from a list of
@@ -21,7 +20,7 @@ import Chat from "./Chat.js"
  * `.cache/llimo.config.json` inside the current working directory,
  * making subsequent runs of the CLI default to the same selection.
  *
- * @param {Map<string, ModelInfo[]>} models
+ * @param {Map<string, ModelInfo>} models
  * @param {string} modelPartial   Partial model identifier (e.g. "oss")
  * @param {string|undefined} providerPartial   Partial provider name (e.g. "cere")
  * @param {Ui} ui   UI helper for interactive prompts
@@ -38,12 +37,10 @@ export async function selectModel(models, modelPartial, providerPartial, ui, onS
 	 */
 	const findCandidates = (model, provider = "") => {
 		const result = []
-		Array.from(models.values()).forEach(arr => {
-			arr.forEach(m => {
-				const modelOk = !model || lower(m.id).includes(lower(model))
-				const provOk = !provider || lower(m.provider).includes(lower(provider))
-				if (modelOk && provOk) result.push(m)
-			})
+		Array.from(models.values()).forEach(m => {
+			const modelOk = !model || lower(m.id).includes(lower(model))
+			const provOk = !provider || lower(m.provider).includes(lower(provider))
+			if (modelOk && provOk) result.push(m)
 		})
 		return result
 	}
@@ -65,9 +62,23 @@ export async function selectModel(models, modelPartial, providerPartial, ui, onS
 
 	// Multiple candidates – ask the user
 	ui.console.info(`\nMultiple models match your criteria [model = ${modelPartial}, provider = ${providerPartial}]:`)
+
+	const rows = [
+		["No", "Model id", "Provider", "Context", "Input", "Output"],
+		["---", "---", "---", "---", "---", "---"],
+	]
 	candidates.forEach((m, i) => {
-		ui.console.info(`  ${i + 1}) ${m.id} (provider: ${m.provider})`)
+		const row = model2row(m)
+		rows.push([
+			i + 1,
+			row.id,
+			row.provider,
+			ui.formats.weight("T", row.context),
+			ui.formats.pricing(row.inputPrice, 2),
+			ui.formats.pricing(row.outputPrice, 2),
+		])
 	})
+	ui.console.table(rows, { aligns: ["right", "left", "left", "right", "right", "right"] })
 
 	const answer = await ui.ask("Select a model by number (or type its full id): ")
 	const trimmed = answer.trim()
@@ -87,17 +98,4 @@ export async function selectModel(models, modelPartial, providerPartial, ui, onS
 	}
 
 	throw new Error(`❌ Invalid selection "${answer}"`)
-}
-
-/**
- * Persist the chosen model/provider pair for the current project.
- *
- * @param {ModelInfo} model
- * @param {FileSystem} fs
- */
-async function persistChoice(model, fs) {
-	const config = await fs.load(".cache/llimo.json") ?? {}
-	config.model = model.id
-	config.provider = model.provider
-	await fs.save(".cache/llimo.json", config)
 }

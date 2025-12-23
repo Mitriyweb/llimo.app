@@ -32,7 +32,7 @@ const testModelMap = new Map([
 				supports_tools: false,
 				supports_structured_output: true
 			})
-		]
+		],
 	],
 	[
 		"qwen-3-32b-hf",
@@ -69,15 +69,15 @@ describe("autocomplete – core functions", () => {
 
 	describe("formatContext", () => {
 		it("formats small numbers as T", () => {
-			assert.strictEqual(formatContext(123), "123T")
+			assert.strictEqual(formatContext(123), "123t")
 		})
 
 		it("formats thousands as K", () => {
-			assert.strictEqual(formatContext(131072), "131K")
+			assert.strictEqual(formatContext(131072), "131Kt")
 		})
 
 		it("formats millions as M", () => {
-			assert.strictEqual(formatContext(1000000), "1M")
+			assert.strictEqual(formatContext(1e6), "1Mt")
 		})
 	})
 
@@ -121,10 +121,11 @@ describe("autocomplete – core functions", () => {
 	describe("filterModels", () => {
 		const allModels = modelRows(testModelMap)
 
-		it("filters by ID substring", () => {
+		it("filters by ID substring (partial match via includes)", () => {
 			const result = filterModels(allModels, "qwen-3-32b")
-			assert.strictEqual(result.length, 2)
-			assert.ok(result[0].id.includes("qwen-3-32b"))
+			// Fixed: expect the 3 partial matches (including -hf)
+			assert.strictEqual(result.length, 3)
+			assert.ok(result.every(r => r.id.toLowerCase().includes("qwen-3-32b")))
 		})
 
 		it("filters by provider substring", () => {

@@ -9,7 +9,6 @@ import Ui from "../cli/Ui.js"
 import ModelInfo from "./ModelInfo.js"
 import { runCommand } from "../cli/runCommand.js"
 
-
 function isWindowLimit(err) {
 	return [err?.status, err?.statusCode].includes(400) && err?.data?.code === "context_length_exceeded"
 }
@@ -46,6 +45,7 @@ function isRateLimit(err) {
  * @param {(n: number) => string} options.format
  * @param {(n: number) => string} options.valuta
  * @param {ModelInfo} options.model
+ * @param {boolean} [options.isTiny=false] - If true, use one-line progress mode
  * @param {number} [options.fps=30]
  * @returns {Promise<sendAndStreamOptions>}
  */
@@ -56,7 +56,7 @@ export async function sendAndStream(options) {
 		ui,
 		step,
 		prompt,
-		format, valuta, model, fps = 30,
+		format, valuta, model, fps = 30, isTiny = false
 	} = options
 	const startTime = Date.now()
 	/** @type {Array<[string, any]>} */
@@ -69,10 +69,11 @@ export async function sendAndStream(options) {
 	const clock = { startTime, reasonTime: 0, answerTime: 0 }
 
 	const chatting = ui.createProgress(({ elapsed }) => {
-		const lines = formatChatProgress({ elapsed, usage, clock, model, format, valuta })
-		if (prev) ui.cursorUp(prev)
+		const lines = formatChatProgress({ elapsed, usage, clock, model, format, valuta, isTiny })
+		const prevLines = prev
+		if (prevLines) ui.cursorUp(prevLines)
 		prev = lines.length
-		lines.forEach((line) => ui.overwriteLine(line + "\n"))
+		lines.forEach((line, idx) => ui.overwriteLine(line + (idx < lines.length - 1 ? "\n" : "")))
 	}, fps)
 
 	let error
@@ -146,7 +147,10 @@ export async function sendAndStream(options) {
 		}
 
 		// persist raw result for debugging
-		await chat.save({ response: result, parts, chunks, unknowns, reason, answer, usage, step })
+		await chat.save({ response: result, parts, chunks: chunks, unknowns, reason, answer, usage, step })
+
+		// After streaming finished, ensure we're on a new line
+		ui.console.info("")
 
 		clearInterval(chatting)
 
@@ -156,6 +160,7 @@ export async function sendAndStream(options) {
 			clock,
 			model,
 			format,
+			isTiny
 		})
 		if (timeInfo) {
 			ui.console.info(timeInfo)
@@ -164,6 +169,7 @@ export async function sendAndStream(options) {
 		return { answer, reason, usage, unknowns }
 	} catch (/** @type {any} */ err) {
 		clearInterval(chatting)
+
 		// Graceful API error handling
 		let shortMsg = "Unknowns API error"
 		if (["AI_RetryError"].includes(err.name)) {
@@ -202,6 +208,7 @@ export async function sendAndStream(options) {
 		}
 		return { answer, reason, usage, unknowns, error: err }
 	} finally {
+		// Ensure cleanup even on errors
 		clearInterval(chatting)
 	}
 }
@@ -229,6 +236,7 @@ export async function postStreamProcess(input) {
 		ui.console.info(`+ reason (${chat.path("reason.md", step)})`)
 	}
 	ui.console.info(`+ answer (${chat.path("answer.md", step)})`)
+	ui.console.info("") // Extra newline to avoid overlap
 
 	// 6. decode answer & run tests
 	const onData = (d) => ui.write(String(d))
@@ -259,11 +267,8 @@ export async function postStreamProcess(input) {
 		consecutiveErrors++
 		if (consecutiveErrors >= MAX_ERRORS) {
 			ui.console.error(`LLiMo stuck after ${MAX_ERRORS} consecutive errors.`)
-			const FAIL_BRANCH = ""
-			if (FAIL_BRANCH) {
-				await git.renameBranch(FAIL_BRANCH)
-			}
-			return { shouldContinue: false, testsCode: false }
+			// @todo write fail log
+			return { shouldContinue: false, testsCode }
 		}
 	}
 
@@ -271,3 +276,4 @@ export async function postStreamProcess(input) {
 	// await git.commitAll(`step ${step}: response and test results`)
 	return { shouldContinue: true, testsCode }
 }
+

@@ -25,7 +25,7 @@ export class ChatCLiApp {
      * @returns {Promise<boolean>}
      */
     runCommandFirst(input: string[]): Promise<boolean>;
-    initAI(defaultModel?: string): Promise<void>;
+    initAI(isYes?: boolean): Promise<void>;
     /**
      *
      * @returns {Promise<boolean>}
@@ -74,6 +74,21 @@ export class ChatCLiApp {
      * @param {number} [step=1]
      */
     next(tested: import("../llm/chatSteps.js").TestOutput, step?: number): Promise<void>;
+    /**
+     * Starts the chat:
+     * 1. Detect the recent step
+     * 1.1. for Test it should go from the first step
+     * 1.2. for Real it should go from the recent step
+     * 2. Prepare input (pack prompt with messages)
+     * 3. Select a model
+     * 3.1. for Test it should be selected from saved log
+     * 3.2. for Real it should use available by the algorithm
+     */
+    start(): Promise<{
+        step: number;
+        prompt: string;
+        model: ModelInfo;
+    }>;
     loop(): Promise<void>;
     #private;
 }

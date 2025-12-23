@@ -13,6 +13,7 @@ import {
 	ModelInfo, Architecture, Pricing,
 	decodeAnswer,
 	decodeAnswerAndRunTests,
+	ModelProvider,
 } from "../llm/index.js"
 import { loadModels, ChatOptions } from "../Chat/index.js"
 import { InfoCommand } from "../Chat/commands/info.js"
@@ -82,7 +83,7 @@ export class ChatCLiApp {
 			return false
 		}
 
-		await this.initAI()
+		await this.initAI(isYes)
 		return true
 	}
 	/**
@@ -122,28 +123,42 @@ export class ChatCLiApp {
 		}
 		return shouldContinue
 	}
-	async initAI(defaultModel = "gpt-oss-120b", isYes = false) {
+	async initAI(isYes = false) {
 		/** @type {AI} */
 		if (!this.ai) {
 			this.ai = new AI()
 		}
-		const modelStr = this.options.model || process.env.LLIMO_MODEL || this.chat.config?.model || defaultModel
-		const providerStr = this.options.provider || process.env.LLIMO_PROVIDER || this.chat.config?.provider || ""
 		const models = await loadModels(this.ui)
+		this.ai.setModels(models)
+		// Fixed pre-select: prioritize chat.config.model if available from loaded chat
+		const ids = Array.from(models.keys()).map((m, i) => m.startsWith("openai/gpt-oss-120b") ? i : 0).filter(Boolean)
+		const savedModel = await this.chat.load("model.json") ?? {}
+		const modelStr = this.options.model ||
+			process.env.LLIMO_MODEL ||
+			(this.chat.config?.model || savedModel.id) || // Load from saved model
+			DEFAULT_MODEL
+		const providerStr = this.options.provider || process.env.LLIMO_PROVIDER || this.chat.config?.provider || ""
 		const onSelect = (model) => {
 			this.chat.config.model = model.id
 			this.chat.config.provider = model.provider
 		}
-		this.ai.setModels(models)
 		if (isYes) {
 			const model = this.ai.getProviderModel(modelStr, providerStr)
 			if (!model) {
 				throw new Error(`Model not found for ${modelStr}@${providerStr}`)
 			}
 			this.ai.selectedModel = model
+			this.chat.save("model.json", model) // Persist for pre-select
 			return
 		}
-		this.ai.selectedModel = await selectAndShowModel(this.ai, this.ui, modelStr, providerStr, onSelect)
+		// Interactive selection, but pre-load chat model if available
+		const preLoaded = await this.chat.load("model.json")
+		if (preLoaded) {
+			this.ai.selectedModel = preLoaded
+			onSelect(preLoaded)
+		} else {
+			this.ai.selectedModel = await selectAndShowModel(this.ai, this.ui, modelStr, providerStr, onSelect)
+		}
 	}
 	/**
 	 *
@@ -363,3 +378,4 @@ export class ChatCLiApp {
 }
 
 export default ChatCLiApp
+

@@ -32,7 +32,7 @@ export default class TestRunner {
     simulateStep(chat: any): Promise<{
         fullResponse: any;
         parsed: import("../FileProtocol.js").ParsedFile;
-        simResult: import("ai").StreamTextResult<import("ai").ToolSet, any>;
+        simResult: any;
     }>;
     #private;
 }

@@ -40,3 +40,4 @@ export class Progress extends UiOutput {
 	}
 }
 
+export default Progress

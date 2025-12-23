@@ -12,4 +12,5 @@ export class Progress extends UiOutput {
     prefix: string;
     toString(options?: {}): string;
 }
+export default Progress;
 import UiOutput from "../UiOutput.js";

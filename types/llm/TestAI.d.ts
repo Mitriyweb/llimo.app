@@ -20,45 +20,37 @@
 export default class TestAI extends AI {
     /**
      * @param {object} input
-     * @param {Array<readonly [string, Partial<ModelInfo>]> | Map<string, Partial<ModelInfo>>} input.models
+     * @param {Map<string, ModelInfo[]> | readonly [string, Partial<ModelInfo>][]} [input.models]
      */
     constructor(input?: {
-        models: Array<readonly [string, Partial<ModelInfo>]> | Map<string, Partial<ModelInfo>>;
+        models?: Map<string, ModelInfo[]> | readonly [string, Partial<ModelInfo>][] | undefined;
     });
     /**
      * Simulates streaming by reading chunks from files and yielding them with delays.
      * Loads chat state from files if available. Handles all specified chat files.
      * Updated to load me.md, split into blocks by ---, trim, filter new blocks not in previous user messages,
      * but since it's test, use the full content as original (but simulate filtering if needed).
-     * @param {string} modelId - Must be "test-model"
-     * @param {import('ai').ModelMessage[]} messages - Current chat messages
-     * @param {object} [options={}] - Streaming options
-     * @param {string} [options.cwd] - Chat directory for test files
-     * @param {number} [options.step] - Step number for per-step files (e.g., step/001/chunks.jsonl)
-     * @param {number} [options.delay=10] - Delay in ms between chunks for simulation
-     * @param {Function} [options.onChunk] - On chunk callback function.
-     * @returns {Promise<{ textStream: AsyncIterable<any>, fullResponse: string, reasoning: string, usage: LanguageModelUsage, chunks: any[] }>}
+     * @param {any} modelId
+     * @param {ModelMessage[]} messages
+     * @param {UIMessageStreamOptions} [options={}]
+     * @returns {Promise<StreamTextResult<any, any>>}
      */
-    streamText(modelId: string, messages: import("ai").ModelMessage[], options?: {
-        cwd?: string | undefined;
-        step?: number | undefined;
-        delay?: number | undefined;
-        onChunk?: Function | undefined;
-    }): Promise<{
-        textStream: AsyncIterable<any>;
-        fullResponse: string;
-        reasoning: string;
-        usage: LanguageModelUsage;
-        chunks: any[];
-    }>;
+    streamText(modelId: any, messages: ModelMessage[], options?: UIMessageStreamOptions): Promise<StreamTextResult<any, any>>;
     /**
      * Non-streaming version (for completeness, just returns full response).
+     * @param {string} modelId
+     * @param {ModelMessage[]} messages
+     * @param {{}} [options]
+     * @returns {Promise<{text: string; usage: LanguageModelUsage}>}
      */
-    generateText(modelId: any, messages: any, options?: {}): Promise<{
+    generateText(modelId: string, messages: ModelMessage[], options?: {}): Promise<{
         text: string;
         usage: LanguageModelUsage;
     }>;
 }
+export type StreamTextResult = import("ai").StreamTextResult<any, any>;
+export type ModelMessage = import("ai").ModelMessage;
+export type UIMessageStreamOptions = import("ai").UIMessageStreamOptions<import("ai").UIMessage<any, any, any>>;
 import AI from "./AI.js";
 import LanguageModelUsage from "./LanguageModelUsage.js";
 import ModelInfo from "./ModelInfo.js";

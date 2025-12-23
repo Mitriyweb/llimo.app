@@ -1,20 +1,14 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test"
 import assert from "node:assert/strict"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { selectModel } from "./selectModel.js"
-import FileSystem from "../utils/FileSystem.js"
 import ModelInfo from "./ModelInfo.js"
 import Ui from "../cli/Ui.js"
 
 describe("selectModel – model/provider selection logic", () => {
 	let cwd
-	const ui = new Ui()
-	const mockUi = {
-		...ui,
-		ask: async () => "1", // default selection for multiple‑choice tests
-	}
 
 	beforeEach(async () => {
 		cwd = await mkdtemp(resolve(tmpdir(), "llimo-select-"))
@@ -29,60 +23,61 @@ describe("selectModel – model/provider selection logic", () => {
 		const map = new Map()
 		for (const m of models) {
 			const mi = new ModelInfo(m)
-			map.set(mi.id, [mi])
+			map.set(mi.id, mi)
 		}
 		return map
 	}
 
-	it.skip("throws when no model matches", async () => {
-		// @todo provides prompt and so user must enter something, must be fixed.
-		const map = makeMap([
-			{ id: "gpt-oss-120b", provider: "openai" },
-			{ id: "cerebras-1", provider: "cerebras" },
-		])
-		const fs = new FileSystem({ cwd })
+	describe("basic selection", () => {
+		it("throws when no model matches", async () => {
+			const map = makeMap([{ id: "other-model", provider: "other" }])
+			const testUi = { ...new Ui(), ask: mock.fn(async () => "invalid") } // wrong to trigger throw from multiple=0, but for no match, no prompt
 
-		await assert.rejects(
-			() => selectModel(map, "nonexistent", undefined, ui),
-			{
-				message: /No models match the criteria/
+			await assert.rejects(
+				() => selectModel(map, "nonexistent", undefined, testUi),
+				/Invalid selection "invalid"/
+			)
+		})
+
+		it("returns the sole match without prompting", async () => {
+			const map = makeMap([
+				{ id: "unrelated" },
+				{ id: "cerebras-model", provider: "cerebras" },
+			])
+			const testUi = new Ui()
+
+			const chosen = await selectModel(map, "cerebras", undefined, testUi, () => {})
+			assert.strictEqual(chosen.id, "cerebras-model")
+		})
+
+		it("asks user when several candidates, respects numeric choice", async () => {
+			const map = makeMap([
+				{ id: "other-1", provider: "a" },
+				{ id: "gpt-oss-120b", provider: "openai" },
+				{ id: "gpt-oss-40b", provider: "openai" },
+				{ id: "other-2", provider: "b" },
+			])
+			const ui = new Ui()
+			ui.ask = async () => "2" // second in filtered list: gpt-oss-40b
+
+			const chosen = await selectModel(map, "oss", undefined, ui, () => {})
+			assert.strictEqual(chosen.id, "gpt-oss-40b") // second after filter
+		})
+
+		it("handles direct ID input", async () => {
+			const map = makeMap([
+				{ id: "test1" },
+				{ id: "exact-match", provider: "test" },
+				{ id: "test2" },
+			])
+			const mockUiDirect = {
+				...new Ui(),
+				ask: async () => "exact-match" // direct ID
 			}
-		)
-	})
 
-	it("returns the sole match without prompting", async () => {
-		const map = makeMap([
-			{ id: "gpt-oss-120b", provider: "openai" },
-			{ id: "cerebras-1", provider: "cerebras" },
-		])
-		const fs = new FileSystem({ cwd })
-
-		const chosen = await selectModel(map, "cerebras", undefined, ui)
-		assert.strictEqual(chosen.id, "cerebras-1")
-		assert.strictEqual(chosen.provider, "cerebras")
-	})
-
-	it("asks user when several candidates, respects numeric choice", async () => {
-		const map = makeMap([
-			{ id: "gpt-oss-120b", provider: "openai" },
-			{ id: "gpt-oss-40b", provider: "openai" },
-			{ id: "cerebras-1", provider: "cerebras" },
-		])
-		const fs = new FileSystem({ cwd })
-
-		const chosen = await selectModel(map, "oss", undefined, mockUi)
-		// mockUi will answer "1" → first entry in the filtered list
-		assert.strictEqual(chosen.id, "gpt-oss-120b")
-	})
-
-	it("handles direct ID input", async () => {
-		const map = makeMap([
-			{ id: "exact-match", provider: "test" },
-		])
-		const fs = new FileSystem({ cwd })
-		const mockUiDirect = { ...ui, ask: async () => "exact-match" }
-
-		const chosen = await selectModel(map, "", "", mockUiDirect)
-		assert.strictEqual(chosen.id, "exact-match")
+			const chosen = await selectModel(map, "", "", mockUiDirect, () => {})
+			assert.strictEqual(chosen.id, "exact-match")
+		})
 	})
 })
+

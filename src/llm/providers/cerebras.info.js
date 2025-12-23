@@ -21,11 +21,15 @@
  * used by the `cerebras.info` provider.
  */
 
+import ModelInfo from "../ModelInfo.js"
+
+/** @type {{ models: Array<[string, Partial<ModelInfo>]> }} */
 const free = {
 	models: [
 		[
 			"gpt-oss-120b",
 			{
+				context_length: 65000,
 				limits: {
 					tpm: 60e3,
 					tph: 1e6,
@@ -79,6 +83,7 @@ const free = {
 		[
 			"qwen-3-32b",
 			{
+				context_length: 65000,
 				limits: {
 					tpm: 60e3,
 					tph: 1e6,
@@ -96,6 +101,7 @@ const free = {
 		[
 			"qwen-3-235b-a22b-instruct-2507",
 			{
+				context_length: 65000,
 				limits: {
 					tpm: 60e3,
 					tph: 1e6,
@@ -113,6 +119,7 @@ const free = {
 		[
 			"zai-glm-4.6",
 			{
+				context_length: 65000,
 				limits: {
 					tpm: 150e3,
 					tph: 1e6,

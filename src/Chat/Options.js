@@ -31,7 +31,14 @@ export default class ChatOptions {
 	static isTest = {
 		help: "Run in test mode",
 		alias: "test",
-		default: false
+		default: false,
+	}
+	/** @type {boolean} */
+	isTiny
+	static isTiny = {
+		alias: "tiny",
+		help: "Tiny view in one row that is useful as subtask usage",
+		default: false,
 	}
 	/** @type {string} @deprecated Moved to the command test */
 	testDir
@@ -59,12 +66,20 @@ export default class ChatOptions {
 		help: "Maximum number of failed iterations in a row",
 		default: 3,
 	}
+	isHelp
+	static isHelp = {
+		alias: "help",
+		help: "Show help",
+		default: false
+	}
 	/** @param {Partial<ChatOptions>} [input] */
 	constructor(input = {}) {
 		const {
 			/** @description casting is important due to reference  */
 			isNew = ChatOptions.isNew.default,
 			isYes = ChatOptions.isYes.default,
+			isTiny = ChatOptions.isTiny.default,
+			isHelp = ChatOptions.isHelp.default,
 			isTest = ChatOptions.isTest.default,
 			testDir = ChatOptions.testDir.default,
 			model = ChatOptions.model.default,
@@ -76,6 +91,8 @@ export default class ChatOptions {
 		this.isDebug = Boolean(isDebug)
 		this.isNew = Boolean(isNew)
 		this.isYes = Boolean(isYes)
+		this.isTiny = Boolean(isTiny)
+		this.isHelp = Boolean(isHelp)
 		this.isTest = Boolean(isTest)
 		this.testDir = String(testDir)
 		this.model = model

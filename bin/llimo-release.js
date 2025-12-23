@@ -34,7 +34,7 @@ class ParallelRunner {
 	}
 
 	static async execTask(task, { docker = false }) {
-		const taskDir = path.resolve("releases/v1.1.0", task.dir)
+		const taskDir = path.resolve("releases/1/v1.1.0", task.dir)
 		console.info(`Running: ${task.name} (${docker ? "in Docker" : "native"})`)
 
 		if (docker) {
@@ -47,7 +47,7 @@ class ParallelRunner {
 	static async runInDocker(taskDir) {
 		const dockerImage = "node:20-alpine"
 		const mount = `${process.cwd()}:/app`
-		const cmd = "cd /app/releases/v1.1.0 && node --test task.test.js"
+		const cmd = "cd /app/releases/1/v1.1.0 && node --test task.test.js"
 		return spawnAsync("docker", [
 			"run", "--rm", "-v", mount, dockerImage, "sh", "-c", cmd
 		], { cwd: path.dirname(taskDir), encoding: "utf8" })

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto"
-import FileSystem from "../utils/FileSystem.js"
-import ModelInfo from "./ModelInfo.js"
 import { Stats } from "node:fs"
+import ModelInfo from "./ModelInfo.js"
 import LanguageModelUsage from "./LanguageModelUsage.js"
+import FileSystem from "../utils/FileSystem.js"
 
 /** @typedef {{ role: string, content: string | { text: string, type: string } }} ChatMessage */
 

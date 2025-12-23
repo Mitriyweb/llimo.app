@@ -12,6 +12,10 @@ import { packPrompt } from "../../llm/chatSteps.js"
 import { packMarkdown } from "../../llm/pack.js"
 import Pricing from "../../llm/Pricing.js"
 import Architecture from "../../llm/Architecture.js"
+import LanguageModelUsage from "../../llm/LanguageModelUsage.js"
+import { sendAndStream } from "../../llm/chatLoop.js"
+import { decodeAnswer } from "../../llm/chatSteps.js"
+import { decodeAnswerAndRunTests } from "../../llm/chatSteps.js"
 
 /**
  * @param {string} str
@@ -99,7 +103,7 @@ export class TestCommand extends InfoCommand {
 			const value = 100 * (copiedChat / chatFiles.length)
 			yield new Progress({ value, text: `${copiedChat}/${chatFiles.length} chat files copied`, prefix: "  " })
 		}
-		yield Alert.info("") // after progress new line
+		yield "" // after progress new line
 
 		// Step 2: Copy current directory (project) to temp
 		const projectDir = process.cwd()
@@ -121,7 +125,7 @@ export class TestCommand extends InfoCommand {
 				// Skip if cannot read (e.g., symlinks, permissions)
 			}
 		}
-		yield Alert.info("") // after progress new line
+		yield "" // after progress new line
 
 		// Step 3: Run the pnpm or npm install
 		yield warn(`  Installing dependencies in ${testDir}...`)
@@ -151,8 +155,8 @@ export class TestCommand extends InfoCommand {
 		const testing = this.ui.createProgress((input) => {
 			const parsed = parseOutput(output.join("\n"), "")
 			const str = [
-				["tests"], ["pass", GREEN], ["fail", RED], ["cancelled", RED],
-				["skip", YELLOW], ["todo", YELLOW], ["types", YELLOW]
+				["tests"], ["pass", GREEN], ["fail", RED], ["cancelled", RED], ["types", RED],
+				["skip", YELLOW], ["todo", YELLOW]
 			].map(([f, color = RESET]) => `${color}${f}: ${parsed.counts[f] || parsed.guess[f]}${RESET}`).join(" | ")
 			this.ui.overwriteLine(`  ${input.elapsed.toFixed(2)}s ${str}`)
 		})
@@ -192,6 +196,7 @@ export class TestCommand extends InfoCommand {
 
 		// Load chat history and simulate steps using pre-recorded responses
 		await this.chat.load()
+
 		// @todo save the chat/*/steps.jsonl during chat and load here
 		const rawDirs = await tempFs.browse(tempChatDir, { recursive: true })
 		const stepDirs = rawDirs.filter(path => path.startsWith("steps/") && path.includes("/model.json"))

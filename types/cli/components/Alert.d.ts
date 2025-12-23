@@ -3,6 +3,8 @@
  * The UI instance is injected from the caller (llimo‑chat).
  */
 export class Alert extends UiOutput {
+    static error(text?: string): Alert;
+    static info(text?: string): Alert;
     constructor(input?: {});
     /** @type {string} */
     text: string;

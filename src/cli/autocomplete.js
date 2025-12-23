@@ -1,6 +1,7 @@
 import readline from "node:readline"
 import { RESET, YELLOW } from "./ANSI.js"
 import Ui from "./Ui.js"
+import ModelInfo from "../llm/ModelInfo.js"
 
 /**
  * Autocomplete for models – shared interactive search and filtering logic.
@@ -13,15 +14,54 @@ import Ui from "./Ui.js"
 
 /**
  * @typedef {Object} ModelRow
- * @property {string} id
+ * @property {string} id - Model ID (info.id, not full key)
  * @property {number} context
  * @property {string} provider
  * @property {string} modality
  * @property {number} inputPrice
  * @property {number} outputPrice
+ * @property {number} speed
  * @property {boolean} tools
  * @property {boolean} json
  */
+
+/**
+ *
+ * @param {ModelInfo} info
+ * @param {string} [id]
+ * @returns {ModelRow}
+ */
+export function model2row(info, id) {
+	if (!id) id = info.id
+	const context = Number(
+		info.context_length ??
+		info.architecture?.context_length ??
+		info.top_provider?.context_length ??
+		0
+	)
+
+	const pricing = info.pricing
+	const inputPrice = pricing?.prompt ?? -1
+	const outputPrice = pricing?.completion ?? -1
+	const modality = info.architecture?.input_modalities?.[0]
+		|| info.architecture?.modality
+		|| "text"
+
+	const tools = !!(info.supports_tools ?? info.supportsTools ?? false)
+	const jsonMode = !!(info.supports_structured_output ?? info.supportsStructuredOutput ?? false)
+
+	return {
+		id: info.id || id, // Use info.id instead of full key for display/search
+		context,
+		provider: info.provider,
+		modality,
+		speed: pricing?.speed || -1,
+		inputPrice,
+		outputPrice,
+		tools,
+		json: jsonMode,
+	}
+}
 
 /**
  * Flatten models map into ModelRow[] for filtering/sorting.
@@ -30,35 +70,9 @@ import Ui from "./Ui.js"
  */
 export function modelRows(modelMap) {
 	const flat = []
-	for (const [id, infos] of modelMap.entries()) {
+	for (const [key, infos] of modelMap.entries()) {
 		for (const info of infos) {
-			const context = Number(
-				info.context_length ??
-				info.architecture?.context_length ??
-				info.top_provider?.context_length ??
-				0
-			)
-
-			const pricing = info.pricing
-			const inputPrice = pricing?.prompt ?? -1
-			const outputPrice = pricing?.completion ?? -1
-			const modality = info.architecture?.input_modalities?.[0]
-				|| info.architecture?.modality
-				|| "text"
-
-			const tools = !!(info.supports_tools ?? info.supportsTools ?? false)
-			const jsonMode = !!(info.supports_structured_output ?? info.supportsStructuredOutput ?? false)
-
-			flat.push({
-				id,
-				context,
-				provider: info.provider,
-				modality,
-				inputPrice,
-				outputPrice,
-				tools,
-				json: jsonMode,
-			})
+			flat.push(model2row(info, key)) // key is id@provider, but row.id = info.id
 		}
 	}
 	return flat.sort((a, b) => a.id.localeCompare(b.id))
@@ -70,9 +84,16 @@ export function modelRows(modelMap) {
  * @returns {string}
  */
 export function formatContext(ctx) {
-	if (ctx >= 1e6) return (ctx / 1e6).toFixed(0) + "M"
-	if (ctx >= 1e3) return (ctx / 1e3).toFixed(0) + "K"
-	return `${ctx}T`
+	if (ctx >= 1e6) {
+		return (ctx / 1e6).toFixed(1).replace(".0", "") + "Mt"
+	}
+	if (ctx >= 1e4) {
+		return (ctx / 1e3).toFixed(0) + "Kt"
+	}
+	if (ctx >= 1e3) {
+		return (ctx / 1e3).toFixed(1) + "Kt"
+	}
+	return `${ctx}t`
 }
 
 /**
@@ -94,25 +115,23 @@ export function highlightCell(cell, search) {
  * @returns {{field: string, op: string, value: string}} – returns empty strings when no explicit operator is present.
  */
 export function parseFieldFilter(filterStr) {
-	const eqMatch = filterStr.match(/^([^=<>]+)=(.*)$/)
-	if (eqMatch) {
-		return { field: eqMatch[1].trim(), op: "=", value: eqMatch[2].trim() }
-	}
-	const opMatch = filterStr.match(/^([^<>]+)([<>])(.*)$/)
-	if (opMatch) {
-		return { field: opMatch[1].trim(), op: opMatch[2], value: opMatch[3].trim() }
+	const match = filterStr.match(/^([^=<>]+)([=~<>]{1})(.*)$/)
+	if (match) {
+		return { field: match[1].trim(), op: match[2], value: match[3].trim() }
 	}
 	return { field: "", op: "", value: filterStr.trim() }
 }
 
 /**
- * Filter models based on search string
+ * Filter models based on ID substring (plain search) or field filters (@field=val).
  * @param {ModelRow[]} models
  * @param {string} search
  * @returns {ModelRow[]}
  */
 export function filterModels(models, search) {
 	if (!search || search.startsWith("/")) return models
+
+	const lower = s => String(s ?? "").toLowerCase()
 
 	if (search.startsWith("@")) {
 		const filter = search.slice(1)
@@ -124,9 +143,12 @@ export function filterModels(models, search) {
 				const value = row[parsed.field]
 				if (parsed.op === "=" || !parsed.op) {
 					if (parsed.field === "id" && parsed.op === "=") {
-						return String(value).toLowerCase() === parsed.value.toLowerCase()
+						return lower(value) === lower(parsed.value)
 					}
-					return String(value).toLowerCase().includes(parsed.value.toLowerCase())
+					return lower(value).includes(lower(parsed.value))
+				}
+				else if ("~" === parsed.op) {
+					return lower(value).includes(lower(parsed.value))
 				}
 
 				const target = Number(value)
@@ -147,8 +169,9 @@ export function filterModels(models, search) {
 
 	const lowerSearch = search.toLowerCase()
 	return models.filter(row => {
-		if (row.id.toLowerCase() === lowerSearch) return true
-		return row.provider.toLowerCase().includes(lowerSearch)
+		// Match if either the model id **or** the provider contains the search term (partial, case-insensitive).
+		return lower(row.id).includes(lowerSearch) ||
+			lower(row.provider).includes(lowerSearch)
 	})
 }
 
@@ -174,8 +197,8 @@ export function renderTable(filtered, search, startIndex, maxY, ui) {
 			formatContext(ctx),
 			highlightCell(prov, search),
 			mod,
-			inP < 0 ? "-" : `$${inP.toFixed(6)}`,
-			outP < 0 ? "-" : `$${outP.toFixed(6)}`,
+			inP < 0 ? "?" : `$${inP.toFixed(6)}`,
+			outP < 0 ? "?" : `$${outP.toFixed(6)}`,
 			tools ? "+" : "-",
 			json ? "+" : "-"
 		])
@@ -218,20 +241,20 @@ export async function interactive(modelMap, ui) {
 	const maxY = process.env.NODE_TEST ? 3 : 20
 	let suggestionLines = 0
 
-	if (process.stdin.isTTY) {
-		readline.emitKeypressEvents(process.stdin)
-		process.stdin.setRawMode(true)
+	if (ui.stdin.isTTY) {
+		readline.emitKeypressEvents(ui.stdin)
+		ui.stdin.setRawMode(true)
 	}
 
 	renderTable(filtered, search, startIndex, maxY, ui)
-	process.stdout.write("\nType model name or / to search, @ to filter fields (e.g. @provider=novita), /help, /quit:\nFilter: ")
+	ui.console.info("\nType model name or / to search, @ to filter fields (e.g. @provider=novita), /help, /quit:\nFilter: ")
 
 	return new Promise((resolve) => {
 		const keypressHandler = (str, key) => {
 			if (key.ctrl && key.name === 'c') {
 				clearLines(3 + suggestionLines)
-				process.stdin.setRawMode(false)
-				process.stdin.pause()
+				ui.stdin.setRawMode(false)
+				ui.stdin.pause()
 				resolve()
 				return
 			}
@@ -250,8 +273,8 @@ export async function interactive(modelMap, ui) {
 				const trimmed = search.trim()
 				if (trimmed === "/quit") {
 					clearLines(3 + suggestionLines)
-					process.stdin.setRawMode(false)
-					process.stdin.pause()
+					ui.stdin.setRawMode(false)
+					ui.stdin.pause()
 					resolve()
 					return
 				} else if (trimmed === "/help") {
@@ -316,20 +339,38 @@ export async function interactive(modelMap, ui) {
 			}
 		}
 
-		process.stdin.on('keypress', keypressHandler)
+		ui.stdin.on('keypress', keypressHandler)
 	})
 }
 
 /**
  * Output all models in pipe format for non-interactive use
  * @param {ModelRow[]} allModels
+ * @param {Ui} ui
  */
-export function pipeOutput(allModels) {
+export function pipeOutput(allModels, ui) {
+	const rows = [
+		["Model.id", "Context", "Provider", "Modality", "Speed T/s", "Input", "Output", "Tools", "JSON"],
+		["---", "---", "---", "---", "---", "---", "---", "---", "---"],
+	]
 	for (const row of allModels) {
-		const inp = row.inputPrice < 0 ? '-' : `$${row.inputPrice.toFixed(6)}`
-		const outp = row.outputPrice < 0 ? '-' : `$${row.outputPrice.toFixed(6)}`
-		console.info(`${row.id} │ ${formatContext(row.context)} │ ${row.provider} │ ${row.modality} │ ${inp} │ ${outp} │ ${row.tools ? '+' : '-'} │ ${row.json ? '+' : '-'} │`)
+		const inp = row.inputPrice < 0 ? '?' : `${ui.formats.money(row.inputPrice, 2)}`
+		const outp = row.outputPrice < 0 ? '?' : `${ui.formats.money(row.outputPrice, 2)}`
+		rows.push([
+			row.id, // Use model.id, not full key
+			formatContext(row.context),
+			row.provider,
+			row.modality,
+			String(row.speed >= 0 ? row.speed : "?"),
+			inp,
+			outp,
+			row.tools ? '+' : '-',
+			row.json ? '+' : '-'
+		])
 	}
+	ui.console.table(rows, {
+		aligns: ["left", "right", "left", "left", "right", "right", "center", "center"]
+	})
 }
 
 export const autocompleteModels = {
@@ -343,3 +384,4 @@ export const autocompleteModels = {
 	interactive,
 	pipeOutput,
 }
+

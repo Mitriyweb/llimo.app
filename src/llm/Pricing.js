@@ -18,6 +18,8 @@ export default class Pricing {
 	request = -1
 	/** @type {number} - Web search cost */
 	web_search = -1
+	/** @type {number} - average speed T/s */
+	speed = -1
 
 	/**
 	 * @param {Partial<Pricing>} input
@@ -32,6 +34,7 @@ export default class Pricing {
 			prompt = this.prompt,
 			request = this.request,
 			web_search = this.web_search,
+			speed = this.speed,
 		} = input
 		this.completion = Number(completion)
 		this.image = Number(image)
@@ -41,6 +44,7 @@ export default class Pricing {
 		this.prompt = Number(prompt)
 		this.request = Number(request)
 		this.web_search = Number(web_search)
+		this.speed = Number(speed)
 	}
 
 	/**

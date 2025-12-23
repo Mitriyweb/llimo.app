@@ -1,5 +1,6 @@
 import { describe, it, beforeEach } from "node:test"
 import assert from "node:assert/strict"
+
 import { Ui, UiConsole } from "./Ui.js"
 import { ITALIC, RESET } from "./ANSI.js"
 
@@ -90,5 +91,32 @@ describe("Ui", () => {
 		ui.ask = async () => raw
 		const result = await ui.askYesNo("Proceed?")
 		assert.equal(result, raw)
+	})
+})
+
+
+describe("UiFormats.money formatting", () => {
+	it("formats zero correctly", () => {
+		const ui = new Ui()
+		const res = ui.formats.money(0)
+		assert.strictEqual(res, "$0.000000")
+	})
+
+	it("formats large numbers with thousands separators", () => {
+		const ui = new Ui()
+		const res = ui.formats.money(1234567.89)
+		assert.strictEqual(res, "$1,234,567.890000")
+	})
+
+	it("formats with custom digits", () => {
+		const ui = new Ui()
+		const res = ui.formats.money(3.14159, 4)
+		assert.strictEqual(res, "$3.1416")
+	})
+
+	it("formats negative numbers", () => {
+		const ui = new Ui()
+		const res = ui.formats.money(-12.3)
+		assert.strictEqual(res, "-$12.300000")
 	})
 })

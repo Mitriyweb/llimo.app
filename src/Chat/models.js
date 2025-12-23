@@ -4,10 +4,10 @@ import ModelProvider from "../llm/ModelProvider.js"
 
 /**
  * @param {Ui} ui
- * @returns {Promise<
- * Map<string, ModelInfo[]>>}
+ * @param {{ noCache?: boolean }} [opts={}]
+ * @returns {Promise<Map<string, ModelInfo>>}
  */
-export async function loadModels(ui) {
+export async function loadModels(ui, opts = {}) {
 	const provider = new ModelProvider()
 
 	let str = "Loading models …"
@@ -25,15 +25,15 @@ export async function loadModels(ui) {
 			name = n
 			raw = r
 			models.push(...m)
-		}
+		},
+		...opts
 	})
-	map.forEach((infos) => infos.forEach(info => pros.add(info.provider)))
-
 	ui.overwriteLine("")
 	ui.cursorUp(1)
 	const arr = Array.from(pros).sort()
-	ui.overwriteLine(`Loaded ${map.size} inference models from ${pros.size} providers: ${arr.join(", ")}`)
+	ui.overwriteLine(`Loaded ${map.size} inference models from ${pros.size} providers`)
 	ui.console.info("")
+	ui.console.debug("Providers: " + arr.join(", "))
 	clearInterval(loading)
 	return map
 }

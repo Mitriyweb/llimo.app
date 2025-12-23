@@ -1,9 +1,13 @@
+import fs from "node:fs/promises"
+import path from "node:path"
+
 import { Alert, Table } from "../../cli/components/index.js"
 import { Ui, UiCommand } from "../../cli/Ui.js"
 import { parseArgv } from "../../cli/argvHelper.js"
 import Chat from "../../llm/Chat.js"
 import Markdown from "../../utils/Markdown.js"
 import UiOutput from "../../cli/UiOutput.js"
+import ModelInfo from "../../llm/ModelInfo.js"
 
 /**
  * Options for the `info` command.
@@ -24,33 +28,31 @@ export class InfoOptions {
 }
 
 /**
- * `info` command – shows a table with per‑message statistics and a total line.
- *
- * Columns:
- *   - **Role** – system / user / assistant / tool
- *   - **Files** – number of attached files (detected via markdown checklist)
- *   - **Bytes** – raw byte size of the message content
- *   - **Tokens** – estimated token count (≈ 1 token per 4 bytes)
- *
- * After printing the table, the command yields `false` so the CLI code knows it can
- * continue with the normal chat loop.
+ * `info` command – shows a table with per‑message statistics,
+ * cost and model/provider columns.
  */
 export class InfoCommand extends UiCommand {
 	static name = "info"
-	static help = "Show information of the chat: messages count, files attached, tokens and bytes size, time and cost"
+	static help = "Show information of the chat: messages count, files attached, tokens, bytes size, cost and model/provider"
 	options = new InfoOptions()
 	chat = new Chat()
 	ui = new Ui()
+	fs = new FileSystem()
+	/**
+	 * @param {Partial<InfoCommand>} input
+	 */
 	constructor(input = {}) {
 		super()
 		const {
 			options = this.options,
 			chat = this.chat,
 			ui = this.ui,
+			fs = this.fs,
 		} = input
 		this.options = options
 		this.chat = new Chat({ ...chat, id: options.id })
 		this.ui = ui
+		this.fs = fs
 	}
 	/**
 	 * @throws
@@ -64,7 +66,6 @@ export class InfoCommand extends UiCommand {
 		// Header
 		yield new Alert(`Chat ID: ${this.chat.id}`)
 		yield this.info()
-
 		// Signal the caller to continue the chat loop.
 		yield false
 	}
@@ -73,11 +74,18 @@ export class InfoCommand extends UiCommand {
 	 */
 	async info() {
 		/** @type {Array<Array<any>>} rows for UI.table */
-		const rows = [["No", "i", "Role", "Files", "Size", "Tokens"], ["--", "--", "---", "---", "---", "---"]]
+		const rows = [
+			["No", "i", "Role", "Files", "Size", "Tokens", "Cost", "Provider/Model"],
+			["--", "--", "---", "---", "---", "---", "---", "---"]
+		]
 		let totalFiles = 0
 		let totalBytes = 0
 		let totalTokens = 0
+		let totalCost = 0
 		let step = 1
+		const modelData = await this.chat.load("model.json") // Load model from saved file
+		const modelInfo = new ModelInfo(modelData || { id: "" })
+		const providerName = modelInfo?.provider ?? ""
 
 		for (let i = 0; i < this.chat.messages.length; ++i) {
 			const msg = this.chat.messages[i]
@@ -90,6 +98,23 @@ export class InfoCommand extends UiCommand {
 			const parsed = await Markdown.parse(content)
 			const files = parsed.files?.size ?? 0
 
+			// Load usage.json if present next to the message file
+			let usage = null
+			try {
+				usage = await this.chat.load("usage.json", step) ?? null
+			} catch {
+				// ignore – fallback to approximation
+			}
+			const inputTokens = usage?.inputTokens ?? (role === "user" || role === "assistant" ? tokens : 0)
+			const reasonTokens = usage?.reasoningTokens ?? 0
+			const outputTokens = usage?.outputTokens ?? (role === "assistant" ? tokens : 0)
+
+			const stepCost = (
+				(inputTokens * (modelInfo?.pricing?.prompt ?? 0)) +
+				((reasonTokens + outputTokens) * (modelInfo?.pricing?.completion ?? 0))
+			) / 1e6
+			totalCost += stepCost
+
 			totalFiles += files
 			totalBytes += bytes
 			totalTokens += tokens
@@ -101,19 +126,31 @@ export class InfoCommand extends UiCommand {
 				this.ui.formats.count(files),
 				this.ui.formats.weight("b", bytes),
 				this.ui.formats.weight("T", tokens),
+				this.ui.formats.money(stepCost),
+				providerName ? `${providerName}/${modelInfo?.id ?? ""}` : ""
 			])
-			if ("assistant" === msg.role) ++step
+			if ("assistant" === role) ++step
 		}
 
 		// Append total line
+		const totalCostStr = this.ui.formats.money(totalCost)
+		const providerModel = providerName ? `${providerName}/${modelInfo?.id ?? ""}` : "<multiple models>"
 		rows.push([
 			"", "", "TOTAL",
 			this.ui.formats.count(totalFiles),
 			this.ui.formats.weight("b", totalBytes),
 			this.ui.formats.weight("T", totalTokens),
+			totalCostStr,
+			providerModel
 		])
 
-		return new Table({ rows, options: { divider: " | ", aligns: ["right", "right", "left", "right", "right", "right"] } })
+		return new Table({
+			rows,
+			options: {
+				divider: " | ",
+				aligns: ["right", "right", "left", "right", "right", "right", "right", "left"]
+			}
+		})
 	}
 	/**
 	 * @param {object} [input]
@@ -130,3 +167,4 @@ export class InfoCommand extends UiCommand {
 		return new InfoCommand({ options, chat })
 	}
 }
+

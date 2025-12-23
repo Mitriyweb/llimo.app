@@ -1,11 +1,17 @@
 import { selectModel } from "../llm/selectModel.js"
 
 /**
+ * Pre-selects a model (loads from cache or defaults). If multiple matches,
+ * shows the table and prompts. Persists selection to chat.config.model.
+ *
  * @param {import("../llm/AI.js").default} ai
  * @param {import("./Ui.js").Ui} ui
  * @param {string} modelStr
  * @param {string} providerStr
  * @param {(chosen: import("../llm/ModelInfo.js").default) => void} [onSelect]   Current chat instance
+ * @param {object} [options={}] Additional options
+ * @param {boolean} [options.fast=false] Force quick model selection
+ * @param {string} [options.quickModel] Model to prefer for fast mode
  * @returns {Promise<import("../llm/ModelInfo.js").default>}
  */
 export async function selectAndShowModel(ai, ui, modelStr, providerStr, onSelect = () => { }, options = {}) {
@@ -18,7 +24,7 @@ export async function selectAndShowModel(ai, ui, modelStr, providerStr, onSelect
 	let model
 	if (fast) {
 		// Force quickModel with fastest provider (cerebras or huggingface)
-		model = ai.getModel(quickModel + ":cerebras") || ai.getModel(quickModel + ":huggingface")
+		model = ai.getModel(`${quickModel}:cerebras`) || ai.getModel(`${quickModel}:huggingface`)
 		if (model) {
 			onSelect(model)
 			ui.console.info(`> ${model.id} selected with fastest server`)
@@ -53,13 +59,23 @@ export async function selectAndShowModel(ai, ui, modelStr, providerStr, onSelect
 	}
 
 	// Show model & provider info
-	const inputPer1MT = parseFloat(String(model.pricing?.prompt ?? 0)) * 1e6
-	const outputPer1MT = parseFloat(String(model.pricing?.completion ?? 0)) * 1e6
-	const cachePer1MT = parseFloat(String(model.pricing?.input_cache_read ?? 0)) + parseFloat(String(model.pricing?.input_cache_write ?? 0))
-	const pricing = ui.formats.pricing
+	const inputPricePerM = model.pricing?.prompt ?? 0
+	const outputPricePerM = model.pricing?.completion ?? 0
+	const contextLen = ui.formats.weight("T", model.context_length)
+	const maxOutput = model.maximum_output > 0 ? ui.formats.weight("T", model.maximum_output) : contextLen
+
+	// Cache price only if both read/write >0
+	let cacheStr = ""
+	const cacheRead = model.pricing?.input_cache_read ?? 0
+	const cacheWrite = model.pricing?.input_cache_write ?? 0
+	if (cacheRead > 0 || cacheWrite > 0) {
+		const cachePerM = cacheRead + cacheWrite
+		cacheStr = ` (cache: ${ui.formats.pricing(cachePerM)} / 1M)`
+	}
 
 	ui.console.info(`> ${model.id} selected with modality ${model.architecture?.modality ?? "?"}`)
-	ui.console.info(`  pricing: → ${pricing(inputPer1MT)} ← ${pricing(outputPer1MT)} (cache: ${pricing(cachePer1MT)})`)
+	ui.console.info(`  context: ${contextLen} (max output → ${maxOutput})`)
+	ui.console.info(`  pricing: → ${ui.formats.pricing(inputPricePerM)} / 1M ← ${ui.formats.pricing(outputPricePerM)} / 1M${cacheStr}`)
 	ui.console.info(`  provider: ${model.provider}`)
 	return model
 }

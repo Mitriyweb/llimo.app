@@ -28,7 +28,7 @@ import LanguageModelUsage from './LanguageModelUsage.js'
  */
 export default class AI {
 
-	/** @type {Map<string, ModelInfo[]>} */
+	/** @type {Map<string, ModelInfo>} */
 	#models = new Map()
 
 	/** @type {ModelProvider} */
@@ -39,7 +39,7 @@ export default class AI {
 
 	/**
 	 * @param {Object} input
-	 * @param {readonly[string, ModelInfo]} [input.models=[]]
+	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo>} [input.models=[]]
 	 * @param {ModelInfo} [input.selectedModel]
 	 */
 	constructor(input = {}) {
@@ -52,16 +52,51 @@ export default class AI {
 	}
 
 	/**
-	 * @param {readonly[string, ModelInfo[]] | Map<string, ModelInfo[] | Map<string, ModelInfo>>} models
+	 * Flatten and normalize models to Map<string, ModelInfo[]>. Handles:
+	 * - Map: Pass-through.
+	 * - Array<[string, ModelInfo[]]>: Direct set.
+	 * - Array<[string, ModelInfo]>: Wrap singles in arrays.
+	 * - Nested providers (e.g., {providers: [{provider:'a'}]}): Expand to prefixed IDs (e.g., 'model:a').
+	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}] } models
 	 */
 	setModels(models) {
-		// @todo I need to improve the AI class to make it work nice for Test logs and Real API.
-		//       There are some solution for flatten models already somewhere, so it must be here.
-		const map = new Map(models)
-		for (let [id, arr] of map.entries()) {
-			// if (!Array.isArray(arr)) arr = [arr]
+		let map = new Map()
+		if (models instanceof Map) {
+			// Direct Map: flatten singles to arrays
+			for (const [id, value] of models) {
+				if (!Array.isArray(value)) {
+					map.set(id, new ModelInfo(value))
+				} else if (value.length) {
+					map.set(id, new ModelInfo(value[0]))
+				}
+			}
+		} else if (Array.isArray(models)) {
+			// Array format: flatten as needed
+			for (const item of models) {
+				if (Array.isArray(item)) {
+					const [id, value] = item
+					if (!Array.isArray(value)) {
+						map.set(id, new ModelInfo(value))
+					} else if (value.length) {
+						map.set(id, new ModelInfo(value[0]))
+					}
+				} else if (item.providers && Array.isArray(item.providers)) {
+					// Nested providers: expand
+					const baseId = item.id
+					for (const prov of item.providers) {
+						const prefixedId = `${baseId}:${prov.provider}`
+						const variant = new ModelInfo({ ...item, provider: prov.provider })
+						const arr = map.get(prefixedId) ?? []
+						arr.push(variant)
+						map.set(prefixedId, arr)
+					}
+				} else {
+					// Single object: treat as [id, ModelInfo]
+					map.set(item.id, new ModelInfo(item))
+				}
+			}
 		}
-		this.#models = new Map(models)
+		this.#models = map
 	}
 
 	/**
@@ -91,7 +126,7 @@ export default class AI {
 
 	/**
 	 *
-	 * @returns {Map<string, ModelInfo[]>}
+	 * @returns {Map<string, ModelInfo>}
 	 */
 	getModelsMap() {
 		return this.#models
@@ -104,7 +139,26 @@ export default class AI {
 	 * @returns {ModelInfo[]}
 	 */
 	getModel(modelId) {
-		return this.#models.get(modelId) ?? []
+		const keys = Array.from(this.#models.keys()).filter(id => id.startsWith(modelId))
+		const result = []
+		keys.forEach(key => {
+			const info = this.#models.get(key)
+			if (info?.id === modelId) {
+				result.push(info)
+			}
+		})
+		return result
+	}
+
+	/**
+	 * Returns the model for the specific provider with absolute equality.
+	 * @param {string} model
+	 * @param {string} provider
+	 * @returns {ModelInfo | undefined}
+	 */
+	getProviderModel(model, provider) {
+		const arr = this.getModel(model)
+		return arr.find(p => p.provider === provider)
 	}
 
 	/**
@@ -114,10 +168,8 @@ export default class AI {
 	 */
 	findModel(modelId) {
 		const str = String(modelId).toLowerCase()
-		for (const [id, arr] of this.#models.entries()) {
-			for (const info of arr) {
-				if (String(id).toLowerCase().includes(str)) return info
-			}
+		for (const [id, info] of this.#models.entries()) {
+			if (String(id).toLowerCase().includes(str)) return info
 		}
 	}
 
@@ -131,15 +183,13 @@ export default class AI {
 		const result = []
 		const str = String(modelId).toLowerCase()
 		const parts = str.split(/[^\w]+/)
-		for (const [id, arr] of this.#models.entries()) {
-			for (const info of arr) {
-				const lc = String(id).toLowerCase()
-				if (lc.includes(str)) {
-					result.push(info)
-				}
-				if (parts.some(p => lc.includes(p))) {
-					result.push(info)
-				}
+		for (const [id, info] of this.#models.entries()) {
+			const lc = String(id).toLowerCase()
+			if (lc.includes(str)) {
+				result.push(info)
+			}
+			if (parts.some(p => lc.includes(p))) {
+				result.push(info)
 			}
 		}
 		result.sort((a, b) => a.id.localeCompare(b.id))
@@ -153,9 +203,7 @@ export default class AI {
 	 * @param {Partial<ModelInfo>} info
 	 */
 	addModel(id, info) {
-		const arr = this.#models.get(id) ?? []
-		arr.push(new ModelInfo(info))
-		this.#models.set(id, arr)
+		this.#models.set(`${info.id}@${info.provider}`, new ModelInfo(info))
 	}
 
 	/**
@@ -263,5 +311,3 @@ export default class AI {
 		return { text, usage }
 	}
 }
-
-

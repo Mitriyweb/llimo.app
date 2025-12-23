@@ -1,9 +1,23 @@
 {
-	"name": "llimo.app",
+	"name": "@nan0web/llimo.app",
 	"version": "1.0.0",
 	"description": "",
 	"main": "index.js",
 	"type": "module",
+	"exports": {
+		".": {
+			"types": "./types/index.d.ts",
+			"import": "./src/index.js"
+		},
+		"./release": {
+			"types": "./types/release/index.d.ts",
+			"import": "./src/release/index.js"
+		},
+		"./utils": {
+			"types": "./types/utils/index.d.ts",
+			"import": "./src/utils/index.js"
+		}
+	},
 	"scripts": {
 		"build": "tsc",
 		"clean:modules": "rm -rf node_modules/",
@@ -12,7 +26,7 @@
 		"test:chat": "node bin/llimo-chat.js --test=chat-dir",
 		"test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.js\" --test-coverage-exclude=\"src/**/*.test.js\" --test \"src/**/*.test.js\"",
 		"test:reproduce": "node bin/llimo-chat.js --test-dir=/path/to/chat/archive --input test-prompt.md",
-		"test:releases": "node --test --test-timeout=3333 'releases/**/task.test.js' && node --test --test-timeout=3333 'releases/*/index.test.js'",
+		"test:releases": "node --test --test-timeout=3333 'releases/**/task.test.js' && node --test --test-timeout=3333 'releases/*/*/index.test.js'",
 		"prepare": "husky"
 	},
 	"keywords": [],

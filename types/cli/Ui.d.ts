@@ -23,12 +23,13 @@ export class UiFormats {
      * @returns {string}
      */
     pricing(value: number, digits?: number): string;
+    /**
+     * Formats timer elapsed in mm:ss.s format, caps at 3600s+.
+     * @param {number} elapsed - Seconds elapsed.
+     * @returns {string}
+     */
+    timer(elapsed: number): string;
 }
-/**
- * Console wrapper that adds optional file logging and colourised output.
- *
- * @class
- */
 export class UiConsole {
     /**
      * @param {Partial<UiConsole>} [options={}]

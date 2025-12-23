@@ -2,12 +2,12 @@
 
 This instruction guides programmers on structuring releases, tasks, tests, and safe execution. Follow strictly for consistency when implementing v1.0.0 (base implemented features) and v1.1.0 (new features). All @todo comments must be in English, detailed, and actionable. Tests are isolated (temp dirs), and the workflow ensures secure/parallel execution.
 
-## 1. Release Structure (releases/vX.Y.Z/)
+## 1. Release Structure (releases/X/vX.Y.Z/)
 
 Releases are directories containing task groups (e.g., v1.0.0, v1.1.0). Each group is a self-contained unit:
 
-- `releases/vX.Y.Z/index.test.js`: **Verification Script**. Runs after task.test.js; checks all outcomes (pass/fail/pending.txt in groups). Success: All PASS, no FAIL (100% tests passed). Logs outcomes to console; runs tests from tests.txt first.
-- `releases/vX.Y.Z/001-Feature-Name/`: **Task Group Directory**. One per logical feature/group (numbered for order).
+- `releases/X/vX.Y.Z/index.test.js`: **Verification Script**. Runs after task.test.js; checks all outcomes (pass/fail/pending.txt in groups). Success: All PASS, no FAIL (100% tests passed). Logs outcomes to console; runs tests from tests.txt first.
+- `releases/X/vX.Y.Z/001-Feature-Name/`: **Task Group Directory**. One per logical feature/group (numbered for order).
   - `task.test.js`: **Core Task Tests**. Contains it() for sub-tasks (e.g., "1.1 Handle CLI"). Each it() verifies implementation (initially todo() fails; implement → it(), run → pass.txt on success, no todo/skip; fail → fail.txt).
   - `tests.txt`: Plaintext list of project tests (e.g., "src/mod.test.js") activated after implementing this group. These run to ensure no regressions in existing code.
   - `pass.txt`: Created by index.test.js if task.test.js 100% passes (stdout summary).
@@ -15,10 +15,10 @@ Releases are directories containing task groups (e.g., v1.0.0, v1.1.0). Each gro
   - `pending.txt`: Created by index.test.js if task.test.js has todo/skip (progress: # todo/skipped).
 
 **Run Workflow**:
-- `node --test releases/vX.Y.Z/00X-Name/tests.txt`: Run group-specific project tests (after code implementation).
-- `node --test releases/vX.Y.Z/00X-Name/task.test.js`: Run individual task (generates pass/fail/pending.txt).
+- `node --test releases/X/vX.Y.Z/00X-Name/tests.txt`: Run group-specific project tests (after code implementation).
+- `node --test releases/X/vX.Y.Z/00X-Name/task.test.js`: Run individual task (generates pass/fail/pending.txt).
 - `pnpm test:all`: Full project tests; required for merge to release branch.
-- `node --test releases/vX.Y.Z/index.test.js`: Holistic check (all pass.txt, no fail/pending).
+- `node --test releases/X/vX.Y.Z/index.test.js`: Holistic check (all pass.txt, no fail/pending).
 
 **Branch Management**: 
 - Release branch: `git checkout release-v1.1.0` (protected, only merge tasks on 100% pass).
@@ -59,7 +59,7 @@ src/security/PathVuln.test.js # Security: Block ../ escapes in paths/refs
 # Add more as task needs (e.g., new command → new command.test.js)
 ```
 
-- **Run Command**: `node --test --test-timeout=3333 $(cat releases/vX.Y.Z/001-Name/tests.txt)` (runs listed tests, catches regressions).
+- **Run Command**: `node --test --test-timeout=3333 $(cat releases/X/vX.Y.Z/001-Name/tests.txt)` (runs listed tests, catches regressions).
 - **Update Process**: If tests fail, fix code, rerun, update pass.txt on success.
 - **Types/Size**: Include security tests (e.g., vuln scans).
 

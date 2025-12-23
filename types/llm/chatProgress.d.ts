@@ -1,28 +1,10 @@
 /**
- * Helper for generating the chat‑progress lines shown during streaming.
- *
- * The function is a pure formatter – it receives runtime data and returns
- * ready‑to‑print strings.  It is unit‑tested in `chatProgress.test.js`.
- *
- * @typedef {Object} ChatProgressInput
- * @property {LanguageModelUsage} usage
- * @property {{ startTime: number, reasonTime?: number, answerTime?: number }} clock
- * @property {ModelInfo} model
- * @property {(n:number)=>string} [format]     number formatter (e.g. Intl.NumberFormat)
- * @property {(n:number)=>string} [valuta]     price formatter (prefixed with $)
- * @property {number} [elapsed]                total elapsed seconds (overrides clock calculation)
- * @property {number} [now]                    Date.now()
+ * Produce human‑readable progress rows.
  *
  * @param {ChatProgressInput} input
- * @returns {string[]} array of formatted lines ready for console output
+ * @returns {string[]}
  */
 export function formatChatProgress(input: ChatProgressInput): string[];
-/**
- * Helper for generating the chat‑progress lines shown during streaming.
- *
- * The function is a pure formatter – it receives runtime data and returns
- * ready‑to‑print strings.  It is unit‑tested in `chatProgress.test.js`.
- */
 export type ChatProgressInput = {
     usage: LanguageModelUsage;
     clock: {
@@ -32,17 +14,13 @@ export type ChatProgressInput = {
     };
     model: ModelInfo;
     /**
-     * number formatter (e.g. Intl.NumberFormat)
+     * tiny‑mode flag
      */
-    format?: ((n: number) => string) | undefined;
+    isTiny?: boolean | undefined;
     /**
-     * price formatter (prefixed with $)
+     * step number (used in tiny mode)
      */
-    valuta?: ((n: number) => string) | undefined;
-    /**
-     * total elapsed seconds (overrides clock calculation)
-     */
-    elapsed?: number | undefined;
+    step?: number | undefined;
     /**
      * Date.now()
      */

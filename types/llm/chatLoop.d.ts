@@ -17,6 +17,7 @@
  * @param {(n: number) => string} options.format
  * @param {(n: number) => string} options.valuta
  * @param {ModelInfo} options.model
+ * @param {boolean} [options.isTiny=false] - If true, use one-line progress mode
  * @param {number} [options.fps=30]
  * @returns {Promise<sendAndStreamOptions>}
  */
@@ -29,6 +30,7 @@ export function sendAndStream(options: {
     format: (n: number) => string;
     valuta: (n: number) => string;
     model: ModelInfo;
+    isTiny?: boolean | undefined;
     fps?: number | undefined;
 }): Promise<sendAndStreamOptions>;
 /**

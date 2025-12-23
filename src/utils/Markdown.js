@@ -14,7 +14,6 @@ export default class MarkdownProtocol extends FileProtocol {
 	 * @param {string | null} innerType - Current inner code block type
 	 * @param {number} started - Line number where current file started
 	 * @returns {{ nextCurrent: FileEntry | null, nextInnerType: string | null, nextStarted: number, entry: FileEntry | null }}
-	 * @throws {FileError}
 	 */
 	static _processLine(rawLine, i, current, innerType, started) {
 		let entry = null
@@ -26,13 +25,21 @@ export default class MarkdownProtocol extends FileProtocol {
 					// it is file header
 					const label = first.slice(6)
 					const filename = second.slice(0, -1)
-					current = new FileEntry({ label, filename })
-					started = i
+					const newCurrent = new FileEntry({ label, filename })
+					// Skip non-file lines when no current file is open
+					if (rawLine.trim()) {
+						return { nextCurrent: newCurrent, nextInnerType: innerType, nextStarted: i, entry: null }
+					}
+					return { nextCurrent: newCurrent, nextInnerType: innerType, nextStarted: i, entry: null }
 				} else {
 					throw new FileError({ line: i, content: rawLine, error: "Incorrect file header" })
 				}
 			} else {
-				throw new FileError({ line: i, content: rawLine, error: "Content beyond file" })
+				// Fixed: Skip non-file lines instead of throwing error
+				if (rawLine.trim()) {
+					// Log as warning or ignore; no throw
+				}
+				return { nextCurrent: current, nextInnerType: innerType, nextStarted: started, entry: null }
 			}
 		} else {
 			if ("```" === rawLine) {
@@ -174,3 +181,4 @@ export default class MarkdownProtocol extends FileProtocol {
 		return { name, path }
 	}
 }
+

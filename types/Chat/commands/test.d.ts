@@ -40,8 +40,9 @@ export class TestCommand extends InfoCommand {
         chat?: Partial<Chat> | undefined;
     }): TestCommand;
     options: TestOptions;
-    run(): AsyncGenerator<false | "" | import("../../cli/components/Alert.js").Alert | import("../../cli/components/Table.js").Table | Progress, void, unknown>;
+    run(): AsyncGenerator<true | "" | Alert | import("../../cli/components/Table.js").Table | Progress, void, unknown>;
 }
 import { InfoCommand } from "./info.js";
+import { Alert } from "../../cli/components/index.js";
 import { Progress } from "../../cli/components/index.js";
 import Chat from "../../llm/Chat.js";
