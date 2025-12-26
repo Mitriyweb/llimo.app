@@ -99,13 +99,13 @@ describe("UiFormats.money formatting", () => {
 	it("formats zero correctly", () => {
 		const ui = new Ui()
 		const res = ui.formats.money(0)
-		assert.strictEqual(res, "$0.000000")
+		assert.strictEqual(res, "$0.0000")
 	})
 
 	it("formats large numbers with thousands separators", () => {
 		const ui = new Ui()
 		const res = ui.formats.money(1234567.89)
-		assert.strictEqual(res, "$1,234,567.890000")
+		assert.strictEqual(res, "$1,234,567.8900")
 	})
 
 	it("formats with custom digits", () => {
@@ -117,6 +117,6 @@ describe("UiFormats.money formatting", () => {
 	it("formats negative numbers", () => {
 		const ui = new Ui()
 		const res = ui.formats.money(-12.3)
-		assert.strictEqual(res, "-$12.300000")
+		assert.strictEqual(res, "-$12.3000")
 	})
 })

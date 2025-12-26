@@ -119,11 +119,11 @@ export default class AI {
      *
      * @param {string} modelId
      * @param {import('ai').ModelMessage[]} messages
-     * @returns {Promise<{text: string, usage: LanguageModelUsage}>}
+     * @returns {Promise<{text: string, usage: Usage}>}
      */
     generateText(modelId: string, messages: import("ai").ModelMessage[]): Promise<{
         text: string;
-        usage: LanguageModelUsage;
+        usage: Usage;
     }>;
     #private;
 }
@@ -157,4 +157,4 @@ export type StreamOptions = {
     onAbort?: (() => void) | undefined;
 };
 import ModelInfo from './ModelInfo.js';
-import LanguageModelUsage from './LanguageModelUsage.js';
+import Usage from './Usage.js';

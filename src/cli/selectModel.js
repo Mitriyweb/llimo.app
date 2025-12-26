@@ -59,10 +59,9 @@ export async function selectAndShowModel(ai, ui, modelStr, providerStr, onSelect
 		cacheStr = ` (cache: ${ui.formats.pricing(cachePerM)} / 1M)`
 	}
 
-	ui.console.info(`> ${model.id} selected with modality ${model.architecture?.modality ?? "?"}`)
+	ui.console.info(`@ ${model.id} @${model.provider} [${model.architecture?.modality ?? "?"}]`)
 	ui.console.info(`  context: ${contextLen} (max output → ${maxOutput})`)
-	ui.console.info(`  pricing: → ${ui.formats.money(inputPricePerM, 2)} / 1M ← ${ui.formats.money(outputPricePerM, 2)} / 1M${cacheStr}`)
-	ui.console.info(`  provider: ${model.provider}`)
+	ui.console.info(`  price: → ${ui.formats.money(inputPricePerM, 2)} / 1M ← ${ui.formats.money(outputPricePerM, 2)} / 1M${cacheStr}`)
 	return model
 }
 

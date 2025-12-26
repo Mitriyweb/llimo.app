@@ -8,11 +8,11 @@
  */
 
 import { describe, it } from "node:test"
-import { strictEqual, deepStrictEqual, ok } from "node:assert/strict"
+import { strictEqual, ok } from "node:assert/strict"
 import { formatChatProgress } from "../../../src/llm/chatProgress.js"
 import Ui from "../../../src/cli/Ui.js"
-import ReadLine from "../../../src/utils/ReadLine.js"
 import { stripANSI } from "../../../src/cli/ANSI.js"
+import Usage from "../../../../src/llm/Usage.js"
 
 describe("006-UI-Progress – src/cli/* & src/llm/chatProgress.js", () => {
 	describe("6.1 ANSI colors, overwriteLine, cursorUp for progress bars", () => {
@@ -38,7 +38,7 @@ describe("006-UI-Progress – src/cli/* & src/llm/chatProgress.js", () => {
 		})
 
 		it("formatChatProgress generates padded table with safe speeds/costs (no NaN)", () => {
-			const usage = new LanguageModelUsage({ inputTokens: 120, reasoningTokens: 10, outputTokens: 50 })
+			const usage = new Usage({ inputTokens: 120, reasoningTokens: 10, outputTokens: 50 })
 			const clock = { startTime: Date.now() - 5000, reasonTime: Date.now() - 2000, answerTime: Date.now() - 1000 }
 			const model = new ModelInfo({ pricing: { prompt: 0.00035, completion: 0.001 } })
 			const lines = formatChatProgress({ usage, clock, model, format: (n) => n.toString() })

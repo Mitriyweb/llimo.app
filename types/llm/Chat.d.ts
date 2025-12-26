@@ -83,7 +83,7 @@ export default class Chat {
      * @property {Array<[string, any]>} unknowns
      * @property {string} answer
      * @property {string} reason
-     * @property {LanguageModelUsage} usage
+     * @property {Usage} usage
      * @property {import("ai").ModelMessage[]} messages
      *
      * Saves the whole chat if target is not provided.
@@ -106,7 +106,7 @@ export default class Chat {
         unknowns: Array<[string, any]>;
         answer: string;
         reason: string;
-        usage: LanguageModelUsage;
+        usage: Usage;
         /**
          * Saves the whole chat if target is not provided.
          * If provided saves the specific target and step.
@@ -156,5 +156,4 @@ export type ChatMessage = {
 import ModelInfo from "./ModelInfo.js";
 import Usage from "./Usage.js";
 import FileSystem from "../utils/FileSystem.js";
-import LanguageModelUsage from "./LanguageModelUsage.js";
 import { Stats } from "node:fs";

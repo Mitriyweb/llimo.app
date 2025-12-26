@@ -33,9 +33,9 @@
    - Deps: 7.3 (command base), 5.6 (info stats).
    - Security: Sanitize titles (no MD injection), limit inject globs (no ../).
 
-4. **Release Workflow (releases/v1.1.0)**: Tasks in 00X-Name/task.test.js (detailed @todo English: files to create, tests cover). tests.txt list. Run: node --test */task.test.js (gen pass/fail/pending.txt). index.test.js verifies outcomes (all pass for release). llmo release: Background multi-thread (Promise.allSettled), Docker isolation.
+4. **Release Workflow (releases/1/v1.1.0)**: Tasks in 00X-Name/task.test.js (detailed @todo English: files to create, tests cover). tests.txt list. Run: node --test */task.test.js (gen pass/fail/pending.txt). index.test.js verifies outcomes (all pass for release). llmo release: Background multi-thread (Promise.allSettled), Docker isolation.
    - Create: bin/llimo-release.js (read tasks, parallel exec, Docker via child_process).
-   - Tests: releases/v1.1.0/ReleaseWorkflow.test.js (spawn llmo release, mock Docker, assert outcomes).
+   - Tests: releases/1/v1.1.0/ReleaseWorkflow.test.js (spawn llmo release, mock Docker, assert outcomes).
    - Deps: All tasks (self-contained).
    - Security: Docker --rm, volume mounts limited, vulnerability scans (mock slither for JS?).
 
@@ -66,6 +66,8 @@
    - v1.0.0: Add implemented as "done" in changelog.
    - v1.1.0: Full spec coverage, Docker safety, vuln tests.
 
+10. **Auto file attachment**: check every file that were injected/returned in chat messages and inject in the prompt updated ones.
+
 ## v1.2.0+ (Future)
 - Multi-modal (full video gen via ai-sdk).
 - Parallel chats, advanced archiving (S3 or other clouds or database agnostic?).
@@ -73,4 +75,70 @@
 - Command: @media audio.mp3 → gen @bash "node batch-transcribe-api audio.mp3" (Whisper-1, lang=uk, env) or through OpenRouter providers or others available models with such modality.
 - Deps: Install @ai-sdk/openai-vision, mock for tests.
 
+## Hot-fix requests
+- Handle JSONL formats from chat responses.
+	```bash
+	+ src/llm/chat-progress/standard/chat/da595208-098d-4c81-9742-2eaba468e3d8/input.md (32 bytes)
+	❌ Fatal error in llimo‑pack: Error: JSONL accept only rows (array of any type of data)
+	    at FileSystem._jsonlSaver (file:///Users/i/src/purejs/llimo.app/src/utils/FileSystem.js:305:11)
+	    at FileSystem.save (file:///Users/i/src/purejs/llimo.app/src/utils/FileSystem.js:345:17)
+	    at async unpackAnswer (file:///Users/i/src/purejs/llimo.app/src/llm/unpack.js:97:4)
+	    at async main (file:///Users/i/src/purejs/llimo.app/bin/llimo-unpack.js:125:19)
+	```
+- Handle proper free token limits
+	```bash
+	╭╴yaro::nan.web/apps/llimo.app
+	╰╴18:29 √ok % llimo-chat dev.md                       
 
+	+ loaded 15 messages from existing chat da595208-098d-4c81-9742-2eaba468e3d8
+	Loaded 475 inference models from 18 providers: cerebras, huggingface/cerebras, huggingface/cohere, huggingface/featherless-ai, huggingface/fireworks-ai, huggingface/groq, huggingface/hf-inference, huggingface/hyperbolic, huggingface/nebius, huggingface/novita, huggingface/nscale, huggingface/ovhcloud, huggingface/publicai, huggingface/sambanova, huggingface/scaleway, huggingface/together, huggingface/zai-org, openrouter
+
+	Multiple models match your criteria [model = gpt-oss-120b, provider = ]:
+		1) gpt-oss-120b (provider: cerebras)
+		2) openai/gpt-oss-120b:free (provider: openrouter)
+		3) openai/gpt-oss-120b (provider: openrouter)
+		4) openai/gpt-oss-120b (provider: huggingface/groq)
+		5) openai/gpt-oss-120b (provider: huggingface/novita)
+		6) openai/gpt-oss-120b (provider: huggingface/nebius)
+		7) openai/gpt-oss-120b (provider: huggingface/cerebras)
+		8) openai/gpt-oss-120b (provider: huggingface/sambanova)
+		9) openai/gpt-oss-120b (provider: huggingface/nscale)
+		10) openai/gpt-oss-120b (provider: huggingface/hyperbolic)
+		11) openai/gpt-oss-120b (provider: huggingface/together)
+		12) openai/gpt-oss-120b (provider: huggingface/fireworks-ai)
+		13) openai/gpt-oss-120b (provider: huggingface/scaleway)
+		14) openai/gpt-oss-120b (provider: huggingface/ovhcloud)
+		15) openai/gpt-oss-120b:exacto (provider: openrouter)
+	Select a model by number (or type its full id): 1
+	> gpt-oss-120b selected with modality 
+		pricing: → 0.00 ← 0.00 (cache: -1.00)
+		provider: cerebras
+	> preparing dev.md (/Users/i/src/nan.web/apps/llimo.app/dev.md)
+	+ dev.md (chat/da595208-098d-4c81-9742-2eaba468e3d8/dev.md)
+		copied to chat session
+	Prompt size: 16,524b — 2 file(s).
+	Messages size: 134,945b ~ 37,485T
+
+	step 8. 2025-12-19T16:29:46.705Z
+
+	sending (streaming) [gpt-oss-120b](@cerebras) 0T
+	Send prompt to LLiMo? (Y)es, No: 
+	chat progress | 61.9s | 31,510T | 509T/s | 0.000000
+	      reading | 61.9s | 31,510T | 509T/s | 0.000000
+	2025-12-19T16:29:51.000Z: Tokens per minute limit exceeded - too many tokens processed.
+	2025-12-19T16:29:54.000Z: Tokens per minute limit exceeded - too many tokens processed.
+	2025-12-19T16:30:52.000Z: Tokens per minute limit exceeded - too many tokens processed.
+		Retry after 2025-12-19T16:31:52.000Z
+
+	+ answer (chat/da595208-098d-4c81-9742-2eaba468e3d8/steps/008/answer.md)
+	Extracting files (dry mode, no real saving)
+	! Error: Content beyond file
+		# 1 > 
+	```
+
+	> 2025-12-19T16:29:51.000Z: Tokens per minute limit exceeded - too many tokens processed.
+	It is not visible during the progress that limit is exceeded.
+	> 	Retry after 2025-12-19T16:31:52.000Z
+	Must also or instead show `Retry in 30s after 2025-12-19 18:31:52`
+- For small (silly) models check the response and if there are no files at all, throw error or use another larger model (smarter) or try to continue with next message `Follow the output format.`.
+- If I use `- [@ls][src/**]` and then `- [](src/index.js)` prompt is not processing injections after listing.

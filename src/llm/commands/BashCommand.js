@@ -12,7 +12,7 @@ export default class BashCommand extends Command {
 		super(input)
 	}
 	async * run() {
-		yield ` ${YELLOW}• Execute command:`
+		yield `${YELLOW}• Execute command:`
 		yield ` •`
 		const PROMPT_FILE = "prompt.md"
 		yield ' • echo "```bash" > ' + PROMPT_FILE

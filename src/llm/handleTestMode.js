@@ -1,7 +1,7 @@
 import { formatChatProgress } from "./chatProgress.js"
 import FileSystem from "../utils/FileSystem.js"
 import { GREEN, RESET } from "../cli/ANSI.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 import Ui from "../cli/Ui.js"
 import Chat from "./Chat.js"
 import ModelInfo from "./ModelInfo.js"
@@ -32,7 +32,7 @@ export async function handleTestMode(options) {
 	const unknown = []
 	let fullResponse = ""
 	let reasoning = ""
-	let usage = new LanguageModelUsage()
+	let usage = new Usage()
 	let timeInfo
 	const clock = { startTime, reasonTime: 0, answerTime: 0 }
 
@@ -98,7 +98,7 @@ export async function handleTestMode(options) {
 				fullResponse += part.text ?? part
 				await chatDb.append("stream.md", part.text ?? part)
 			} else if ("usage" == part.type) {
-				usage = new LanguageModelUsage(part.usage)
+				usage = new Usage(part.usage)
 			}
 			parts.push(part)
 		}

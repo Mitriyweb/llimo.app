@@ -56,10 +56,9 @@ export async function sendAndStream(options) {
 		ui,
 		step,
 		prompt,
-		format, model, fps = 30, isTiny = false
+		model, fps = 30, isTiny = false
 	} = options
 	const startTime = Date.now()
-	/** @type {Array<[string, any]>} */
 	const unknowns = []
 	let answer = ""
 	let reason = ""
@@ -72,6 +71,12 @@ export async function sendAndStream(options) {
 		usage.inputTokens += recent.usage.inputTokens
 	}
 
+	// Mock rate limit or error for testing
+	let mockError = null
+	if (process.env.MOCK_RATE_LIMIT) {
+		mockError = { status: 429, message: "429 Too Many Requests" }
+	}
+
 	const chatting = ui.createProgress(({ elapsed }) => {
 		const lines = formatChatProgress({
 			ui,
@@ -80,7 +85,13 @@ export async function sendAndStream(options) {
 			model,
 			isTiny
 		})
+		// Clear previous lines
 		if (prevLines > 0) {
+			ui.cursorUp(prevLines - 1)
+			// Clear each line
+			for (let i = 0; i < prevLines; i++) {
+				ui.stdout.write("\x1b[K\n")
+			}
 			ui.cursorUp(prevLines)
 		}
 		for (let i = 0; i < lines.length; i++) {
@@ -90,7 +101,7 @@ export async function sendAndStream(options) {
 	}, fps)
 
 	let timeInfo
-	let error
+	let error = mockError
 	try {
 		const chunks = []
 		const streamOptions = {
@@ -287,4 +298,3 @@ export async function postStreamProcess(input) {
 	// await git.commitAll(`step ${step}: response and test results`)
 	return { shouldContinue: true, testsCode }
 }
-

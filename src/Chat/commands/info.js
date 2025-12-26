@@ -1,6 +1,3 @@
-import fs from "node:fs/promises"
-import path from "node:path"
-
 import { Alert, Table } from "../../cli/components/index.js"
 import { Ui, UiCommand } from "../../cli/Ui.js"
 import { parseArgv } from "../../cli/argvHelper.js"
@@ -8,6 +5,7 @@ import Chat from "../../llm/Chat.js"
 import Markdown from "../../utils/Markdown.js"
 import UiOutput from "../../cli/UiOutput.js"
 import ModelInfo from "../../llm/ModelInfo.js"
+import FileSystem from "../../utils/FileSystem.js"
 
 /**
  * Options for the `info` command.
@@ -167,4 +165,3 @@ export class InfoCommand extends UiCommand {
 		return new InfoCommand({ options, chat })
 	}
 }
-

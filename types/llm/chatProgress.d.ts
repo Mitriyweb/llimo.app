@@ -1,7 +1,7 @@
 /**
  * @typedef {Object} ChatProgressInput
  * @property {Ui} ui
- * @property {LanguageModelUsage} usage
+ * @property {Usage} usage
  * @property {{ startTime:number, reasonTime?:number, answerTime?:number }} clock
  * @property {ModelInfo} model
  * @property {boolean} [isTiny] tiny‑mode flag
@@ -18,7 +18,7 @@
 export function formatChatProgress(input: ChatProgressInput): string[];
 export type ChatProgressInput = {
     ui: Ui;
-    usage: LanguageModelUsage;
+    usage: Usage;
     clock: {
         startTime: number;
         reasonTime?: number;
@@ -40,5 +40,5 @@ export type ChatProgressInput = {
     precision?: number | undefined;
 };
 import Ui from "../cli/Ui.js";
-import LanguageModelUsage from "./LanguageModelUsage.js";
+import Usage from "./Usage.js";
 import ModelInfo from "./ModelInfo.js";

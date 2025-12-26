@@ -35,10 +35,14 @@ export class ChatCLiApp {
      * Returns True to continue chat and False to stop the chat.
      * @param {string} prompt
      * @param {ModelInfo} model
+     * @param {{ packedPrompt: string, injected: string[] }} packed
      * @param {number} [step=1]
      * @returns {Promise<boolean>}
      */
-    prepare(prompt: string, model: ModelInfo, step?: number): Promise<boolean>;
+    prepare(prompt: string, model: ModelInfo, packed: {
+        packedPrompt: string;
+        injected: string[];
+    }, step?: number): Promise<boolean>;
     /**
      * Decodes the answer and return the next prompt
      * @param {import("../llm/chatLoop.js").sendAndStreamOptions} sent
@@ -83,11 +87,16 @@ export class ChatCLiApp {
      * 3. Select a model
      * 3.1. for Test it should be selected from saved log
      * 3.2. for Real it should use available by the algorithm
+     * @returns {Promise<{ step: number, prompt: string, model: ModelInfo, packed: { packedPrompt: string, injected: string[] } }>}
      */
     start(): Promise<{
         step: number;
         prompt: string;
         model: ModelInfo;
+        packed: {
+            packedPrompt: string;
+            injected: string[];
+        };
     }>;
     loop(): Promise<void>;
     #private;

@@ -67,15 +67,22 @@ export default class Pricing {
 	/**
 	 * Calculates the usage cost (total price).
 	 * @param {Usage} usage
+	 * @param {{ input?: number, reason?: number, output?: number }} [context] reset pricing in the context.
 	 * @returns {number}
 	 */
-	calc(usage) {
+	calc(usage, context = {}) {
 		const {
 			inputTokens = 0,
 			reasoningTokens = 0,
 			outputTokens = 0,
 		} = usage
-		return (this.prompt + this.input_cache_read) * inputTokens / 1e6
-			+ (this.completion + this.input_cache_write) * (reasoningTokens + outputTokens) / 1e6
+		const cacheRead = Math.max(0, this.input_cache_read)
+		const cacheWrite = Math.max(0, this.input_cache_write)
+		const prompt = Math.max(0, this.prompt)
+		const completion = Math.max(0, this.completion)
+		context.input = (prompt + cacheRead) * inputTokens / 1e6
+		context.reason = (completion + cacheWrite) * reasoningTokens / 1e6
+		context.output = (completion + cacheWrite) * outputTokens / 1e6
+		return context.input + context.reason + context.output
 	}
 }

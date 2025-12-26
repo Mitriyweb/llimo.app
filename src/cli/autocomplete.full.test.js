@@ -17,14 +17,14 @@ import {
 import ModelInfo from "../llm/ModelInfo.js"
 import Pricing from "../llm/Pricing.js"
 import Architecture from "../llm/Architecture.js"
-import Ui from "./Ui.js"
+import Ui, { UiFormats } from "./Ui.js"
 
 // -----------------------------------------------------
 // helpers
 // -----------------------------------------------------
 function createTestModelMap() {
 	const map = new Map()
-	map.set("x-ai/grok-3", [
+	map.set("x-ai/grok-3",
 		new ModelInfo({
 			id: "x-ai/grok-3",
 			context_length: 131_000,
@@ -34,8 +34,8 @@ function createTestModelMap() {
 			supports_tools: false,
 			supports_structured_output: false,
 		}),
-	])
-	map.set("meta-llama/Llama-3.3-70B-Instruct", [
+	)
+	map.set("meta-llama/Llama-3.3-70B-Instruct",
 		new ModelInfo({
 			id: "meta-llama/Llama-3.3-70B-Instruct",
 			context_length: 64_000,
@@ -45,7 +45,7 @@ function createTestModelMap() {
 			supports_tools: false,
 			supports_structured_output: false,
 		}),
-	])
+	)
 	return map
 }
 
@@ -149,15 +149,16 @@ describe("autocomplete – core utilities", () => {
 		const mockUi = {
 			console: {
 				table: mock.fn(),
-				info: () => {}
-			}
+				info: () => { }
+			},
+			formats: new UiFormats(),
 		}
 		renderTable(filtered, "grok", 0, 10, mockUi)
 		assert.strictEqual(mockUi.console.table.mock.callCount(), 1)
 		const args = mockUi.console.table.mock.calls[0].arguments
 		// first argument must be an array with headers
 		assert.ok(Array.isArray(args[0]))
-		assert.strictEqual(args[0][0][0], "ID")
+		assert.strictEqual(args[0][0][0], "Model.ID")
 		// second argument contains alignment options
 		assert.ok(args[1].aligns.includes("right"))
 	})
@@ -186,7 +187,7 @@ describe("autocomplete – core utilities", () => {
 			const rows = modelRows(createTestModelMap())
 			const mockUi = new Ui({
 				stdin: mockStdin,
-				console: { info: () => {}, table: () => {} },
+				console: { info: () => { }, table: () => { } },
 			})
 
 			const promise = interactive(new Map([["x-ai/grok-3", rows]]), mockUi)

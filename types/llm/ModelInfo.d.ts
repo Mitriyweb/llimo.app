@@ -39,6 +39,14 @@ export default class ModelInfo {
     provider: string;
     /** @type {TopProvider} */
     top_provider: TopProvider;
+    /** @type {boolean} */
+    supports_tools: boolean;
+    /** @type {boolean} */
+    supports_structured_output: boolean;
+    /** @type {boolean} */
+    supportsTools: boolean;
+    /** @type {boolean} */
+    supportsStructuredOutput: boolean;
 }
 import Architecture from "./Architecture.js";
 import Limits from "./Limits.js";

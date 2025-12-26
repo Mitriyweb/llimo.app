@@ -7,10 +7,17 @@
 import { randomUUID } from "node:crypto"
 import AI from "./AI.js"
 import FileSystem from "../utils/FileSystem.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 import ModelInfo from "./ModelInfo.js"
 import Pricing from "./Pricing.js"
 import Architecture from "./Architecture.js"
+
+// Helper for async iterable
+function createAsyncIterable(fn) {
+	return {
+		[Symbol.asyncIterator]: fn
+	}
+}
 
 /**
  * TestAI extends AI to simulate chat responses using pre-recorded files from chat directory.
@@ -72,7 +79,7 @@ export default class TestAI extends AI {
 		let streamEvents = []
 		let fullResponse = ""
 		let reasoning = ""
-		let usage = new LanguageModelUsage()
+		let usage = new Usage()
 
 		// Load chunks.jsonl or fall back to stream.json
 		try {
@@ -121,7 +128,7 @@ export default class TestAI extends AI {
 		try {
 			const responseData = await fs.load(`${stepDir}response.json`)
 			if (responseData && responseData.usage) {
-				usage = new LanguageModelUsage(responseData.usage)
+				usage = new Usage(responseData.usage)
 			}
 		} catch {
 			usage.inputTokens = Math.round(overriddenMessages.reduce((acc, msg) => acc + String(msg.content).length / 4, 0))
@@ -158,21 +165,22 @@ export default class TestAI extends AI {
 			id: randomUUID(),
 			object: "thread.run",
 			created_at: Math.floor(Date.now() / 1000),
-			response: null, // Not used in simulation
-			reasoning: reasoning,
-			fullResponse: fullResponse,
-			usage: usage,
+			response: {
+				headers: {
+					'x-ratelimit-remaining-requests': '99',
+					'x-ratelimit-remaining-tokens': '9999'
+				}
+			}, // Mock response for rate limits
+			reasoning,
+			fullResponse,
+			usage,
 			_totalUsage: { status: { type: "resolved", value: usage } },
 			_steps: { status: { type: "resolved", value: [{ usage }] } },
-			textStream,
 			// Stub other required properties
 			content: fullResponse,
 			text: fullResponse,
-			reasoning: reasoning,
-			reasoningText: reasoning,
-			experimental_providerMetadata: {},
-			finishReason: "stop",
-			usage: usage,
+			// reasoning,
+			// reasoningText: reasoning,
 		}
 
 		return result
@@ -182,8 +190,8 @@ export default class TestAI extends AI {
 	 * Non-streaming version (for completeness, just returns full response).
 	 * @param {string} modelId
 	 * @param {ModelMessage[]} messages
-	 * @param {{}} [options]
-	 * @returns {Promise<{text: string; usage: LanguageModelUsage}>}
+	 * @param {{cwd?: string, step?: number}} [options]
+	 * @returns {Promise<{text: string, usage: Usage}>}
 	 */
 	async generateText(modelId, messages, options = {}) {
 		const streamResult = await this.streamText(modelId, messages, options)

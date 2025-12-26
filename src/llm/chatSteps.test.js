@@ -134,13 +134,11 @@ describe("chatSteps – packPrompt (integration with mock)", () => {
 			injected: ["a.js", "b.js"],
 		})
 		const {
-			packedPrompt, injected, promptPath
+			packedPrompt, injected
 		} = await chatSteps.packPrompt(fakePack, "sample", chatInstance, mockUi)
 
 		assert.equal(packedPrompt, "<<sample>>")
 		assert.deepEqual(injected, ["a.js", "b.js"])
-		// prompt should be stored under the chat directory
-		assert.ok(promptPath.startsWith(chatInstance.dir))
 	})
 })
 
@@ -184,64 +182,5 @@ describe("chatSteps – initialiseChat", () => {
 		assert.ok(await fsInstance.exists("chat/current"))
 		assert.strictEqual(chat.messages.length, 1) // System message
 		assert.ok(chat.messages[0].content.includes("<!--TOOLS_LIST-->") === false)
-	})
-})
-
-describe("chatSteps - parseOutput", () => {
-	it("should parse two tests", () => {
-		const stdout = [
-			"ℹ tests 9",
-			"ℹ suites 1",
-			"ℹ pass 7",
-			"ℹ fail 2",
-			"ℹ cancelled 0",
-			"ℹ skipped 0",
-			"ℹ todo 0",
-			"ℹ duration_ms 333",
-			"# tests 3",
-			"# suites 1",
-			"# pass 0",
-			"# fail 0",
-			"# cancelled 1",
-			"# skipped 1",
-			"# todo 1",
-			"# duration_ms 33.333",
-		].join("\n")
-		const stderr = [
-			"src/CLiMessage.js(1,23): error TS2307: Cannot find module './ui/Message.js' or its corresponding type declarations.",
-			"src/InputAdapter.js(380,13): error TS2339: Property 'output' does not exist on type 'UiMessage'.",
-			"src/CLiMessage.js:1:23 - error TS2307: Cannot find module './ui/Message.js' or its corresponding type declarations.",
-			"",
-			"1 import UiMessage from \"./ui/Message.js\"",
-			"                        ~~~~~~~~~~~~~~~~~",
-			"",
-			"src/InputAdapter.js:380:13 - error TS2339: Property 'output' does not exist on type 'UiMessage'.",
-			"",
-			"380     if (msg.output) {",
-			"                ~~~~~~",
-			"",
-			"Found 4 errors in 3 files.",
-			"",
-			"Errors  Files",
-			"     1  src/CLiMessage.js:1",
-			"     2  src/InputAdapter.js:380",
-			"     1  src/ui/Adapter.js:1",
-			" ELIFECYCLE  Command failed with exit code 2.",
-		].join("\n")
-		const obj = {}
-		const parsed = chatSteps.parseOutput(stdout, stderr)
-		assert.deepStrictEqual(parsed.counts, {
-			fail: 2, pass: 7, cancelled: 1, skip: 1, todo: 1, duration: 366.333, types: 2,
-			tests: 12, suites: 2,
-		})
-		assert.equal(parsed.logs.fail.length, 2)
-		assert.equal(parsed.logs.pass.length, 2)
-		assert.equal(parsed.logs.cancelled.length, 2)
-		assert.equal(parsed.logs.skip.length, 2)
-		assert.equal(parsed.logs.todo.length, 2)
-		assert.equal(parsed.logs.duration.length, 2)
-		assert.equal(parsed.logs.types.length, 2)
-		assert.equal(parsed.logs.tests.length, 2)
-		assert.equal(parsed.logs.suites.length, 2)
 	})
 })

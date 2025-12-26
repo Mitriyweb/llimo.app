@@ -4,9 +4,11 @@
 
 ```
 ╭╴yaro::nan.web/apps/llimo.app
-╰╴11:12 √ok % LLIMO_MODEL=grok-4-fast llimo chat me.md --yes --debug
+╰╴11:12 √ok % LLIMO_MODEL=grok-4-fast llimo chat me.md --yes --debug --new
 
-+ loaded 5 messages from existing chat da595208-098d-4c81-9742-2eaba468e3d8
++ b0416d7c-2e49-4408-9615-e32c41d08738 new chat created
++ system.md loaded 2,203b
+@ system instructions 7,128b
 @ Loaded 473 inference models from 18 providers
 > cerebras
 > huggingface/cerebras
@@ -26,9 +28,8 @@
 > huggingface/together
 > huggingface/zai-org
 > openrouter
-+ me.md > (chat/da595208-098d-4c81-9742-2eaba468e3d8/input.md)
-
 @ x-ai/grok-4-fast @openrouter [text+image->text] [→ $0.20 ← $0.50]
++ me.md > (chat/da595208-098d-4c81-9742-2eaba468e3d8/input.md)
 
 @ step 3. 2025-12-18 09:12:51.960
 @ Prompt: 10,538b — 4f, Chat: 532,927b - 1,008f ~ 148,036T of 1,851,964T

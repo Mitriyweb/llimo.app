@@ -73,5 +73,6 @@ export default class ChatOptions {
     provider: string;
     /** @type {number} */
     maxFails: number;
-    isHelp: any;
+    /** @type {boolean} */
+    isHelp: boolean;
 }

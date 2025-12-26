@@ -41,7 +41,7 @@ export async function* unpackAnswer(
 	/* -----------------------------------------------------------------
 	 * Header – always emitted, tests rely on the “dry mode” wording.
 	 * ----------------------------------------------------------------- */
-	yield `Extracting files ${isDry ? `${YELLOW}(dry mode, no real saving)` : ""}`
+	yield `@ Extracting files ${isDry ? `${YELLOW}(dry mode, no real saving)` : ""}`
 
 
 	/* -----------------------------------------------------------------

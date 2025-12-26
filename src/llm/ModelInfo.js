@@ -8,37 +8,45 @@ import Limits from "./Limits.js"
  */
 export default class ModelInfo {
 	/** @type {string} - Model ID */
-	id
+	id = ""
 	/** @type {Architecture} - Model architecture */
-	architecture
+	architecture = new Architecture()
 	/** @type {string} */
-	canonical_slug
+	canonical_slug = ""
 	/** @type {number} - Maximum context length in tokens */
-	context_length
+	context_length = 0
 	/** @type {number} - Maximum output in tokens */
-	maximum_output
+	maximum_output = 0
 	/** @type {Limits} - limits of requests and tokens per time */
-	limits
+	limits = new Limits()
 	/** @type {number} */
-	created
+	created = 0
 	/** @type {object} */
-	default_parameters
+	default_parameters = {}
 	/** @type {string} */
-	description
+	description = ""
 	/** @type {string} */
-	hugging_face_id
+	hugging_face_id = ""
 	/** @type {string} */
-	name
+	name = ""
 	/** @type {number} */
-	per_request_limit
+	per_request_limit = 0
 	/** @type {Pricing} */
-	pricing
+	pricing = new Pricing()
 	/** @type {string[]} - Supported parameters */
-	supported_parameters
+	supported_parameters = []
 	/** @type {string} - Provider name (openai, cerebras, huggingface/cerebras) */
-	provider
+	provider = ""
 	/** @type {TopProvider} */
-	top_provider
+	top_provider = new TopProvider()
+	/** @type {boolean} */
+	supports_tools = false
+	/** @type {boolean} */
+	supports_structured_output = false
+	/** @type {boolean} */
+	supportsTools = false
+	/** @type {boolean} */
+	supportsStructuredOutput = false
 
 	/**
 	 * Constructs a ModelInfo instance.
@@ -62,6 +70,10 @@ export default class ModelInfo {
 			provider = "",
 			top_provider = {},
 			limits = {},
+			supports_tools = false,
+			supports_structured_output = false,
+			supportsTools = false,
+			supportsStructuredOutput = false,
 		} = input
 		this.id = String(id)
 		this.architecture = new Architecture(architecture)
@@ -79,5 +91,9 @@ export default class ModelInfo {
 		this.provider = String(provider)
 		this.top_provider = new TopProvider(top_provider)
 		this.limits = new Limits(limits)
+		this.supports_tools = Boolean(supports_tools)
+		this.supports_structured_output = Boolean(supports_structured_output)
+		this.supportsTools = Boolean(supportsTools)
+		this.supportsStructuredOutput = Boolean(supportsStructuredOutput)
 	}
 }

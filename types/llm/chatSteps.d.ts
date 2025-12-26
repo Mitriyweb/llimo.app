@@ -54,14 +54,11 @@ export function copyInputToChat(inputFile: string | null, input: string, chat: C
  * @param {Function} packMarkdown function that returns `{text, injected}`
  * @param {string} input
  * @param {Chat} chat Chat instance (used for `savePrompt`)
- * @param {Ui} ui User interface instance
- * @returns {Promise<{ packedPrompt: string, injected: string[], promptPath: string, stats: Stats }>}
+ * @returns {Promise<{ packedPrompt: string, injected: string[] }>}
  */
-export function packPrompt(packMarkdown: Function, input: string, chat: Chat, ui: Ui): Promise<{
+export function packPrompt(packMarkdown: Function, input: string, chat: Chat): Promise<{
     packedPrompt: string;
     injected: string[];
-    promptPath: string;
-    stats: Stats;
 }>;
 /**
  * Stream the AI response.
@@ -79,41 +76,6 @@ export function startStreaming(ai: AI, model: ModelInfo, chat: Chat, options: ob
     stream: AsyncIterable<any>;
     result: any;
 };
-/**
- * @typedef {Object} TestOutputLogEntry
- * @property {number} i
- * @property {number} no
- * @property {string} str
- *
- * @typedef {Object} TestOutputLogs
- * @property {TestOutputLogEntry[]} fail
- * @property {TestOutputLogEntry[]} cancelled
- * @property {TestOutputLogEntry[]} pass
- * @property {TestOutputLogEntry[]} tests
- * @property {TestOutputLogEntry[]} suites
- * @property {TestOutputLogEntry[]} skip
- * @property {TestOutputLogEntry[]} todo
- * @property {TestOutputLogEntry[]} duration
- * @property {TestOutputLogEntry[]} types
- *
- * @typedef {Object} TestOutputCounts
- * @property {number} fail
- * @property {number} cancelled
- * @property {number} pass
- * @property {number} tests
- * @property {number} suites
- * @property {number} skip
- * @property {number} todo
- * @property {number} duration
- * @property {number} types
- *
- * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number>, guess: TestOutputCounts }} TestOutput
- *
- * @param {string} stdout
- * @param {string} stderr
- * @returns {TestOutput}
- */
-export function parseOutput(stdout: string, stderr: string): TestOutput;
 /**
  * Decodes the answer and return the next prompt
  * @param {Object} param0
@@ -167,43 +129,9 @@ export function decodeAnswerAndRunTests(ui: import("../cli/Ui.js").default, chat
     shouldContinue: boolean;
     test: TestOutput;
 }>;
-export type TestOutputLogEntry = {
-    i: number;
-    no: number;
-    str: string;
-};
-export type TestOutputLogs = {
-    fail: TestOutputLogEntry[];
-    cancelled: TestOutputLogEntry[];
-    pass: TestOutputLogEntry[];
-    tests: TestOutputLogEntry[];
-    suites: TestOutputLogEntry[];
-    skip: TestOutputLogEntry[];
-    todo: TestOutputLogEntry[];
-    duration: TestOutputLogEntry[];
-    types: TestOutputLogEntry[];
-};
-export type TestOutputCounts = {
-    fail: number;
-    cancelled: number;
-    pass: number;
-    tests: number;
-    suites: number;
-    skip: number;
-    todo: number;
-    duration: number;
-    types: number;
-};
-export type TestOutput = {
-    logs: TestOutputLogs;
-    counts: TestOutputCounts;
-    types: Set<number>;
-    guess: TestOutputCounts;
-};
 import FileSystem from "../utils/FileSystem.js";
 import Ui from "../cli/Ui.js";
 import Chat from "./Chat.js";
-import { Stats } from 'node:fs';
 import AI from "./AI.js";
 import ModelInfo from './ModelInfo.js';
 import ChatOptions from '../Chat/Options.js';

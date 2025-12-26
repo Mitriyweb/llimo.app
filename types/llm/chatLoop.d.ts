@@ -2,7 +2,7 @@
  * @typedef {Object} sendAndStreamOptions
  * @property {string} answer
  * @property {string} reason
- * @property {LanguageModelUsage} usage
+ * @property {Usage} usage
  * @property {any[]} unknowns
  * @property {any} [error]
  */
@@ -58,7 +58,7 @@ export function postStreamProcess(input: {
 export type sendAndStreamOptions = {
     answer: string;
     reason: string;
-    usage: LanguageModelUsage;
+    usage: Usage;
     unknowns: any[];
     error?: any;
 };
@@ -66,4 +66,4 @@ import AI from "./AI.js";
 import Chat from "./Chat.js";
 import Ui from "../cli/Ui.js";
 import ModelInfo from "./ModelInfo.js";
-import LanguageModelUsage from "./LanguageModelUsage.js";
+import Usage from "./Usage.js";

@@ -5,7 +5,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { streamText, generateText } from 'ai'
 import ModelProvider from "./ModelProvider.js"
 import ModelInfo from './ModelInfo.js'
-import LanguageModelUsage from './LanguageModelUsage.js'
+import Usage from './Usage.js'
 
 /**
  * @typedef {Object} StreamOptions callbacks and abort signal
@@ -297,7 +297,7 @@ export default class AI {
 	 *
 	 * @param {string} modelId
 	 * @param {import('ai').ModelMessage[]} messages
-	 * @returns {Promise<{text: string, usage: LanguageModelUsage}>}
+	 * @returns {Promise<{text: string, usage: Usage}>}
 	 */
 	async generateText(modelId, messages) {
 		const model = this.getModel(modelId)

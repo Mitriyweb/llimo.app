@@ -1,5 +1,5 @@
 /**
- * Options for the `info` command.
+ * Options for the `test` command.
  */
 export class TestOptions {
     static id: {
@@ -23,7 +23,7 @@ export class TestOptions {
  *   - **Role** – system / user / assistant / tool
  *   - **Files** – number of attached files (detected via markdown checklist)
  *   - **Bytes** – raw byte size of the message content
- *   - **Tokens** – estimated token count (≈ 1 token per 4 bytes)
+ *   - **Tokens** – estimated token count (≈ 1 token per 4 bytes)
  *
  * After printing the table, the command yields `false` so the CLI code knows it can
  * continue with the normal chat loop.
@@ -40,7 +40,7 @@ export class TestCommand extends InfoCommand {
         chat?: Partial<Chat> | undefined;
     }): TestCommand;
     options: TestOptions;
-    run(): AsyncGenerator<true | "" | Alert | import("../../cli/components/Table.js").Table | Progress, void, unknown>;
+    run(): AsyncGenerator<true | Alert | import("../../cli/components/Table.js").Table | Progress, void, unknown>;
 }
 import { InfoCommand } from "./info.js";
 import { Alert } from "../../cli/components/index.js";

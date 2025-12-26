@@ -65,15 +65,13 @@ export function model2row(info, id) {
 
 /**
  * Flatten models map into ModelRow[] for filtering/sorting.
- * @param {Map<string, import("../llm/ModelInfo").default[]>} modelMap
+ * @param {Map<string, import("../llm/ModelInfo").default>} modelMap
  * @returns {ModelRow[]}
  */
 export function modelRows(modelMap) {
 	const flat = []
-	for (const [key, infos] of modelMap.entries()) {
-		for (const info of infos) {
-			flat.push(model2row(info, key)) // key is id@provider, but row.id = info.id
-		}
+	for (const [key, info] of modelMap.entries()) {
+		flat.push(model2row(info, key)) // key is id@provider, but row.id = info.id
 	}
 	return flat.sort((a, b) => a.id.localeCompare(b.id))
 }
@@ -115,7 +113,8 @@ export function highlightCell(cell, search) {
  * @returns {{field: string, op: string, value: string}} – returns empty strings when no explicit operator is present.
  */
 export function parseFieldFilter(filterStr) {
-	const match = filterStr.match(/^([^=<>]+)([=~<>]{1})(.*)$/)
+	// Require operator for field parsing, fallback for plain search
+	const match = filterStr.match(/^([^=<>]+)([~><=]{1})(.+)$/i)
 	if (match) {
 		return { field: match[1].trim(), op: match[2], value: match[3].trim() }
 	}
@@ -185,7 +184,7 @@ export function filterModels(models, search) {
  * @returns {void}
  */
 export function renderTable(filtered, search, startIndex, maxY, ui) {
-	const headers = ["ID", "Context", "Provider", "Modality", "Price in", "Price out", "Tools", "JSON."]
+	const headers = ["Model.ID", "Context", "Provider", "Modality", "Price in", "Price out", "Tools", "JSON."]
 	const dataRows = []
 	const endIndex = Math.min(startIndex + maxY - 4, filtered.length)
 
@@ -197,8 +196,8 @@ export function renderTable(filtered, search, startIndex, maxY, ui) {
 			formatContext(ctx),
 			highlightCell(prov, search),
 			mod,
-			inP < 0 ? "?" : `$${inP.toFixed(6)}`,
-			outP < 0 ? "?" : `$${outP.toFixed(6)}`,
+			inP < 0 ? "?" : `${ui.formats.money(inP, 2)}`,
+			outP < 0 ? "?" : `${ui.formats.money(outP, 2)}`,
 			tools ? "+" : "-",
 			json ? "+" : "-"
 		])
@@ -215,6 +214,7 @@ export function renderTable(filtered, search, startIndex, maxY, ui) {
 
 	ui.console.table(allRows, {
 		divider: " │ ",
+		overflow: "hidden",
 		aligns: ["left", "right", "left", "left", "right", "right", "center", "center"]
 	})
 }
@@ -229,7 +229,7 @@ export function clearLines(lines) {
 
 /**
  * Interactive search with live keypress, scrolling, and command suggestions
- * @param {Map<string, import("../llm/ModelInfo").default[]>} modelMap
+ * @param {Map<string, import("../llm/ModelInfo").default>} modelMap
  * @param {Ui} ui
  * @returns {Promise<void>}
  */
@@ -369,6 +369,7 @@ export function pipeOutput(allModels, ui) {
 		])
 	}
 	ui.console.table(rows, {
+		overflow: "hidden",
 		aligns: ["left", "right", "left", "left", "right", "right", "center", "center"]
 	})
 }

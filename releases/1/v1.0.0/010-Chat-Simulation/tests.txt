@@ -1,0 +1,5 @@
+# Tests to run after code updates for this task
+src/Chat/commands/test.test.js
+src/llm/chatLoop.test.js
+releases/1/v1.0.0/010-Chat-Simulation/task.test.js
+

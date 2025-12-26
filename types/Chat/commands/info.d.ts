@@ -48,5 +48,6 @@ export class InfoCommand extends UiCommand {
 import { UiCommand } from "../../cli/Ui.js";
 import Chat from "../../llm/Chat.js";
 import { Ui } from "../../cli/Ui.js";
+import FileSystem from "../../utils/FileSystem.js";
 import UiOutput from "../../cli/UiOutput.js";
 import { Table } from "../../cli/components/index.js";

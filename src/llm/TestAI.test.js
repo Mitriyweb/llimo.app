@@ -5,7 +5,7 @@ import { resolve } from "node:path"
 import { tmpdir } from "node:os"
 import TestAI from "./TestAI.js"
 import { formatChatProgress } from "./chatProgress.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 import ModelInfo from "./ModelInfo.js"
 
 describe.skip("TestAI – file-based chat simulation", () => {
@@ -47,7 +47,7 @@ describe.skip("TestAI – file-based chat simulation", () => {
 	})
 
 	it("handles NaN speed and zero cost in progress formatting", async () => {
-		const usage = new LanguageModelUsage({ inputTokens: 65879, reasoningTokens: 152, outputTokens: 1176, totalTokens: 67207 })
+		const usage = new Usage({ inputTokens: 65879, reasoningTokens: 152, outputTokens: 1176, totalTokens: 67207 })
 		const now = Date.now()
 		const clock = {
 			startTime: now - 4100,  // 4.1s ago
@@ -82,7 +82,7 @@ describe.skip("TestAI – file-based chat simulation", () => {
 
 		assert.equal(fullResponse, "Hello world!\nAppended stream content")  // answer.md + stream.md
 		assert.equal(reasoning, "Thinking...")
-		assert.ok(usage instanceof LanguageModelUsage)
+		assert.ok(usage instanceof Usage)
 		assert.deepStrictEqual(usage.inputTokens, 4)
 		assert.deepStrictEqual(usage.reasoningTokens, 2)
 		assert.deepStrictEqual(usage.outputTokens, 2)
@@ -113,7 +113,7 @@ describe.skip("TestAI – file-based chat simulation", () => {
 
 			assert.equal(fullResponse, "")
 			assert.equal(reasoning, "")
-			assert.ok(usage instanceof LanguageModelUsage)
+			assert.ok(usage instanceof Usage)
 			assert.ok(usage.totalTokens >= 0) // Estimated usage
 		} finally {
 			await rm(emptyDir, { recursive: true, force: true })

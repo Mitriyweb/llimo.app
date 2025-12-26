@@ -1,6 +1,6 @@
 import process from "node:process"
 import { Git, FileSystem } from "../utils/index.js"
-import { GREEN, RESET, MAGENTA } from "./ANSI.js"
+import { GREEN, RESET, MAGENTA, ITALIC, BOLD, YELLOW, RED } from "./ANSI.js"
 import { Ui } from "./Ui.js"
 import UiOutput from "./UiOutput.js"
 import { runCommand } from "./runCommand.js"
@@ -14,6 +14,7 @@ import {
 	decodeAnswer,
 	decodeAnswerAndRunTests,
 	ModelProvider,
+	Usage,
 } from "../llm/index.js"
 import { loadModels, ChatOptions } from "../Chat/index.js"
 import { InfoCommand } from "../Chat/commands/info.js"
@@ -202,10 +203,11 @@ export class ChatCLiApp {
 	 * Returns True to continue chat and False to stop the chat.
 	 * @param {string} prompt
 	 * @param {ModelInfo} model
+	 * @param {{ packedPrompt: string, injected: string[] }} packed
 	 * @param {number} [step=1]
 	 * @returns {Promise<boolean>}
 	 */
-	async prepare(prompt, model, step = 1) {
+	async prepare(prompt, model, packed, step = 1) {
 		await this.chat.save({
 			input: this.input,
 			prompt,
@@ -213,16 +215,35 @@ export class ChatCLiApp {
 			step,
 			messages: []
 		})
-		this.ui.console.info(`\nstep ${step}. ${new Date().toISOString()}`)
-		this.ui.console.info(`\nsending (streaming) [${model.id}](@${model.provider}) ${this.ui.formats.weight("T", model.context_length)}`)
+		this.ui.console.info(`\n@ step ${step}. ${new Date().toLocaleString()}`)
+
+		const promptFiles = 0
+		const all = this.chat.messages.map(m => JSON.stringify(m)).join("\n\n")
+		const totalSize = prompt.length + all.length
+		const totalTokens = await this.chat.calcTokens(prompt + all)
+		const cost = await this.chat.cost()
+		const left = model.context_length - totalTokens
+		const str = [
+			"  Prompt: ",
+			ITALIC, this.ui.formats.weight("b", prompt.length), RESET,
+			promptFiles ? ` - ${this.ui.formats.weight("f", promptFiles)}` : "",
+			" | Chat: ",
+			ITALIC, this.ui.formats.weight("b", totalSize), RESET,
+			" ~ ", ITALIC, this.ui.formats.weight("T", totalTokens), RESET,
+			" ~ ", this.ui.formats.money(model.pricing.calc(new Usage({ inputTokens: totalTokens }))),
+			" | Left: ", this.ui.formats.leftTokens(left, model.context_length),
+			" | ", this.ui.formats.money(cost, 2)
+		].filter(Boolean).join("")
+		this.ui.console.info(str)
+		packed.injected.forEach(file => this.ui.console.debug(`+ ${file}`))
 
 		// Show batch discount information
-		const discount = model.pricing.getBatchDiscount()
+		const discount = model.pricing?.getBatchDiscount() ?? []
 		if (discount[0] || discount[1]) {
 			this.ui.console.info(`\n! batch processing has ${discount[0]}% read | ${discount[1]} write discount compared to streaming\n`)
 		}
 		if (!this.options.isYes) {
-			const ans = await this.ui.askYesNo(`${MAGENTA}Send prompt to LLiMo? (Y)es, No: ${RESET}`)
+			const ans = await this.ui.askYesNo(`\n${MAGENTA}? Send prompt to LLiMo? (Y)es, No: ${RESET}`)
 			if ("yes" !== ans) return false
 		}
 		return true
@@ -328,7 +349,7 @@ export class ChatCLiApp {
 		}
 
 		// Pack the next input (original or test feedback)
-		const packed = await packPrompt(packMarkdown, rows.join("\n"), this.chat, this.ui)
+		const packed = await packPrompt(packMarkdown, rows.join("\n"), this.chat)
 		await this.chat.save("prompt.md", packed.packedPrompt)
 	}
 	/**
@@ -340,30 +361,30 @@ export class ChatCLiApp {
 	 * 3. Select a model
 	 * 3.1. for Test it should be selected from saved log
 	 * 3.2. for Real it should use available by the algorithm
+	 * @returns {Promise<{ step: number, prompt: string, model: ModelInfo, packed: { packedPrompt: string, injected: string[] } }>}
 	 */
 	async start() {
 		let step = this.chat.assistantMessages.length + 1
 		await copyInputToChat(this.inputFile, this.input, this.chat, this.ui, step)
 
 		// 4. pack prompt – prepend system.md if present
-		let packed = await packPrompt(packMarkdown, this.input, this.chat, this.ui)
+		let packed = await packPrompt(packMarkdown, this.input, this.chat)
 		let prompt = packed.packedPrompt
 		await this.chat.save("prompt.md", prompt)
 
 		// 5. chat loop – refactored
-
 		const model = this.ai.selectedModel
 		if (!model) {
 			throw new Error("LLiMo model is not selected, provide it in env variable LLIMO_MODEL=gpt-oss-120b")
 		}
 
-		return { step, prompt, model }
+		return { step, prompt, model, packed }
 	}
 	async loop() {
 		// 3. copy source file to chat directory (if any)
-		let { step, prompt, model } = await this.start()
+		let { step, prompt, model, packed } = await this.start()
 		while (true) {
-			let shouldContinue = await this.prepare(prompt, model, step)
+			let shouldContinue = await this.prepare(prompt, model, packed, step)
 			if (!shouldContinue) break
 			const sent = await this.send(prompt, model, step)
 			const unpacked = await this.unpack(sent, step)

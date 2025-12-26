@@ -17,6 +17,7 @@ import Markdown from "../utils/Markdown.js"
 import Ui from "../cli/Ui.js"
 import ModelInfo from './ModelInfo.js'
 import ChatOptions from '../Chat/Options.js'
+import { parseOutput } from '../cli/testing/node.js'
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -103,7 +104,7 @@ export async function initialiseChat(input) {
 		}
 
 		if (system.content) {
-			ui.console.info(`  system instructions ${BOLD}${ui.formats.weight("b", Buffer.byteLength(system.content))}`)
+			ui.console.info(`@ system instructions ${BOLD}${ui.formats.weight("b", Buffer.byteLength(system.content))}`)
 		}
 
 		chat.add(system)
@@ -143,13 +144,9 @@ export async function copyInputToChat(inputFile, input, chat, ui, step = 1) {
  * @param {Function} packMarkdown function that returns `{text, injected}`
  * @param {string} input
  * @param {Chat} chat Chat instance (used for `savePrompt`)
- * @param {Ui} ui User interface instance
- * @returns {Promise<{ packedPrompt: string, injected: string[], promptPath: string, stats: Stats }>}
+ * @returns {Promise<{ packedPrompt: string, injected: string[] }>}
  */
-export async function packPrompt(packMarkdown, input, chat, ui) {
-	const fs = new FileSystem({ cwd: chat.cwd })
-	const existingPromptPath = fs.path.resolve(chat.dir, "prompt.md")
-
+export async function packPrompt(packMarkdown, input, chat) {
 	// Collect previous user message blocks by splitting their content by --- and trimming
 	const previousBlocksSet = new Set(
 		chat.messages
@@ -175,15 +172,6 @@ export async function packPrompt(packMarkdown, input, chat, ui) {
 	const { text: packedPrompt, injected } = await packMarkdown({ input: inputText })
 	await chat.save("prompt", packedPrompt)
 
-	const prompt = await chat.load("prompt.md") ?? ""
-	const all = chat.messages.map(m => JSON.stringify(m)).join("\n\n")
-	const totalSize = prompt.length + all.length
-	const totalTokens = await chat.calcTokens(prompt + all)
-	ui.console.info(`Prompt size: ${ITALIC}${ui.formats.weight("b", prompt.length)}${RESET} — ${ui.formats.count(injected.length)} file(s).`)
-	injected.forEach(file => ui.console.debug(`+ ${file}`))
-	const cost = await chat.cost()
-	ui.console.info(`Messages size: ${BOLD}${ui.formats.weight("b", totalSize)}${RESET} ~ ${ui.formats.weight("T", totalTokens)} ${ui.formats.money(cost)}`)
-
 	// Log all user blocks (including new ones) to inputs.jsonl
 	const allUserBlocks = input.split(/---/).map(s => s.trim()).filter(block => block.length > 0)
 	await chat.save('inputs', allUserBlocks)
@@ -191,7 +179,7 @@ export async function packPrompt(packMarkdown, input, chat, ui) {
 	// Log injected files to files.jsonl
 	await chat.save('files', injected)
 
-	return { packedPrompt, injected, promptPath: existingPromptPath }
+	return { packedPrompt, injected }
 }
 
 /**
@@ -210,130 +198,6 @@ export function startStreaming(ai, model, chat, options) {
 	const result = ai.streamText(model, chat.messages, options)
 	const stream = result.textStream ?? result
 	return { stream, result }
-}
-
-/**
- * @typedef {Object} TestOutputLogEntry
- * @property {number} i
- * @property {number} no
- * @property {string} str
- *
- * @typedef {Object} TestOutputLogs
- * @property {TestOutputLogEntry[]} fail
- * @property {TestOutputLogEntry[]} cancelled
- * @property {TestOutputLogEntry[]} pass
- * @property {TestOutputLogEntry[]} tests
- * @property {TestOutputLogEntry[]} suites
- * @property {TestOutputLogEntry[]} skip
- * @property {TestOutputLogEntry[]} todo
- * @property {TestOutputLogEntry[]} duration
- * @property {TestOutputLogEntry[]} types
- *
- * @typedef {Object} TestOutputCounts
- * @property {number} fail
- * @property {number} cancelled
- * @property {number} pass
- * @property {number} tests
- * @property {number} suites
- * @property {number} skip
- * @property {number} todo
- * @property {number} duration
- * @property {number} types
- *
- * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number>, guess: TestOutputCounts }} TestOutput
- *
- * @param {string} stdout
- * @param {string} stderr
- * @returns {TestOutput}
- */
-export function parseOutput(stdout, stderr) {
-	const logs = {
-		fail: [],
-		cancelled: [],
-		pass: [],
-		tests: [],
-		suites: [],
-		skip: [],
-		todo: [],
-		duration: [],
-		types: [],
-	}
-	const counts = {
-		fail: 0,
-		cancelled: 0,
-		pass: 0,
-		tests: 0,
-		suites: 0,
-		skip: 0,
-		todo: 0,
-		duration: 0,
-		types: 0,
-	}
-	const guess = {
-		fail: 0,
-		cancelled: 0,
-		pass: 0,
-		tests: 0,
-		suites: 0,
-		skip: 0,
-		todo: 0,
-		duration: 0,
-		types: 0,
-	}
-	/** Unique TS error codes for `types` */
-	const types = new Set()
-	const out = stdout.split("\n")
-	const err = stderr.split("\n")
-	const all = [...out, ...err]
-
-	const parser = {
-		fail: ["# fail ", "ℹ fail "],
-		cancelled: ["# cancelled ", "ℹ cancelled "],
-		pass: ["# pass ", "ℹ pass "],
-		tests: ["# tests ", "ℹ tests "],
-		suites: ["# suites ", "ℹ suites "],
-		skip: ["# skipped ", "ℹ skipped "],
-		todo: ["# todo ", "ℹ todo "],
-		duration: ["# duration_ms ", "ℹ duration_ms "],
-		types: [/^.+: error TS(\d+):.+$/],
-	}
-
-	for (let i = 0; i < all.length; i++) {
-		const str = all[i].trim()
-		if (str.startsWith("ok ")) {
-			++guess.pass
-			++guess.tests
-		} else if (str.startsWith("not ok ")) {
-			++guess.fail
-			++guess.tests
-		}
-		for (const [field, vars] of Object.entries(parser)) {
-			for (const v of vars) {
-				if ("string" === typeof v) {
-					if (str.startsWith(v)) {
-						const no = Number(str.slice(v.length).trim())
-						logs[field].push({ i, str, no })
-						counts[field] += no
-						break
-					}
-				} else if (v instanceof RegExp) {
-					const matches = str.match(v)
-					if (matches) {
-						const no = Number(matches[1])
-						types.add(no)
-						logs[field].push({ i, str, no })
-						++counts[field]
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Round duration to three decimal places for consistency
-	counts.duration = Math.round(counts.duration * 1e3) / 1e3
-
-	return { logs, counts, types, guess }
 }
 
 /**
@@ -362,7 +226,7 @@ export async function decodeAnswer({ ui, chat, options, logs = [] }) {
 		// Dry‑run unpack to show what would be written
 		const stream = unpackAnswer(parsed, true)
 		for await (const str of stream) {
-			logs.push(str)
+			logs.push(String(str))
 			ui.console.info(str)
 		}
 
@@ -404,9 +268,9 @@ export async function decodeAnswer({ ui, chat, options, logs = [] }) {
  */
 export async function runTests({ ui, chat, runCommand, step = 1 }) {
 	// Run `pnpm test:all` with live output
-	ui.console.info("! Running tests...")
+	ui.console.info("@ Running tests...")
 	const onDataLive = (d) => ui.write(d)
-	ui.console.debug("pnpm test:all")
+	ui.console.debug("% pnpm test:all")
 	const result = await runCommand("pnpm", ["test:all"], { onData: onDataLive })
 	result.parsed = parseOutput(result.testStdout ?? "", result.testStderr ?? "")
 

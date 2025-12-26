@@ -1,6 +1,6 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import Usage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 
 describe("Usage", () => {
 	it("creates with defaults", () => {
@@ -32,7 +32,7 @@ describe("Usage", () => {
 		}
 		const usage = new Usage(input)
 		assert.strictEqual(usage.inputTokens, 200)
-		assert.strictEqual(usage.totalTokens, 0)
+		assert.strictEqual(usage.totalTokens, 200)
 		assert.strictEqual(usage.reasoningTokens, 0)
 		assert.strictEqual(usage.outputTokens, 0)
 	})

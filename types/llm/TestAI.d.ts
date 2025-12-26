@@ -40,17 +40,20 @@ export default class TestAI extends AI {
      * Non-streaming version (for completeness, just returns full response).
      * @param {string} modelId
      * @param {ModelMessage[]} messages
-     * @param {{}} [options]
-     * @returns {Promise<{text: string; usage: LanguageModelUsage}>}
+     * @param {{cwd?: string, step?: number}} [options]
+     * @returns {Promise<{text: string, usage: Usage}>}
      */
-    generateText(modelId: string, messages: ModelMessage[], options?: {}): Promise<{
+    generateText(modelId: string, messages: ModelMessage[], options?: {
+        cwd?: string;
+        step?: number;
+    }): Promise<{
         text: string;
-        usage: LanguageModelUsage;
+        usage: Usage;
     }>;
 }
 export type StreamTextResult = import("ai").StreamTextResult<any, any>;
 export type ModelMessage = import("ai").ModelMessage;
 export type UIMessageStreamOptions = import("ai").UIMessageStreamOptions<import("ai").UIMessage<any, any, any>>;
 import AI from "./AI.js";
-import LanguageModelUsage from "./LanguageModelUsage.js";
+import Usage from "./Usage.js";
 import ModelInfo from "./ModelInfo.js";

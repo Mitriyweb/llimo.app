@@ -31,9 +31,9 @@ export async function loadModels(ui, opts = {}) {
 	ui.overwriteLine("")
 	ui.cursorUp(1)
 	const arr = Array.from(pros).sort()
-	ui.overwriteLine(`Loaded ${map.size} inference models from ${pros.size} providers`)
+	ui.overwriteLine(`@ Loaded ${map.size} inference models from ${pros.size} providers`)
 	ui.console.info("")
-	ui.console.debug("Providers: " + arr.join(", "))
+	arr.forEach(pro => ui.console.info(`> ${pro}`))
 	clearInterval(loading)
 	return map
 }

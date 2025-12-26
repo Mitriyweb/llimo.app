@@ -1,11 +1,11 @@
 import Ui from "../cli/Ui.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 import ModelInfo from "./ModelInfo.js"
 
 /**
  * @typedef {Object} ChatProgressInput
  * @property {Ui} ui
- * @property {LanguageModelUsage} usage
+ * @property {Usage} usage
  * @property {{ startTime:number, reasonTime?:number, answerTime?:number }} clock
  * @property {ModelInfo} model
  * @property {boolean} [isTiny] tiny‑mode flag
@@ -41,73 +41,81 @@ export function formatChatProgress(input) {
 	/* --------------------------------------------------------------- */
 	const rawRows = []
 	let totalPrice = 0, totalTime = 0
+	/** @type {Map<"read" | "reason" | "answer", { endAt: number, elapsed: number, tokens: number, speed: number, price: number }>} */
+	const map = new Map()
+	const costs = { input: 0, reason: 0, output: 0 }
+	model.pricing.calc(usage, costs)
 
 	/* READ */
 	if (usage.inputTokens) {
-		const readEnd = clock.reasonTime ?? clock.answerTime ?? now
-		const readElapsed = safe((readEnd - clock.startTime) / 1e3)
-		// For chat‑speed we hide the first 30 s (as per original UI)
-		const readDisplayElapsed = Math.max(0, readElapsed - 30)
-
-		const readSpeed = readElapsed > 0 ? Math.round(usage.inputTokens / readElapsed) : 0
-		const readPrice = (usage.inputTokens * model.pricing.prompt) / 1_000_000
-		const speedStr = `${ui.formats.count(readSpeed)}T/s`
-
-		rawRows.push([
-			"read",
-			ui.formats.timer(readElapsed),
-			ui.formats.money(readPrice, precision),
-			ui.formats.weight("T", usage.inputTokens),
-			speedStr,
-		])
-		totalPrice += readPrice
-		totalTime += readElapsed
+		const endAt = clock.reasonTime ?? clock.answerTime ?? now
+		const elapsed = safe((endAt - clock.startTime) / 1e3)
+		const speed = elapsed > 0 ? Math.round(usage.inputTokens / elapsed) : 0
+		map.set("read", { endAt, elapsed, speed, price: costs.input, tokens: usage.inputTokens })
 	}
 
 	/* REASON */
 	if (usage.reasoningTokens && clock.reasonTime) {
-		const reasonEnd = clock.answerTime ?? now
-		const reasonElapsed = safe((reasonEnd - clock.reasonTime) / 1e3)
-
-		const reasonSpeed = reasonElapsed > 0 ? Math.round(usage.reasoningTokens / reasonElapsed) : 0
-		const reasonPrice = (usage.reasoningTokens * model.pricing.completion) / 1_000_000
-		const speedStr = `${ui.formats.count(reasonSpeed)}T/s`
-
-		rawRows.push([
-			"reason",
-			ui.formats.timer(reasonElapsed),
-			ui.formats.money(reasonPrice, precision),
-			ui.formats.weight("T", usage.reasoningTokens),
-			speedStr,
-		])
-		totalPrice += reasonPrice
-		totalTime += reasonElapsed
+		const endAt = clock.answerTime ?? now
+		const elapsed = safe((endAt - clock.reasonTime) / 1e3)
+		const speed = elapsed > 0 ? Math.round(usage.reasoningTokens / elapsed) : 0
+		map.set("reason", { endAt, elapsed, speed, price: costs.reason, tokens: usage.reasoningTokens })
 	}
 
 	/* ANSWER */
 	if (usage.outputTokens && clock.answerTime) {
-		const answerElapsed = safe((now - clock.answerTime) / 1e3)
+		const endAt = now
+		const elapsed = safe((endAt - clock.answerTime) / 1e3)
+		const speed = elapsed > 0 ? Math.round(usage.outputTokens / elapsed) : 0
+		map.set("answer", { endAt, elapsed, speed, price: costs.output, tokens: usage.outputTokens })
+	}
 
-		const answerSpeed = answerElapsed > 0 ? Math.round(usage.outputTokens / answerElapsed) : 0
-		const answerPrice = (usage.outputTokens * model.pricing.completion) / 1_000_000
-		const speedStr = `${ui.formats.count(answerSpeed)}T/s`
+		/* --------------------------------------------------------------- */
+	/* Tiny‑mode (single‑line)                                         */
+	/* --------------------------------------------------------------- */
+	if (isTiny) {
+		const arr = Array.from(map.entries())
+		const tinyPrice = arr.reduce((acc, [, item]) => acc + item.price, 0)
+		const elapsed = arr.reduce((acc, [, item]) => acc + item.elapsed, 0)
+		const totalTokens = arr.reduce((acc, [, item]) => acc + item.tokens, 0)
+		const elapsedStr = ui.formats.timer(elapsed)
+		const phase = map.has("answer") ? "answer" : map.has("reason") ? "reason" : "read"
+		const value = map.get(phase)
+		const count = value?.tokens ?? 0
+		const phaseTokens = ui.formats.weight("T", count ?? 0)
+		const time = value?.endAt ?? now
+		const phaseTime = ui.formats.timer(safe((now - time) / 1e3))
 
-		rawRows.push([
-			"answer",
-			ui.formats.timer(answerElapsed),
-			ui.formats.money(answerPrice, precision),
-			ui.formats.weight("T", usage.outputTokens),
-			speedStr,
-		])
-		totalPrice += answerPrice
-		totalTime += answerElapsed
+		const phaseSpeed = value?.speed ? `${ui.formats.count(value.speed)}T/s` : "∞T/s"
+
+		const totalTokensStr = ui.formats.leftTokens(model.context_length - totalTokens, model.context_length)
+
+		return [
+			`step ${step} | ${elapsedStr} | ${ui.formats.money(tinyPrice, precision)} | ${phase} | ${phaseTime} | ${phaseTokens} | ${phaseSpeed} | ${totalTokensStr}`,
+		]
+	}
+
+
+	let totalTokens = 0
+	for (const phase of ["read", "reason", "answer"]) {
+		const row = map.get(phase)
+		if (row) {
+			totalTime += row.elapsed
+			totalPrice += row.price
+			totalTokens += row.tokens
+			rawRows.push([
+				phase,
+				ui.formats.timer(row.elapsed),
+				ui.formats.money(row.price, precision),
+				ui.formats.weight("T", row.tokens),
+				ui.formats.count(row.speed) + "T/s"
+			])
+		}
 	}
 
 	/* --------------------------------------------------------------- */
 	/* Chat summary row                                               */
 	/* --------------------------------------------------------------- */
-	const totalTokens =
-		safe(usage.inputTokens) + safe(usage.reasoningTokens) + safe(usage.outputTokens)
 
 	// Sum of *display* elapsed times (read uses the 30 s offset)
 	const totalSpeed = totalTime > 0 ? Math.round(totalTokens / totalTime) : 0
@@ -124,36 +132,6 @@ export function formatChatProgress(input) {
 		totalSpeedStr,
 		extraStr,
 	]
-
-	/* --------------------------------------------------------------- */
-	/* Tiny‑mode (single‑line)                                         */
-	/* --------------------------------------------------------------- */
-	if (isTiny) {
-		const inputPrice = usage.inputTokens ? (usage.inputTokens * model.pricing.prompt) / 1e6 : 0
-		const outputPrice = usage.outputTokens ? (usage.outputTokens * model.pricing.completion) / 1e6 : 0
-		const reasonPrice = usage.reasoningTokens ? (usage.reasoningTokens * model.pricing.completion) / 1e6 : 0
-		const tinyPrice = inputPrice + outputPrice + reasonPrice
-
-		// elapsed formatting – plain seconds while < 60 s
-		const elapsedStr = totalElapsed < 60 ? `${totalElapsed.toFixed(1)}s` : ui.formats.timer(totalElapsed)
-
-		const phase = "answer"
-		const phaseTokens = `${ui.formats.count(usage.outputTokens ?? 0)}T`
-		const phaseTime = undefined !== clock.answerTime
-			? ui.formats.timer(safe((now - clock.answerTime) / 1e3))
-			: "0.0s"
-
-		const phaseSpeedNum = totalElapsed > 0 ? Math.round((usage.outputTokens ?? 0) / totalElapsed) : 0
-		const phaseSpeed = totalElapsed > 0 && (usage.outputTokens ?? 0) > 0
-			? `${ui.formats.count(phaseSpeedNum)}T/s`
-			: "∞T/s"
-
-		const totalTokensStr = ui.formats.weight("T", totalTokens)
-
-		return [
-			`step ${step} | ${elapsedStr} | ${ui.formats.money(tinyPrice, precision)} | ${phase} | ${phaseTime} | ${phaseTokens} | ${phaseSpeed} | ${totalTokensStr} | ${extraStr}`,
-		]
-	}
 
 	/* --------------------------------------------------------------- */
 	/* Empty usage – fallback line                                     */

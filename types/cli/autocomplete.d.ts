@@ -27,10 +27,10 @@
 export function model2row(info: ModelInfo, id?: string): ModelRow;
 /**
  * Flatten models map into ModelRow[] for filtering/sorting.
- * @param {Map<string, import("../llm/ModelInfo").default[]>} modelMap
+ * @param {Map<string, import("../llm/ModelInfo").default>} modelMap
  * @returns {ModelRow[]}
  */
-export function modelRows(modelMap: Map<string, import("../llm/ModelInfo").default[]>): ModelRow[];
+export function modelRows(modelMap: Map<string, import("../llm/ModelInfo").default>): ModelRow[];
 /**
  * Format context length (e.g. 131072 -> 131K)
  * @param {number} ctx
@@ -78,11 +78,11 @@ export function renderTable(filtered: ModelRow[], search: string, startIndex: nu
 export function clearLines(lines: number): void;
 /**
  * Interactive search with live keypress, scrolling, and command suggestions
- * @param {Map<string, import("../llm/ModelInfo").default[]>} modelMap
+ * @param {Map<string, import("../llm/ModelInfo").default>} modelMap
  * @param {Ui} ui
  * @returns {Promise<void>}
  */
-export function interactive(modelMap: Map<string, import("../llm/ModelInfo").default[]>, ui: Ui): Promise<void>;
+export function interactive(modelMap: Map<string, import("../llm/ModelInfo").default>, ui: Ui): Promise<void>;
 /**
  * Output all models in pipe format for non-interactive use
  * @param {ModelRow[]} allModels

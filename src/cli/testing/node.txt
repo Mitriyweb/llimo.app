@@ -1,0 +1,429 @@
+TAP version 13
+# Subtest: parseOutput
+    # Subtest: should parse TAP version 13
+    not ok 1 - should parse TAP version 13
+      ---
+      duration_ms: 1.766417
+      type: 'test'
+      location: '/Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js:15:2'
+      failureType: 'testCodeFailure'
+      error: |-
+        Expected values to be strictly deep-equal:
+        + actual - expected
+
+        + {
+        +   counts: {
+        +     cancelled: 0,
+        +     duration: 0,
+        +     fail: 0,
+        +     pass: 0,
+        +     skip: 0,
+        +     suites: 0,
+        +     tests: 0,
+        +     todo: 0,
+        +     types: 0
+        +   },
+        +   guess: {
+        +     cancelled: 0,
+        +     duration: 0,
+        +     fail: 0,
+        +     pass: 0,
+        +     skip: 0,
+        +     suites: 0,
+        +     tests: 0,
+        +     todo: 0,
+        +     types: 0
+        +   },
+        +   logs: {
+        +     cancelled: [],
+        +     duration: [],
+        +     fail: [],
+        +     pass: [],
+        +     skip: [],
+        +     suites: [],
+        +     tests: [],
+        +     todo: [],
+        +     types: []
+        +   },
+        +   types: Set(0) {}
+        + }
+        - {}
+
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected:
+      actual:
+        logs:
+          fail:
+          cancelled:
+          pass:
+          tests:
+          suites:
+          skip:
+          todo:
+          duration:
+          types:
+        counts:
+          fail: 0
+          cancelled: 0
+          pass: 0
+          tests: 0
+          suites: 0
+          skip: 0
+          todo: 0
+          duration: 0
+          types: 0
+        types:
+        guess:
+          fail: 0
+          cancelled: 0
+          pass: 0
+          tests: 0
+          suites: 0
+          skip: 0
+          todo: 0
+          duration: 0
+          types: 0
+      operator: 'deepStrictEqual'
+      stack: |-
+        TestContext.<anonymous> (file:///Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js:17:10)
+        Test.runInAsyncScope (node:async_hooks:214:14)
+        Test.run (node:internal/test_runner/test:1047:25)
+        async Promise.all (index 0)
+        async Suite.run (node:internal/test_runner/test:1442:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: should produce OK
+    ok 2 - should produce OK
+      ---
+      duration_ms: 0.099833
+      type: 'test'
+      ...
+    # Subtest: should produce FAIL
+    not ok 3 - should produce FAIL # TODO
+      ---
+      duration_ms: 0.103417
+      type: 'test'
+      location: '/Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js:22:5'
+      failureType: 'testCodeFailure'
+      error: 'Failed'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      operator: 'fail'
+      stack: |-
+        TestContext.<anonymous> (file:///Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js:23:10)
+        Test.runInAsyncScope (node:async_hooks:214:14)
+        Test.run (node:internal/test_runner/test:1047:25)
+        async Suite.processPendingSubtests (node:internal/test_runner/test:744:7)
+      ...
+    # Subtest: should produce FAIL
+    ok 4 - should produce FAIL # SKIP
+      ---
+      duration_ms: 0.049833
+      type: 'test'
+      ...
+# Subtest: src/cli/testing/node.test.js
+not ok 1 - src/cli/testing/node.test.js
+  ---
+  duration_ms: 335.209542
+  type: 'test'
+  location: '/Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js:1:1'
+  failureType: 'testTimeoutFailure'
+  error: 'test timed out after 333ms'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 5
+# suites 0
+# pass 1
+# fail 1
+# cancelled 1
+# skipped 1
+# todo 1
+# duration_ms 339.451916
+
+Error in the js-debug bootloader, please report to https://aka.ms/js-dbg-issue: This Environment was initialized without a V8::Inspector
+(node:42980) Warning: Using the inspector with --test forces running at a concurrency of 1. Use the inspectPort option to run with concurrency
+(Use `node --trace-warnings ...` to show where the warning was created)
+TAP version 13
+Debugger attached.
+# Subtest: argvHelper
+    # Subtest: parseArgv
+        # Subtest: should parse me.md --new
+        ok 1 - should parse me.md --new
+          ---
+          duration_ms: 2.693125
+          type: 'test'
+          ...
+        # Subtest: should parse me.md --new --yes
+        ok 2 - should parse me.md --new --yes
+          ---
+          duration_ms: 0.176917
+          type: 'test'
+          ...
+        # Subtest: should parse me.md --new --yes new
+        ok 3 - should parse me.md --new --yes new
+          ---
+          duration_ms: 0.269084
+          type: 'test'
+          ...
+        # Subtest: should parse me.md --new --some new
+        ok 4 - should parse me.md --new --some new
+          ---
+          duration_ms: 0.081042
+          type: 'test'
+          ...
+        # Subtest: should parse --test=1.md
+        ok 5 - should parse --test=1.md
+          ---
+          duration_ms: 0.163
+          type: 'test'
+          ...
+        # Subtest: should parse --test 1.md
+        ok 6 - should parse --test 1.md
+          ---
+          duration_ms: 0.070209
+          type: 'test'
+          ...
+        # Subtest: should parse --test-dir=1.md
+        ok 7 - should parse --test-dir=1.md
+          ---
+          duration_ms: 0.243958
+          type: 'test'
+          ...
+        # Subtest: should parse --test-dir 1.md
+        ok 8 - should parse --test-dir 1.md
+          ---
+          duration_ms: 0.054167
+          type: 'test'
+          ...
+        # Subtest: should parse --some thing
+        ok 9 - should parse --some thing
+          ---
+          duration_ms: 3.261291
+          type: 'test'
+          ...
+        # Subtest: should parse --some=thing
+        ok 10 - should parse --some=thing
+          ---
+          duration_ms: 0.536083
+          type: 'test'
+          ...
+        # Subtest: should parse --new
+        ok 11 - should parse --new
+          ---
+          duration_ms: 0.27275
+          type: 'test'
+          ...
+        # Subtest: should parse --yes
+        ok 12 - should parse --yes
+          ---
+          duration_ms: 0.050917
+          type: 'test'
+          ...
+        # Subtest: should throw error for missing value
+        ok 13 - should throw error for missing value
+          ---
+          duration_ms: 0.281375
+          type: 'test'
+          ...
+        1..13
+    ok 1 - parseArgv
+      ---
+      duration_ms: 9.134834
+      type: 'suite'
+      ...
+    # Subtest: parseIO
+        # Subtest: should parse stdin data with output path
+        ok 1 - should parse stdin data with output path
+          ---
+          duration_ms: 0.622459
+          type: 'test'
+          ...
+        # Subtest: should parse file input with output path
+        ok 2 - should parse file input with output path
+          ---
+          duration_ms: 0.334334
+          type: 'test'
+          ...
+        # Subtest: should parse only output path, use stdin
+        ok 3 - should parse only output path, use stdin
+          ---
+          duration_ms: 0.179708
+          type: 'test'
+          ...
+        # Subtest: should handle no argv, no stdin
+        ok 4 - should handle no argv, no stdin
+          ---
+          duration_ms: 0.115916
+          type: 'test'
+          ...
+        # Subtest: should reject non-existing file
+        ok 5 - should reject non-existing file
+          ---
+          duration_ms: 0.2055
+          type: 'test'
+          ...
+        1..5
+    ok 2 - parseIO
+      ---
+      duration_ms: 1.538375
+      type: 'suite'
+      ...
+    1..2
+ok 1 - argvHelper
+  ---
+  duration_ms: 11.054167
+  type: 'suite'
+  ...
+Waiting for the debugger to disconnect...
+1..1
+# tests 18
+# suites 3
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 321.982375
+
+> @nan0web/llimo.app@1.0.0 build /Users/i/src/nan.web/apps/llimo.app
+> tsc
+
+Debugger attached.
+src/Chat/commands/info.js(167,37): error TS2739: Type 'Partial<Chat>' is missing the following properties from type 'Chat': #fs, #db, #path
+src/Chat/commands/test.js(7,10): error TS2305: Module '"../../llm/chatSteps.js"' has no exported member 'parseOutput'.
+src/Chat/commands/test.js(216,37): error TS2739: Type 'Partial<Chat>' is missing the following properties from type 'Chat': #fs, #db, #path
+src/cli/App.js(291,86): error TS2694: Namespace '"/Users/i/src/nan.web/apps/llimo.app/src/llm/chatSteps"' has no exported member 'TestOutput'.
+src/cli/App.js(323,43): error TS2694: Namespace '"/Users/i/src/nan.web/apps/llimo.app/src/llm/chatSteps"' has no exported member 'TestOutput'.
+src/cli/Ui.js(57,41): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(locales?: LocalesArgument, options?: NumberFormatOptions | undefined): NumberFormat', gave the following error.
+    Argument of type '{ style: string; currency: string; minimumFractionDigits: number; maximumFractionDigits: number; }' is not assignable to parameter of type 'NumberFormatOptions'.
+      Types of property 'style' are incompatible.
+        Type 'string' is not assignable to type 'keyof NumberFormatOptionsStyleRegistry | undefined'.
+  Overload 2 of 2, '(locales?: string | string[] | undefined, options?: NumberFormatOptions | undefined): NumberFormat', gave the following error.
+    Argument of type '{ style: string; currency: string; minimumFractionDigits: number; maximumFractionDigits: number; }' is not assignable to parameter of type 'NumberFormatOptions'.
+      Types of property 'style' are incompatible.
+        Type 'string' is not assignable to type 'keyof NumberFormatOptionsStyleRegistry | undefined'.
+src/cli/Ui.js(172,19): error TS2345: Argument of type '"log"' is not assignable to parameter of type 'LogTarget'.
+src/FileProtocol.js(111,33): error TS2345: Argument of type 'Interface' is not assignable to parameter of type 'AsyncGenerator<string, any, any>'.
+  Type 'Interface' is missing the following properties from type 'AsyncGenerator<string, any, any>': next, return, throw, [Symbol.asyncDispose]
+src/llm/AI.js(50,18): error TS2345: Argument of type '[] | Map<string, ModelInfo> | readonly [string, ModelInfo]' is not assignable to parameter of type 'Map<string, ModelInfo> | readonly [string, ModelInfo] | readonly [string, Partial<ModelInfo> & { providers?: { provider: string; }[] | undefined; }]'.
+  Type '[]' is not assignable to type 'Map<string, ModelInfo> | readonly [string, ModelInfo] | readonly [string, Partial<ModelInfo> & { providers?: { provider: string; }[] | undefined; }]'.
+    Type '[]' is not assignable to type 'readonly [string, Partial<ModelInfo> & { providers?: { provider: string; }[] | undefined; }]'.
+      Source has 0 element(s) but target requires 2.
+src/llm/AI.js(264,4): error TS2339: Property 'abortSignal' does not exist on type 'UIMessageStreamOptions<UIMessage<any, UIDataTypes, UITools>>'.
+src/llm/AI.js(265,4): error TS2339: Property 'onChunk' does not exist on type 'UIMessageStreamOptions<UIMessage<any, UIDataTypes, UITools>>'.
+src/llm/AI.js(266,4): error TS2339: Property 'onStepFinish' does not exist on type 'UIMessageStreamOptions<UIMessage<any, UIDataTypes, UITools>>'.
+src/llm/AI.js(269,4): error TS2339: Property 'onAbort' does not exist on type 'UIMessageStreamOptions<UIMessage<any, UIDataTypes, UITools>>'.
+src/llm/AI.js(288,4): error TS2322: Type '((error: unknown) => string) | undefined' is not assignable to type 'StreamTextOnErrorCallback | undefined'.
+  Type '(error: unknown) => string' is not assignable to type 'StreamTextOnErrorCallback'.
+    Type 'string' is not assignable to type 'void | PromiseLike<void>'.
+src/llm/AI.js(289,4): error TS2322: Type 'UIMessageStreamOnFinishCallback<UIMessage<any, UIDataTypes, UITools>> | undefined' is not assignable to type 'StreamTextOnFinishCallback<ToolSet> | undefined'.
+  Type 'UIMessageStreamOnFinishCallback<UIMessage<any, UIDataTypes, UITools>>' is not assignable to type 'StreamTextOnFinishCallback<ToolSet>'.
+    Types of parameters 'event' and 'event' are incompatible.
+      Type 'StepResult<ToolSet> & { readonly steps: StepResult<ToolSet>[]; readonly totalUsage: LanguageModelV2Usage; }' is missing the following properties from type '{ messages: UIMessage<any, UIDataTypes, UITools>[]; isContinuation: boolean; isAborted: boolean; responseMessage: UIMessage<any, UIDataTypes, UITools>; finishReason?: LanguageModelV2FinishReason | undefined; }': messages, isContinuation, isAborted, responseMessage
+src/llm/AI.js(306,43): error TS2339: Property 'provider' does not exist on type 'ModelInfo[]'.
+src/llm/AI.js(308,26): error TS2339: Property 'id' does not exist on type 'ModelInfo[]'.
+src/llm/AI.js(311,18): error TS2322: Type 'LanguageModelV2Usage' is not assignable to type 'Usage'.
+  Types of property 'inputTokens' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/llm/Architecture.js(3,22): error TS2652: Merged declaration 'Architecture' cannot include a default export declaration. Consider adding a separate 'export default Architecture' declaration instead.
+src/llm/Architecture.js(11,22): error TS2652: Merged declaration 'Architecture' cannot include a default export declaration. Consider adding a separate 'export default Architecture' declaration instead.
+src/llm/chatLoop.js(173,62): error TS2322: Type 'any[][]' is not assignable to type '[string, any][]'.
+  Type 'any[]' is not assignable to type '[string, any]'.
+    Target requires 2 element(s) but source may have fewer.
+src/llm/chatLoop.js(269,3): error TS2345: Argument of type 'boolean' is not assignable to parameter of type 'ChatOptions'.
+src/llm/chatProgress.js(101,23): error TS2345: Argument of type 'string' is not assignable to parameter of type '"answer" | "reason" | "read"'.
+src/llm/chatSteps.js(252,13): error TS2345: Argument of type 'string | UiOutput' is not assignable to parameter of type 'string'.
+  Type 'UiOutput' is not assignable to type 'string'.
+src/llm/chatSteps.js(274,18): error TS2304: Cannot find name 'parseOutput'.
+src/llm/chatSteps.js(294,74): error TS2304: Cannot find name 'TestOutput'.
+src/llm/chatSteps.js(312,17): error TS2304: Cannot find name 'parseOutput'.
+src/llm/handleTestMode.js(45,5): error TS2353: Object literal may only specify known properties, and 'elapsed' does not exist in type 'ChatProgressInput'.
+src/llm/handleTestMode.js(71,12): error TS2540: Cannot assign to 'totalTokens' because it is a read-only property.
+src/llm/handleTestMode.js(75,12): error TS2540: Cannot assign to 'totalTokens' because it is a read-only property.
+src/llm/handleTestMode.js(92,49): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ModelInfo'.
+src/llm/ModelProvider.js(119,54): error TS18046: 'err' is of type 'unknown'.
+src/llm/providers/cerebras.info.js(46,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(63,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(80,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(98,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(116,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(134,5): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 4 more.
+src/llm/providers/cerebras.info.js(141,69): error TS2694: Namespace '"/Users/i/src/nan.web/apps/llimo.app/src/llm/AI"' has no exported member 'ModelInfo'.
+src/llm/providers/huggingface.info.js(28,4): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(30,4): error TS2739: Type '{ modality: string; instruct_type: string; }' is missing the following properties from type 'Architecture': input_modalities, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(39,4): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(41,4): error TS2739: Type '{ modality: string; instruct_type: string; }' is missing the following properties from type 'Architecture': input_modalities, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(50,4): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(52,4): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(63,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(65,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(71,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(73,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(79,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(81,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(87,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(89,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(95,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(97,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(103,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(105,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(111,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(113,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(119,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; speed: number; }' is missing the following properties from type 'Pricing': image, input_cache_write, internal_reasoning, request, and 3 more.
+src/llm/providers/huggingface.info.js(121,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(131,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(133,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(139,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(141,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(147,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(149,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(155,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(157,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(163,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(165,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(171,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(173,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(179,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(181,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(187,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(189,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(195,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(197,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(203,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(205,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(211,3): error TS2740: Type '{ prompt: number; completion: number; input_cache_read: number; input_cache_write: number; speed: number; }' is missing the following properties from type 'Pricing': image, internal_reasoning, request, web_search, and 2 more.
+src/llm/providers/huggingface.info.js(213,3): error TS2739: Type '{ modality: string; }' is missing the following properties from type 'Architecture': input_modalities, instruct_type, output_modalities, tokenizer, context_length
+src/llm/providers/huggingface.info.js(226,3): error TS2322: Type '(string | { provider: string; id?: string | undefined; architecture?: Architecture | undefined; canonical_slug?: string | undefined; context_length?: number | undefined; ... 14 more ...; supportsStructuredOutput?: boolean | undefined; })[][]' is not assignable to type '[string, Partial<ModelInfo>][]'.
+  Type '(string | { provider: string; id?: string | undefined; architecture?: Architecture | undefined; canonical_slug?: string | undefined; context_length?: number | undefined; ... 14 more ...; supportsStructuredOutput?: boolean | undefined; })[]' is not assignable to type '[string, Partial<ModelInfo>]'.
+    Target requires 2 element(s) but source may have fewer.
+src/llm/TestAI.js(47,9): error TS2345: Argument of type '{ models?: Map<string, ModelInfo[]> | readonly [string, Partial<ModelInfo>][] | undefined; }' is not assignable to parameter of type '{ models?: Map<string, ModelInfo> | readonly [string, ModelInfo] | undefined; selectedModel?: ModelInfo | undefined; }'.
+  Types of property 'models' are incompatible.
+    Type 'Map<string, ModelInfo[]> | readonly [string, Partial<ModelInfo>][] | undefined' is not assignable to type 'Map<string, ModelInfo> | readonly [string, ModelInfo] | undefined'.
+      Type 'Map<string, ModelInfo[]>' is not assignable to type 'Map<string, ModelInfo> | readonly [string, ModelInfo] | undefined'.
+        Type 'Map<string, ModelInfo[]>' is not assignable to type 'Map<string, ModelInfo>'.
+          Type 'ModelInfo[]' is missing the following properties from type 'ModelInfo': id, architecture, canonical_slug, context_length, and 16 more.
+src/llm/TestAI.js(68,23): error TS2315: Type 'StreamTextResult' is not generic.
+src/llm/TestAI.js(70,8): error TS2416: Property 'streamText' in type 'TestAI' is not assignable to the same property in base type 'AI'.
+  Type '(modelId: any, messages: ModelMessage[], options?: UIMessageStreamOptions | undefined) => Promise<any>' is not assignable to type '(model: ModelInfo, messages: ModelMessage[], options?: UIMessageStreamOptions<UIMessage<any, UIDataTypes, UITools>> | undefined) => StreamTextResult<...>'.
+    Type 'Promise<any>' is missing the following properties from type 'StreamTextResult<ToolSet, any>': content, text, reasoning, reasoningText, and 25 more.
+src/llm/TestAI.js(75,11): error TS2339: Property 'cwd' does not exist on type 'UIMessageStreamOptions'.
+src/llm/TestAI.js(75,32): error TS2339: Property 'step' does not exist on type 'UIMessageStreamOptions'.
+src/llm/TestAI.js(75,42): error TS2339: Property 'delay' does not exist on type 'UIMessageStreamOptions'.
+src/llm/TestAI.js(75,54): error TS2339: Property 'onChunk' does not exist on type 'UIMessageStreamOptions'.
+src/llm/TestAI.js(75,82): error TS2339: Property 'onAbort' does not exist on type 'UIMessageStreamOptions'.
+src/llm/TestAI.js(137,10): error TS2540: Cannot assign to 'totalTokens' because it is a read-only property.
+src/llm/TestAI.js(160,29): error TS2353: Object literal may only specify known properties, and 'usage' does not exist in type '{ messages: UIMessage<any, any, any>[]; isContinuation: boolean; isAborted: boolean; responseMessage: UIMessage<any, any, any>; finishReason?: LanguageModelV2FinishReason | undefined; }'.
+src/llm/TestAI.js(197,65): error TS2559: Type '{ cwd?: string | undefined; step?: number | undefined; }' has no properties in common with type 'UIMessageStreamOptions'.
+src/llm/TestRunner.js(221,8): error TS2358: The left-hand side of an 'instanceof' expression must be of type 'any', an object type or a type parameter.
+src/llm/TestRunner.js(261,76): error TS2554: Expected 3 arguments, but got 4.
+src/llm/TestRunner.js(266,4): error TS2353: Object literal may only specify known properties, and 'cwd' does not exist in type 'UIMessageStreamOptions'.
+src/release/ReleaseProtocol.js(1,10): error TS2614: Module '"../FileProtocol.js"' has no exported member 'FileProtocol'. Did you mean to use 'import FileProtocol from "../FileProtocol.js"' instead?
+src/strategies/fastest.js(21,11): error TS2551: Property 'tokensCount' does not exist on type 'Chat'. Did you mean 'getTokensCount'?
+src/strategies/fastest.js(49,11): error TS2551: Property 'tokensCount' does not exist on type 'Chat'. Did you mean 'getTokensCount'?
+src/strategies/fastest.js(75,11): error TS2551: Property 'tokensCount' does not exist on type 'Chat'. Did you mean 'getTokensCount'?
+Waiting for the debugger to disconnect...
+ ELIFECYCLE  Command failed with exit code 2.

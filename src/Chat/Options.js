@@ -66,6 +66,7 @@ export default class ChatOptions {
 		help: "Maximum number of failed iterations in a row",
 		default: 3,
 	}
+	/** @type {boolean} */
 	isHelp
 	static isHelp = {
 		alias: "help",

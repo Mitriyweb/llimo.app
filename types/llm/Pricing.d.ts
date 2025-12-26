@@ -32,8 +32,13 @@ export default class Pricing {
     /**
      * Calculates the usage cost (total price).
      * @param {Usage} usage
+     * @param {{ input?: number, reason?: number, output?: number }} [context] reset pricing in the context.
      * @returns {number}
      */
-    calc(usage: Usage): number;
+    calc(usage: Usage, context?: {
+        input?: number;
+        reason?: number;
+        output?: number;
+    }): number;
 }
 import Usage from "./Usage.js";

@@ -1,15 +1,16 @@
-/** @typedef {import("./components/Alert.js").AlertVariant | 'log'} LogTarget */
+/** @typedef {"success" | "info" | "warn" | "error" | "debug"} LogTarget */
 export class UiFormats {
     /**
      * Formats weight (size) of the value, available types:
      * b - bytes
+     * f - files
      * T - Tokens
-     * @param {"b" | "T"} type
+     * @param {"b" | "f" | "T"} type
      * @param {number} value
      * @param {(value: number) => string} [format]
      * @returns {string}
      */
-    weight(type: "b" | "T", value: number, format?: (value: number) => string): string;
+    weight(type: "b" | "f" | "T", value: number, format?: (value: number) => string): string;
     /**
      * Formats count (amount) of the value
      * @param {number} value
@@ -37,6 +38,13 @@ export class UiFormats {
      * @returns {string}
      */
     timer(elapsed: number): string;
+    /**
+     * Returns a colored LEFT tokens count of TOTAL.
+     * @param {number} count
+     * @param {number} context_length
+     * @returns {string}
+     */
+    leftTokens(count: number, context_length: number): string;
 }
 export class UiConsole {
     /**
@@ -51,6 +59,9 @@ export class UiConsole {
     logFile: string | undefined;
     /** @type {string} Prefix for .info() */
     prefixedStyle: string;
+    stdout: NodeJS.WriteStream & {
+        fd: 1;
+    };
     /**
      * Append a message to the log file if logging is enabled.
      *
@@ -81,15 +92,23 @@ export class UiConsole {
     /** @param {...any} args */
     success(...args: any[]): void;
     /**
+     * @todo write jsdoc
+     * @param {string} line
+     * @param {string} [space=" "]
+     * @returns {string}
+     */
+    full(line: string, space?: string): string;
+    /**
      * @todo cover with tests.
      * @param {any[][]} rows
-     * @param {{divider?: string | number, aligns?: string[], silent?: boolean}} [options={}]
+     * @param {{divider?: string | number, aligns?: string[], silent?: boolean, overflow?: "visible" | "hidden"}} [options={}]
      * @returns {string[]}
      */
     table(rows?: any[][], options?: {
         divider?: string | number;
         aligns?: string[];
         silent?: boolean;
+        overflow?: "visible" | "hidden";
     }): string[];
 }
 export class UiCommand {
@@ -201,6 +220,6 @@ export class Ui {
     }) => void, startTime?: number, fps?: number): NodeJS.Timeout;
 }
 export default Ui;
-export type LogTarget = import("./components/Alert.js").AlertVariant | "log";
+export type LogTarget = "success" | "info" | "warn" | "error" | "debug";
 import Alert from "./components/Alert.js";
 import Table from "./components/Table.js";

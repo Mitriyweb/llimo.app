@@ -7,24 +7,28 @@ import { YELLOW, RED, RESET, GREEN, overwriteLine, cursorUp, DIM, stripANSI, ITA
 import Alert from "./components/Alert.js"
 import Table from "./components/Table.js"
 
-/** @typedef {import("./components/Alert.js").AlertVariant | 'log'} LogTarget */
+/** @typedef {"success" | "info" | "warn" | "error" | "debug"} LogTarget */
 
 export class UiFormats {
 	/**
 	 * Formats weight (size) of the value, available types:
 	 * b - bytes
+	 * f - files
 	 * T - Tokens
-	 * @param {"b" | "T"} type
+	 * @param {"b" | "f" | "T"} type
 	 * @param {number} value
 	 * @param {(value: number) => string} [format]
 	 * @returns {string}
 	 */
 	weight(type, value, format = new Intl.NumberFormat("en-US").format) {
 		if ("b" === type) {
-			return `${ITALIC}${format(value)}b${RESET}`
+			return `${format(value)}b`
+		}
+		if ("f" === type) {
+			return `${format(value)}f`
 		}
 		if ("T" === type) {
-			return `${ITALIC}${format(Math.floor(value))}T${RESET}`
+			return `${format(Math.floor(value))}T`
 		}
 		return String(value)
 	}
@@ -42,7 +46,7 @@ export class UiFormats {
 	 * @param {number} [digits=2]
 	 * @returns {string}
 	 */
-	pricing(value, digits = 6) {
+	pricing(value, digits = 4) {
 		// Use currency style to ensure the $ sign and correct negative formatting.
 		const options = {
 			style: "currency",
@@ -59,7 +63,7 @@ export class UiFormats {
 	 * @param {number} [digits=6]
 	 * @returns {string}
 	 */
-	money(value, digits = 6) {
+	money(value, digits = 4) {
 		return this.pricing(value, digits)
 	}
 	/**
@@ -68,10 +72,27 @@ export class UiFormats {
 	 * @returns {string}
 	 */
 	timer(elapsed) {
-		if (elapsed > 3600) elapsed = 3600
+		// if (elapsed > 3600) elapsed = 3600
 		const mins = Math.floor(elapsed / 60)
-		const secs = Math.round((elapsed % 60) * 10) / 10
+		const secs = Math.floor(elapsed % 60)
 		return `${mins}:${secs.toString().padStart(2, "0")}`
+	}
+	/**
+	 * Returns a colored LEFT tokens count of TOTAL.
+	 * @param {number} count
+	 * @param {number} context_length
+	 * @returns {string}
+	 */
+	leftTokens(count, context_length) {
+		return [
+			ITALIC,
+			count > context_length / 2 ? GREEN
+				: count > context_length / 4 ? YELLOW
+					: RED,
+			this.weight("T", count), RESET,
+			" of ", ITALIC,
+			this.weight("T", context_length), RESET,
+		].join("")
 	}
 }
 
@@ -84,6 +105,7 @@ export class UiConsole {
 	logFile
 	/** @type {string} Prefix for .info() */
 	prefixedStyle = ""
+	stdout = process.stdout
 
 	/**
 	 * @param {Partial<UiConsole>} [options={}]
@@ -91,11 +113,13 @@ export class UiConsole {
 	constructor(options = {}) {
 		const {
 			console: uiConsole = console,
+			stdout = this.stdout,
 			debugMode = this.debugMode,
 			logFile = this.logFile,
 			prefixedStyle = this.prefixedStyle,
 		} = options
 		this.console = uiConsole
+		this.stdout = stdout
 		this.debugMode = debugMode
 		this.logFile = logFile
 		this.prefixedStyle = String(prefixedStyle)
@@ -174,13 +198,27 @@ export class UiConsole {
 	}
 
 	/**
+	 * @todo write jsdoc
+	 * @param {string} line
+	 * @param {string} [space=" "]
+	 * @returns {string}
+	 */
+	full(line, space = " ") {
+		const [w, h] = this.stdout.getWindowSize()
+		if (line.length > w) line = line.slice(0, w - 1) + "…"
+		if (line.length < w) line += space.repeat(w - line.length)
+		return line
+	}
+
+
+	/**
 	 * @todo cover with tests.
 	 * @param {any[][]} rows
-	 * @param {{divider?: string | number, aligns?: string[], silent?: boolean}} [options={}]
+	 * @param {{divider?: string | number, aligns?: string[], silent?: boolean, overflow?: "visible" | "hidden"}} [options={}]
 	 * @returns {string[]}
 	 */
 	table(rows = [], options = {}) {
-		const { divider = " | ", aligns = [], silent = false } = options
+		const { divider = " | ", aligns = [], silent = false, overflow = "visible" } = options
 		const div = "number" === typeof divider ? " ".repeat(divider) : divider
 
 		// Determine column widths based on visible (ANSI‑stripped) length
@@ -208,7 +246,9 @@ export class UiConsole {
 		)
 
 		// Emit to the wrapped console and return the lines
-		if (!silent) lines.forEach(l => this.console.info(l))
+		if (!silent) lines.forEach(
+			l => this.console.info("hidden" === overflow ? this.full(l) : l)
+		)
 		return lines
 	}
 }
@@ -285,7 +325,7 @@ export class Ui {
 		this.stdin = stdin
 		this.stdout = stdout
 		this.stderr = stderr
-		this.console = console ? console : new UiConsole({ debugMode: this.debugMode })
+		this.console = console ? console : new UiConsole({ debugMode: this.debugMode, stdout: /** @type {any} */ (stdout) })
 		this.formats = formats
 	}
 
@@ -332,7 +372,7 @@ export class Ui {
 	 * @param {Buffer | DataView | Error | string} buffer
 	 * @param {(err?: Error | undefined) => void} [cb]
 	 */
-	write(buffer, cb = () => {}) {
+	write(buffer, cb = () => { }) {
 		if (buffer instanceof Error) buffer = (this.isDebug ? buffer.stack ?? buffer.message : buffer.message) || ""
 		this.stdout.write(String(buffer), cb)
 	}

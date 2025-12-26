@@ -31,10 +31,15 @@ Simulates from log files, no real API calls.
 1. [System Prompt (src/llm/system.js)](009-SystemPrompt/task.md)  
 Generates template with tools list.
 
+1. [Chat Simulation for Error Detection](010-Chat-Simulation/task.md)  
+Simulates full chat process (TestAI per-step, progress rows, unpack/tests) to detect interface/UI errors. Includes frame-by-frame UI verification (progress lines diff against expected).
+
 ## Changes & Fixes
 - Added basic error handling in CLI (e.g., no input → usage message).
 - Model caching in JSONL for 1h TTL.
 - Markdown parsing handles nested backticks (```` for escapes).
+- **New in v1.0.0 Hot-fix**: Chat Simulation task for progress UI bugs (e.g., line clearing issues). Fixes overwriteLine/cursorUp in chatLoop.js.
+- Frame-based UI testing: Progress rows analyzed per "frame" (phase lines) with token/time/speed validation.
 
 ## Dependencies & Lock
 - All tasks independent; no lock.md needed.
@@ -44,3 +49,4 @@ Generates template with tools list.
 - All tasks: 100% test coverage via `task.test.js` + `src/**/*.test.js`.
 - `pnpm test:all` passes.
 - Ready for `git tag v1.0.0` and `npm publish`.
+

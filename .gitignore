@@ -8,3 +8,5 @@ node_modules
 /chat/
 answer.jsonl
 me.md
+
+cache/

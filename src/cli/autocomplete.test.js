@@ -6,47 +6,46 @@ import ModelInfo from "../llm/ModelInfo.js"
 import Pricing from "../llm/Pricing.js"
 import Architecture from "../llm/Architecture.js"
 import { RESET, YELLOW } from "./ANSI.js"
+import { UiFormats } from "./Ui.js"
 
 // Test model map - each has only one info, but to test max logic, add multiple for same id
 const testModelMap = new Map([
 	[
-		"qwen-3-32b",
-		[
-			// First variant with higher context
-			new ModelInfo({
-				id: "qwen-3-32b",
-				context_length: 8192,
-				pricing: new Pricing({ prompt: 0.003, completion: 0.004 }),
-				provider: "cerebras",
-				architecture: new Architecture({ modality: "text", input_modalities: ["text"] }),
-				supports_tools: true,
-				supports_structured_output: false
-			}),
-			// Second variant with lower context to test Math.max
-			new ModelInfo({
-				id: "qwen-3-32b",
-				context_length: 4096,
-				pricing: new Pricing({ prompt: 0.002, completion: 0.003 }),
-				provider: "cerebras-alt",
-				architecture: new Architecture({ modality: "text" }),
-				supports_tools: false,
-				supports_structured_output: true
-			})
-		],
+		"qwen-3-32b@cerebras",
+		// First variant with higher context
+		new ModelInfo({
+			id: "qwen-3-32b",
+			context_length: 8192,
+			pricing: new Pricing({ prompt: 0.003, completion: 0.004 }),
+			provider: "cerebras",
+			architecture: new Architecture({ modality: "text", input_modalities: ["text"] }),
+			supports_tools: true,
+			supports_structured_output: false
+		}),
+	],
+	["qwen-3-32b@cerebras-alt",
+		// Second variant with lower context to test Math.max
+		new ModelInfo({
+			id: "qwen-3-32b",
+			context_length: 4096,
+			pricing: new Pricing({ prompt: 0.002, completion: 0.003 }),
+			provider: "cerebras-alt",
+			architecture: new Architecture({ modality: "text" }),
+			supports_tools: false,
+			supports_structured_output: true
+		})
 	],
 	[
 		"qwen-3-32b-hf",
-		[
-			new ModelInfo({
-				id: "qwen-3-32b-hf",
-				context_length: 4096,
-				pricing: new Pricing({ prompt: -1, completion: -1 }),
-				provider: "huggingface/novita",
-				architecture: new Architecture({ modality: "text" }),
-				supports_tools: false,
-				supports_structured_output: true
-			})
-		]
+		new ModelInfo({
+			id: "qwen-3-32b-hf",
+			context_length: 4096,
+			pricing: new Pricing({ prompt: -1, completion: -1 }),
+			provider: "huggingface/novita",
+			architecture: new Architecture({ modality: "text" }),
+			supports_tools: false,
+			supports_structured_output: true
+		})
 	]
 ])
 
@@ -181,9 +180,10 @@ describe("autocomplete – core functions", () => {
 describe("renderTable", () => {
 	const mockUi = {
 		console: {
-			info: () => {},
-			table: mock.fn()
-		}
+			info: () => { },
+			table: mock.fn(),
+		},
+		formats: new UiFormats(),
 	}
 	const mockRows = [
 		{ id: "long-model-id-123456789", context: 8192, provider: "test/novita", modality: "text", inputPrice: -1, outputPrice: 0.004, tools: true, json: false }

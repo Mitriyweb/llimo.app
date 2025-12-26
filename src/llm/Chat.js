@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Stats } from "node:fs"
 import ModelInfo from "./ModelInfo.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
 import FileSystem from "../utils/FileSystem.js"
 import Usage from "./Usage.js"
 
@@ -220,7 +219,7 @@ export default class Chat {
 	 * @property {Array<[string, any]>} unknowns
 	 * @property {string} answer
 	 * @property {string} reason
-	 * @property {LanguageModelUsage} usage
+	 * @property {Usage} usage
 	 * @property {import("ai").ModelMessage[]} messages
 	 *
 	 * Saves the whole chat if target is not provided.

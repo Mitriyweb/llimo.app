@@ -5,7 +5,7 @@ import Architecture from "./Architecture.js"
 import Pricing from "./Pricing.js"
 import ModelInfo from "./ModelInfo.js"
 import ModelProvider from "./ModelProvider.js"
-import LanguageModelUsage from "./LanguageModelUsage.js"
+import Usage from "./Usage.js"
 
 export * from "./chatLoop.js"
 export * from "./chatProgress.js"
@@ -17,7 +17,7 @@ export * from "./selectModel.js"
 export {
 	AI, TestAI,
 	Chat,
-	LanguageModelUsage,
+	Usage,
 	Architecture, Pricing,
 	ModelInfo,
 	ModelProvider,
