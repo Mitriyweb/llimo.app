@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { dirname, extname, resolve, basename, relative } from 'node:path'
+import { dirname, extname, resolve, basename, relative, sep } from 'node:path'
 
 /**
  * Path operations wrapper
@@ -18,6 +18,12 @@ export default class Path {
 			this.cwd = String(cwd)
 		}
 	}
+
+	/**  @returns {string} */
+	get sep() {
+		return sep
+	}
+
 	/**
 	 * Get directory name
 	 * @param {string} path
@@ -75,6 +81,15 @@ export default class Path {
 	normalize(path) {
 		const abs = this.resolve(this.cwd, path)
 		return this.relative(this.cwd, path)
+	}
+
+	/**
+	 * Splits the string by directory separator {this.sep}.
+	 * @param {string} str
+	 * @returns {string[]}
+	 */
+	split(str) {
+		return String(str).split(this.sep)
 	}
 }
 

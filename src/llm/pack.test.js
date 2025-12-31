@@ -60,4 +60,19 @@ describe("pack module", () => {
 		])
 		assert.deepStrictEqual(text, "src/File.js\nsrc/index.js")
 	})
+	it("should pack message with file listing and ignores words", async () => {
+		const input = [
+			"- [@ls;-types](**)",
+		].join("\n")
+		const out = []
+		const onRead = (dir, entries) => {
+			out.push({ dir, entries })
+		}
+		const { text } = await packMarkdown({ input, cwd: tempDir, onRead })
+		assert.deepStrictEqual(out, [
+			{ dir: ".", entries: ["src"] },
+			{ dir: "src", entries: ["src/File.js", "src/File.test.js", "src/index.js"] },
+		])
+		assert.deepStrictEqual(text, "src/File.js\nsrc/File.test.js\nsrc/index.js")
+	})
 })

@@ -11,7 +11,7 @@ const ui = new Ui({ debugMode: process.argv.includes("--debug") })
 /**
  * CLI entry for model browser
  */
-async function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
 	const options = parseArgv(argv, ModelsOptions)
 
 	if (options.help) {
@@ -19,7 +19,7 @@ async function main(argv = process.argv.slice(2)) {
 		process.exit(0)
 	}
 
-	const modelMap = await loadModels(ui, { noCache: true })
+	const modelMap = await loadModels({ ui, noCache: options.noCache })
 	// Filter handling – apply and exit if filter provided
 	if (options.filter) {
 		const predicates = options.getFilters()
@@ -51,3 +51,4 @@ main().catch((err) => {
 	if (err.stack) ui.console.debug(err.stack)
 	process.exit(1)
 })
+

@@ -167,10 +167,12 @@ export default class FileSystem {
 	#shouldIgnore(relPath, fullPath, patterns) {
 		const rel = this.#normalize(relPath)
 		const abs = this.#normalize(fullPath)
+		const words = this.path.split(rel)
 
 		// Direct string match (both with and without trailing slash)
 		if (patterns.includes(rel) || patterns.includes(abs)) return true
 		if (patterns.includes(relPath) || patterns.includes(fullPath)) return true
+		if (words.some(w => patterns.some(p => w === p))) return true
 
 		// Glob pattern check (on normalised paths)
 		if (micromatch.isMatch(rel, patterns, { dot: true })) return true
@@ -234,7 +236,7 @@ export default class FileSystem {
 				let rel = this.path.relative(startPath, fullPath)
 				if (entry.isDirectory()) rel += '/'
 
-				if (!this.#shouldIgnore(rel, fullPath, ignore)) {
+				 if (!this.#shouldIgnore(rel, fullPath, ignore)) {
 					results.push(rel)
 				}
 
