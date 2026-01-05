@@ -1,8 +1,5 @@
 import { before, describe, it } from "node:test"
 import assert from "node:assert/strict"
-import path from "node:path"
-import { fileURLToPath } from "node:url"
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 import { DocsParser, DatasetParser } from "@nan0web/test"
 
@@ -15,8 +12,6 @@ import ModelProvider from "./llm/ModelProvider.js"
 import Usage from "./llm/Usage.js"
 import Architecture from "./llm/Architecture.js"
 import Pricing from "./llm/Pricing.js"
-
-const fs = new FileSystem({ cwd: __dirname })
 
 /**
  * Core test suite that also serves as the source for README generation.

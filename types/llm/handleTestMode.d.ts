@@ -1,5 +1,5 @@
 /**
- * Handles the test mode simulation for llmo-chat.
+ * Handles the test mode simulation for llimo-chat.
  * Extracted from the main script's if (testMode || testDir) block.
  *
  * @param {Object} options

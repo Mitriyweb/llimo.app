@@ -371,43 +371,17 @@ export async function decodeAnswerAndRunTests(input) {
 	return { pass, shouldContinue, test }
 }
 
-
-/**
- * @param {Object} param0
- * @param {Ui} param0.ui
- * @param {Chat} param0.chat
- * @param {Function} param0.runCommand
- * @param {number} [param0.step=1]
- * @param {(chunk) => void} [param0.onData]
- * @returns {Promise<import('../cli/runCommand.js').runCommandResult & { parsed: import("../cli/testing/node.js").TestOutput }>}
- */
-export async function runTests0({ ui, chat, runCommand, step = 1, onData = (chunk) => ui.write(chunk) }) {
-	// Run `pnpm test:all` with live output
-	ui.console.info("@ Running tests")
-	ui.console.debug("% pnpm test:all")
-	const result = await runCommand("pnpm", ["test:all"], { onData })
-	const suite = new Suite({ rows: [...result.testStdout.split("\n"), ...result.testStderr.split("\n")], fs })
-	const parsed = suite.parse()
-
-	// Save per‑step test output
-	if (step) {
-		const testOutput = `${result.testStdout}\n${result.testStderr}`
-		await chat.save("test.txt", testOutput, step)
-	}
-	return { ...result, ...parsed }
-}
-
 /**
  * @typedef {Object} runTestsResult
  * @property {boolean} pass
  * @property {boolean} shouldContinue
- * @property {import("../cli/testing/node.js").SuiteParseResult} test
+ * @property {import("../cli/testing/node.js").SuiteParseResult} [test]
  *
  * @param {Object} input
  * @param {Ui} input.ui
  * @param {FileSystem} input.fs
  * @param {Chat} input.chat
- * @param {Function} input.runCommand
+ * @param {import("../cli/runCommand.js").runCommandFn} input.runCommand
  * @param {number} [input.step=1]
  * @param {string[]} [input.logs=[]]
  * @param {object} [input.options={}]
@@ -432,21 +406,24 @@ export async function runTests(input) {
 	ui.console.info("@ Running tests")
 	ui.console.debug("% pnpm test:all")
 	const result = await runCommand("pnpm", ["test:all"], { onData })
-	const suite = new Suite({ rows: [...result.testStdout.split("\n"), ...result.testStderr.split("\n")], fs })
-	const parsed = suite.parse()
 	clearInterval(testing)
+	if (!result) {
+		return { pass: false, shouldContinue: false }
+	}
+	const suite = new Suite({ rows: [...result.stdout.split("\n"), ...result.stderr.split("\n")], fs })
+	const parsed = suite.parse()
 
 	if (step) {
-		await chat.save("test.txt", `${result.testStdout}\n${result.testStderr}`, step)
+		await chat.save("test.txt", `${result.stdout}\n${result.stderr}`, step)
 	}
 
 	// Append test output to log
 	logs.push("#### pnpm test:all")
 	logs.push("```stdeerr")
-	logs.push(result.testStderr)
+	logs.push(result.stderr)
 	logs.push("```")
 	logs.push("```stdout")
-	logs.push(result.testStdout)
+	logs.push(result.stdout)
 	logs.push("```")
 	await chat.db.append("prompt.md", logs.join("\n"))
 

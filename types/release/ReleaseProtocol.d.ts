@@ -13,7 +13,7 @@
  *   - `title` – the first level‑1 heading.
  *   - `tasks` – an array of objects `{ label: string, link: string, text: string }`.
  */
-export default class ReleaseProtocol {
+export default class ReleaseProtocol extends FileProtocol {
     /**
      * Parse a release‑notes markdown source.
      *
@@ -42,3 +42,4 @@ export default class ReleaseProtocol {
         }>;
     }>;
 }
+import FileProtocol from "../FileProtocol.js";

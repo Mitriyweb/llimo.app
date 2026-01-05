@@ -34,7 +34,7 @@ export function formatChatProgress(input) {
 
 	const safe = (v) => (isNaN(v) || v === undefined ? 0 : v)
 
-	const totalElapsed = safe((now - clock.startTime) / 1e3)
+	const totalElapsed = safe(now - clock.startTime)
 
 	/* --------------------------------------------------------------- */
 	/* Phase rows (read, reason, answer)                               */
@@ -49,24 +49,24 @@ export function formatChatProgress(input) {
 	/* READ */
 	if (usage.inputTokens) {
 		const endAt = clock.reasonTime || clock.answerTime || now
-		const elapsed = safe((endAt - clock.startTime) / 1e3)
-		const speed = elapsed > 0 ? Math.round(usage.inputTokens / elapsed) : 0
+		const elapsed = safe(endAt - clock.startTime)
+		const speed = elapsed > 0 ? Math.round(1e3 * usage.inputTokens / elapsed) : 0
 		map.set("read", { endAt, elapsed, speed, price: costs.input, tokens: usage.inputTokens })
 	}
 
 	/* REASON */
 	if (usage.reasoningTokens && clock.reasonTime) {
 		const endAt = clock.answerTime || now
-		const elapsed = safe((endAt - clock.reasonTime) / 1e3)
-		const speed = elapsed > 0 ? Math.round(usage.reasoningTokens / elapsed) : 0
+		const elapsed = safe(endAt - clock.reasonTime)
+		const speed = elapsed > 0 ? Math.round(1e3 * usage.reasoningTokens / elapsed) : 0
 		map.set("reason", { endAt, elapsed, speed, price: costs.reason, tokens: usage.reasoningTokens })
 	}
 
 	/* ANSWER */
 	if (usage.outputTokens && clock.answerTime) {
 		const endAt = now
-		const elapsed = safe((endAt - clock.answerTime) / 1e3)
-		const speed = elapsed > 0 ? Math.round(usage.outputTokens / elapsed) : 0
+		const elapsed = safe(endAt - clock.answerTime)
+		const speed = elapsed > 0 ? Math.round(1e3 * usage.outputTokens / elapsed) : 0
 		map.set("answer", { endAt, elapsed, speed, price: costs.output, tokens: usage.outputTokens })
 	}
 
@@ -84,7 +84,7 @@ export function formatChatProgress(input) {
 		const count = value?.tokens || 0
 		const phaseTokens = ui.formats.weight("T", count || 0)
 		const time = value?.endAt || now
-		const phaseTime = ui.formats.timer(safe((now - time) / 1e3))
+		const phaseTime = ui.formats.timer(safe(now - time))
 
 		const phaseSpeed = value?.speed ? `${ui.formats.count(value.speed)}T/s` : "∞T/s"
 
@@ -118,7 +118,7 @@ export function formatChatProgress(input) {
 	/* --------------------------------------------------------------- */
 
 	// Sum of *display* elapsed times (read uses the 30 s offset)
-	const totalSpeed = totalTime > 0 ? Math.round(totalTokens / totalTime) : 0
+	const totalSpeed = totalTime > 0 ? Math.round(1e3 * totalTokens / totalTime) : 0
 	const totalSpeedStr = `${ui.formats.count(totalSpeed)}T/s`
 
 	const extraTokens = Math.max(0, (model.context_length || 0) - totalTokens)

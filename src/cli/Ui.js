@@ -1,6 +1,6 @@
+import process from "node:process"
 import readline from "node:readline"
 import { appendFileSync, existsSync, mkdirSync } from "node:fs"
-import process from "node:process"
 import { dirname } from "node:path"
 
 import { YELLOW, RED, RESET, GREEN, overwriteLine, DIM, stripANSI, ITALIC } from "./ANSI.js"
@@ -63,7 +63,6 @@ export class UiFormats {
 	 * @returns {string}
 	 */
 	pricing(value, digits = 4) {
-		// Use currency style to ensure the $ sign and correct negative formatting.
 		const options = {
 			style: 'currency',
 			currency: "USD",
@@ -76,7 +75,7 @@ export class UiFormats {
 	 * Formats money in USD with currency symbol and six decimals by default.
 	 * Delegates to pricing to keep consistent formatting.
 	 * @param {number} value
-	 * @param {number} [digits=6]
+	 * @param {number} [digits=4]
 	 * @returns {string}
 	 */
 	money(value, digits = 4) {
@@ -84,13 +83,13 @@ export class UiFormats {
 	}
 	/**
 	 * Formats timer elapsed in mm:ss.s format, caps at 3600s+.
-	 * @param {number} elapsed - Seconds elapsed.
+	 * @param {number} elapsed - Milliseconds elapsed.
 	 * @returns {string}
 	 */
 	timer(elapsed) {
-		// if (elapsed > 3600) elapsed = 3600
-		const mins = Math.floor(elapsed / 60)
-		const secs = Math.floor(elapsed % 60)
+		const s = Math.round(elapsed / 1e3)
+		const mins = Math.floor(s / 60)
+		const secs = Math.floor(s % 60)
 		return `${mins}:${secs.toString().padStart(2, "0")}`
 	}
 	/**
@@ -244,7 +243,6 @@ export class UiConsole {
 	/** @param {...any} args */
 	success(...args) {
 		const msg = GREEN + this.extractMessage(args) + RESET
-		// Use this.console.info to match test expectations
 		this.console.info(msg)
 		this.appendFile("success", msg)
 	}
@@ -263,6 +261,21 @@ export class UiConsole {
 		return line
 	}
 
+	/**
+	 * Progress bar string.
+	 * @param {number} i
+	 * @param {number} len
+	 * @param {number} [width=33]
+	 * @param {string} [on="="]
+	 * @param {string} [off=" "]
+	 * @returns {string}
+	 */
+	bar(i, len, width = 33, on = "=", off = " ") {
+		const total = Math.max(1, Number(len) || 0)
+		const ratio = Math.max(0, Math.min(1, Number(i) / total))
+		const filled = Math.round(width * ratio)
+		return on.repeat(filled) + off.repeat(Math.max(0, width - filled))
+	}
 
 	/**
 	 * @todo cover with tests.
@@ -274,7 +287,6 @@ export class UiConsole {
 		const { divider = " | ", aligns = [], silent = false, overflow = "visible" } = options
 		const div = "number" === typeof divider ? " ".repeat(divider) : divider
 
-		// Determine column widths based on visible (ANSI‑stripped) length
 		const colWidths = []
 		rows.forEach(row => {
 			row.forEach((cell, j) => {
@@ -283,7 +295,6 @@ export class UiConsole {
 			})
 		})
 
-		// Build formatted lines respecting alignment
 		const lines = rows.map(row =>
 			row.map((cell, j) => {
 				const raw = String(cell).trim()
@@ -293,12 +304,10 @@ export class UiConsole {
 				if (align === "right") {
 					return " ".repeat(pad) + raw
 				}
-				// default "left"
 				return raw + " ".repeat(pad)
 			}).join(div)
 		)
 
-		// Emit to the wrapped console and return the lines
 		if (!silent) lines.forEach(
 			l => this.console.info("hidden" === overflow ? this.full(l) : l)
 		)
@@ -362,6 +371,9 @@ export class Ui {
 	/** @type {UiFormats} UiFormats instance to format numbers, if omitted new UiFormats() is used. */
 	formats = new UiFormats()
 
+	/** @type {string[]} Queue of predefined stdin values (if STDIN env var is set). */
+	definedInputs = []
+
 	/**
 	 * @param {Partial<Ui>} [options={}]
 	 */
@@ -374,6 +386,7 @@ export class Ui {
 			stderr = this.stderr,
 			console,
 			formats = this.formats,
+			definedInputs = this.definedInputs,
 		} = options
 		this.debugMode = Boolean(debugMode)
 		this.logFile = String(logFile)
@@ -386,6 +399,10 @@ export class Ui {
 				stdout: /** @type {any} */ (stdout), ...(console ?? {})
 			})
 		this.formats = formats
+
+		const raw = process.env.STDIN ?? ""
+		const normalized = raw.replace(/\\n/g, "\n")
+		this.definedInputs = normalized ? normalized.split("\n") : definedInputs
 	}
 
 	/**
@@ -427,6 +444,20 @@ export class Ui {
 	}
 
 	/**
+	 * Progress bar helper.
+	 *
+	 * @param {number} i
+	 * @param {number} len
+	 * @param {number} [width=33]
+	 * @param {string} [on="="]
+	 * @param {string} [off=" "]
+	 * @returns {string}
+	 */
+	bar(i, len, width = 33, on = "=", off = " ") {
+		return this.console.bar(i, len, width, on, off)
+	}
+
+	/**
 	 * Writes to stdout.
 	 * @param {Buffer | DataView | Error | string} buffer
 	 * @param {(err?: Error | undefined) => void} [cb]
@@ -439,10 +470,18 @@ export class Ui {
 	/**
 	 * Prompt the user with a question and resolve with the answer.
 	 *
+	 * If predefined STDIN values are supplied via the STDIN environment variable,
+	 * the next value from that queue is returned without asking the user.
+	 *
 	 * @param {string} question
 	 * @returns {Promise<string>}
 	 */
 	async ask(question) {
+		if (this.definedInputs.length) {
+			const next = this.definedInputs.shift() ?? ""
+			this.console.info(question + next)
+			return next
+		}
 		const rl = readline.createInterface({
 			input: this.stdin,
 			output: this.stdout,
@@ -477,8 +516,8 @@ export class Ui {
 	 * Create progress interval to call the fn() with provided fps.
 	 *
 	 * @typedef {Object} ProgressFnInput
-	 * @property {number} elapsed
-	 * @property {number} startTime
+	 * @property {number} elapsed elapsed seconds
+	 * @property {number} startTime start timestamp ms
 	 *
 	 * @param {(input: ProgressFnInput) => void} fn
 	 * @param {number} [startTime]
@@ -528,4 +567,3 @@ export class Ui {
 }
 
 export default Ui
-

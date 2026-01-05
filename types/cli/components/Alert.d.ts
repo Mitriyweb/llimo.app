@@ -5,7 +5,10 @@
 export class Alert extends UiOutput {
     static error(text?: string): Alert;
     static info(text?: string): Alert;
-    constructor(input?: {});
+    /**
+     * @param {Partial<Alert>} input
+     */
+    constructor(input?: Partial<Alert>);
     /** @type {string} */
     text: string;
     /** @type {AlertVariant} */

@@ -10,20 +10,24 @@ export class ChatConfig {
 export default class Chat {
     /** Constants for chat files – single source of truth */
     static FILES: {
-        input: string;
-        prompt: string;
-        model: string;
+        answer: string;
         files: string;
+        input: string;
         inputs: string;
+        model: string;
+        prompt: string;
+        reason: string;
         response: string;
         parts: string;
         stream: string;
         chunks: string;
         unknowns: string;
-        answer: string;
-        reason: string;
+        tests: string;
+        testsErr: string;
+        testsTxt: string;
+        time: string;
+        todo: string;
         usage: string;
-        fail: string;
         messages: null;
     };
     /**

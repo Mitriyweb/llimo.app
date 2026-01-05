@@ -48,10 +48,10 @@ export default class ModelInfo {
     supports_tools: boolean;
     /** @type {boolean} */
     supports_structured_output: boolean;
-    /** @type {boolean} */
-    supportsTools: boolean;
     /** @type {ProviderStatus} */
     status: ProviderStatus;
+    /** @type {boolean} */
+    is_moderated: boolean;
     /** @returns {number} The volume of parameters inside model */
     get volume(): number;
     #private;

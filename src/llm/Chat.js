@@ -105,21 +105,24 @@ export default class Chat {
 
 	/** Constants for chat files – single source of truth */
 	static FILES = {
-		input: "input.md",
-		prompt: "prompt.md",
-		model: "model.json",
+		answer: "answer.md",
 		files: "files.jsonl",
+		input: "input.md",
 		inputs: "inputs.jsonl",
+		model: "model.json",
+		prompt: "prompt.md",
+		reason: "reason.md",
 		response: "response.json",
 		parts: "stream.jsonl",
 		stream: "stream.md",
 		chunks: "chunks.jsonl",
 		unknowns: "unknowns.jsonl",
-		answer: "answer.md",
-		reason: "reason.md",
+		tests: "tests.json",
+		testsErr: "tests.err",
+		testsTxt: "tests.txt",
+		time: "time.json",
+		todo: "todo.md",
 		usage: "usage.json",
-		fail: "fail.json",
-		test: "test.txt",
 		messages: null,
 	}
 

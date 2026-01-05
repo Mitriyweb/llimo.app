@@ -8,6 +8,8 @@ export default class Path {
     constructor(input?: Partial<Path>);
     /** @type {string} */
     cwd: string;
+    /**  @returns {string} */
+    get sep(): string;
     /**
      * Get directory name
      * @param {string} path
@@ -48,4 +50,10 @@ export default class Path {
      * @returns {string}
      */
     normalize(path: string): string;
+    /**
+     * Splits the string by directory separator {this.sep}.
+     * @param {string} str
+     * @returns {string[]}
+     */
+    split(str: string): string[];
 }

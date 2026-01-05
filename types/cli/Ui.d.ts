@@ -36,13 +36,13 @@ export class UiFormats {
      * Formats money in USD with currency symbol and six decimals by default.
      * Delegates to pricing to keep consistent formatting.
      * @param {number} value
-     * @param {number} [digits=6]
+     * @param {number} [digits=4]
      * @returns {string}
      */
     money(value: number, digits?: number): string;
     /**
      * Formats timer elapsed in mm:ss.s format, caps at 3600s+.
-     * @param {number} elapsed - Seconds elapsed.
+     * @param {number} elapsed - Milliseconds elapsed.
      * @returns {string}
      */
     timer(elapsed: number): string;
@@ -118,9 +118,20 @@ export class UiConsole {
      * @todo write jsdoc
      * @param {string} line
      * @param {string} [space=" "]
+     * @param {string} [more="…"]
      * @returns {string}
      */
-    full(line: string, space?: string): string;
+    full(line: string, space?: string, more?: string): string;
+    /**
+     * Progress bar string.
+     * @param {number} i
+     * @param {number} len
+     * @param {number} [width=33]
+     * @param {string} [on="="]
+     * @param {string} [off=" "]
+     * @returns {string}
+     */
+    bar(i: number, len: number, width?: number, on?: string, off?: string): string;
     /**
      * @todo cover with tests.
      * @param {any[][]} rows
@@ -175,8 +186,12 @@ export class Ui {
     stderr: NodeJS.WriteStream;
     /** @type {UiConsole} */
     console: UiConsole;
+    /** @type {string[]} */
+    progressFrame: string[];
     /** @type {UiFormats} UiFormats instance to format numbers, if omitted new UiFormats() is used. */
     formats: UiFormats;
+    /** @type {string[]} Queue of predefined stdin values (if STDIN env var is set). */
+    definedInputs: string[];
     /**
      * Get debug mode status.
      *
@@ -203,6 +218,17 @@ export class Ui {
      */
     overwriteLine(line: string): void;
     /**
+     * Progress bar helper.
+     *
+     * @param {number} i
+     * @param {number} len
+     * @param {number} [width=33]
+     * @param {string} [on="="]
+     * @param {string} [off=" "]
+     * @returns {string}
+     */
+    bar(i: number, len: number, width?: number, on?: string, off?: string): string;
+    /**
      * Writes to stdout.
      * @param {Buffer | DataView | Error | string} buffer
      * @param {(err?: Error | undefined) => void} [cb]
@@ -210,6 +236,9 @@ export class Ui {
     write(buffer: Buffer | DataView | Error | string, cb?: (err?: Error | undefined) => void): void;
     /**
      * Prompt the user with a question and resolve with the answer.
+     *
+     * If predefined STDIN values are supplied via the STDIN environment variable,
+     * the next value from that queue is returned without asking the user.
      *
      * @param {string} question
      * @returns {Promise<string>}
@@ -229,8 +258,8 @@ export class Ui {
      * Create progress interval to call the fn() with provided fps.
      *
      * @typedef {Object} ProgressFnInput
-     * @property {number} elapsed
-     * @property {number} startTime
+     * @property {number} elapsed elapsed seconds
+     * @property {number} startTime start timestamp ms
      *
      * @param {(input: ProgressFnInput) => void} fn
      * @param {number} [startTime]
@@ -238,7 +267,13 @@ export class Ui {
      * @returns {NodeJS.Timeout}
      */
     createProgress(fn: (input: {
+        /**
+         * elapsed seconds
+         */
         elapsed: number;
+        /**
+         * start timestamp ms
+         */
         startTime: number;
     }) => void, startTime?: number, fps?: number): NodeJS.Timeout;
     /**
@@ -250,8 +285,14 @@ export class Ui {
     createStyle(options?: {
         paddingLeft?: number | undefined;
     }): UiStyle;
+    /**
+     * Renders the element
+     * @param {UiOutput} element
+     */
+    render(element: UiOutput): void;
 }
 export default Ui;
 export type LogTarget = "success" | "info" | "warn" | "error" | "debug" | "log";
 import Alert from "./components/Alert.js";
 import Table from "./components/Table.js";
+import UiOutput from "./UiOutput.js";

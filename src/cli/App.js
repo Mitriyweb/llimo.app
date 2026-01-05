@@ -219,6 +219,9 @@ export class ChatCLiApp {
 		const totalSize = prompt.length + all.length
 		const totalTokens = await this.chat.calcTokens(prompt + all)
 
+		packed.injected.forEach(file => this.ui.console.debug(`+ ${file}`))
+		this.ui.console.debug('Total size:', this.ui.formats.weight("b", totalSize))
+
 		const found = this.ai.ensureModel(model, totalTokens)
 		if (found && found.id !== model.id) {
 			this.ui.console.info(`@ Model changed due to ${this.ai.strategy.constructor.name}`)
@@ -240,7 +243,6 @@ export class ChatCLiApp {
 			" | ", this.ui.formats.money(cost, 2)
 		].filter(Boolean).join("")
 		this.ui.console.info(str)
-		packed.injected.forEach(file => this.ui.console.debug(`+ ${file}`))
 
 		// Show batch discount information
 		const discount = model.pricing?.getBatchDiscount() ?? []

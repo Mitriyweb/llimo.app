@@ -30,4 +30,11 @@ export default class ReleaseProtocol {
             text: string;
         }>;
     };
+    /** @param {Partial<ReleaseProtocol>} [input={}] */
+    constructor(input?: Partial<ReleaseProtocol>);
+    /** @type {string} */
+    version: string;
+    get x(): string;
+    get y(): string;
+    get z(): string;
 }

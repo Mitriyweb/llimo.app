@@ -10,6 +10,12 @@ export class Progress extends UiOutput {
     text: string;
     /** @type {string} */
     prefix: string;
+    /** @type {string[]} */
+    rows: string[];
+    /**
+     * @param {string} row
+     */
+    add(row: string): void;
     toString(options?: {}): string;
 }
 export default Progress;

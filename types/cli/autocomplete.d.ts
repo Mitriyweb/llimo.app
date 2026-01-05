@@ -10,6 +10,7 @@
  * @typedef {Object} ModelRow
  * @property {string} id - Model ID (info.id, not full key)
  * @property {number} context
+ * @property {number} maxOut
  * @property {string} provider
  * @property {string} modality
  * @property {number} inputPrice
@@ -17,6 +18,7 @@
  * @property {number} speed
  * @property {boolean} tools
  * @property {boolean} json
+ * @property {boolean} isModerated
  */
 /**
  *
@@ -106,6 +108,7 @@ export type ModelRow = {
      */
     id: string;
     context: number;
+    maxOut: number;
     provider: string;
     modality: string;
     inputPrice: number;
@@ -113,6 +116,7 @@ export type ModelRow = {
     speed: number;
     tools: boolean;
     json: boolean;
+    isModerated: boolean;
 };
 import ModelInfo from "../llm/ModelInfo.js";
 import Ui from "./Ui.js";

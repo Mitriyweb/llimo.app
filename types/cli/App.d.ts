@@ -66,18 +66,18 @@ export class ChatCLiApp {
     /**
      *
      * @param {number} [step=1]
-     * @returns {Promise<{ shouldContinue: boolean, test?: import("../cli/testing/node.js").TestOutput }>}
+     * @returns {Promise<{ shouldContinue: boolean, test?: import("./testing/node.js").SuiteParseResult }>}
      */
     test(step?: number): Promise<{
         shouldContinue: boolean;
-        test?: import("../cli/testing/node.js").TestOutput;
+        test?: import("./testing/node.js").SuiteParseResult;
     }>;
     /**
      *
-     * @param {import("../llm/chatSteps.js").TestOutput} tested
+     * @param {import("./testing/node.js").SuiteParseResult} tested
      * @param {number} [step=1]
      */
-    next(tested: import("../llm/chatSteps.js").TestOutput, step?: number): Promise<void>;
+    next(tested: import("./testing/node.js").SuiteParseResult, step?: number): Promise<void>;
     /**
      * Starts the chat:
      * 1. Detect the recent step
@@ -98,6 +98,9 @@ export class ChatCLiApp {
             injected: string[];
         };
     }>;
+    /**
+     * Run communication loop.
+     */
     loop(): Promise<void>;
     #private;
 }

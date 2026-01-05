@@ -120,3 +120,21 @@ describe("UiFormats.money formatting", () => {
 		assert.strictEqual(res, "-$12.3000")
 	})
 })
+
+describe("Ui.bar", () => {
+	const examples = [
+		[[0, 10, 10], "          "],
+		[[1, 10, 10], "=         "],
+		[[4, 10, 10], "====      "],
+		[[4, 10, 10, "+", "-"], "++++------"],
+		[[50, 10, 10], "=========="],
+		[[50, 10, 10], "=========="],
+	]
+	examples.forEach(([args, exp]) => {
+		it(`should render bar correctly ${JSON.stringify(args)}`, () => {
+			const ui = new Ui()
+			const result = ui.bar(...args)
+			assert.equal(result, exp)
+		})
+	})
+})

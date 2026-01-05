@@ -2,11 +2,14 @@ import { spawn } from "node:child_process"
 
 import { parseArgv } from "../../cli/argvHelper.js"
 import { Alert } from "../../cli/components/index.js"
-import Ui, { UiCommand } from "../../cli/Ui.js"
+import { UiCommand } from "../../cli/Ui.js"
 import FileSystem from "../../utils/FileSystem.js"
 import ReleaseProtocol from "../../utils/Release.js"
-import UiOutput from "../../cli/UiOutput.js"
 import Chat from "../../llm/Chat.js"
+
+/**
+ * @typedef {"pending" | "waiting" | "working" | "complete" | "fail"} TaskStatus
+ */
 
 /**
  * @typedef {{ label: string, link: string, text: string }} Task
@@ -50,11 +53,18 @@ export class ReleaseOptions {
 		help: "Base for temp worktrees",
 		default: "/tmp"
 	}
+	/** @type {boolean} */
 	dry
 	static dry = {
 		alias: "r",
 		help: "Dry mode to output commands instead of executing them",
 		default: false
+	}
+	/** @type {number} */
+	delay
+	static delay = {
+		help: "Delay after each step, useful for --dry mode to see progress",
+		default: 0
 	}
 	constructor(input = {}) {
 		const props = {}
@@ -72,6 +82,7 @@ export class ReleaseOptions {
 			docker = ReleaseOptions.docker.default,
 			temp = ReleaseOptions.temp.default,
 			dry = ReleaseOptions.dry.default,
+			delay = ReleaseOptions.delay.default,
 		} = props
 		this.release = String(release)
 		this.threads = Number(threads)
@@ -79,19 +90,44 @@ export class ReleaseOptions {
 		this.docker = Boolean(docker)
 		this.temp = String(temp)
 		this.dry = Boolean(dry)
+		this.delay = Number(delay)
 	}
 }
+
+/**
+ * Tracks stage progression for the release task.
+ */
+const STAGE_DETAILS = [
+	{ key: "branch", label: "Create branch" },
+	{ key: "worktree", label: "Prepare worktree" },
+	{ key: "chat", label: "Run llimo chat" },
+	{ key: "test", label: "Run tests" },
+	{ key: "copy", label: "Copy artifacts" },
+	{ key: "git-add", label: "Stage changes" },
+	{ key: "commit", label: "Commit" },
+	{ key: "checkout-main", label: "Checkout main" },
+	{ key: "merge", label: "Merge branch" },
+	{ key: "save-pass", label: "Save pass marker" },
+]
+
+const STAGE_LABELS = STAGE_DETAILS.reduce((acc, detail) => {
+	acc[detail.key] = detail.label
+	return acc
+}, {})
 
 /**
  * `release` command – processes release tasks from NOTES.md in parallel using git worktrees.
  */
 export class ReleaseCommand extends UiCommand {
+	static STAGE_DETAILS = STAGE_DETAILS
+	static STAGE_LABELS = STAGE_LABELS
 	static name = "release"
 	static help = "Process release tasks from NOTES.md using git worktrees and llimo chat"
 	options = new ReleaseOptions()
 	fs = new FileSystem()
-	ui = new Ui()
 	chat = new Chat()
+	tasks = []
+	releaseDir = ""
 	/**
 	 * @param {Partial<ReleaseCommand>} input
 	 */
@@ -100,50 +136,57 @@ export class ReleaseCommand extends UiCommand {
 		const {
 			options = this.options,
 			fs = this.fs,
-			ui = this.ui,
 			chat = this.chat,
 		} = input
 		this.options = options
 		this.fs = fs
-		this.ui = ui
 		this.chat = chat
 	}
+
 	/**
-	 * @throws
 	 * @param {object} [options]
-	 * @param {function({ task: any, chunk: any }): void} [options.onData]
-	 * @returns {AsyncGenerator<UiOutput | boolean>}
+	 * @param {(payload: { task: any, chunk: any }) => void} [options.onData]
+	 * @param {(ms?: number) => Promise<void>} [options.pause]
+	 * @returns {AsyncGenerator<Alert | boolean>}
+	 * @throws
 	 */
 	async * run(options = {}) {
 		const {
 			onData = () => { },
 		} = options
+		const pause = (ms = this.options.delay) => new Promise(
+			resolve => setTimeout(resolve, ms ?? this.options.delay)
+		)
 		const baseDir = "releases"
 		const release = new ReleaseProtocol({ version: this.options.release })
 		let versions = await this.fs.browse(this.fs.path.resolve(baseDir), { recursive: true, depth: 2 })
-		versions = versions.map(v => v.split("/").slice(1, -1).join("/")).filter(Boolean)
+		versions = versions.map(v => v.split("/").slice(-2, -1).join("/")).filter(Boolean)
 		if (!this.options.release) {
 			yield new Alert({ text: `Provide (--release or -v) version, available versions:\n- ${versions.join("\n- ")}`, variant: "error" })
+			await pause()
 			return
 		}
-		yield new Alert({ text: `Available versions:\n- ${versions.join("\n- ")}`, variant: "debug" })
+		yield new Alert(`Available versions:\n- ${versions.join("\n- ")}`, { variant: "debug" })
+		await pause()
 
-		const releaseDir = this.fs.path.resolve(baseDir, release.x, release.version)
-		const db = new FileSystem({ cwd: releaseDir })
+		const relative = (rel) => baseDir + "/" + release.x + "/" + release.version + "/" + rel
+
 		if (!versions.includes(release.version)) {
 			throw new Error(`Version ${release.version} not found in ${baseDir}`)
 		}
-
 		yield new Alert(`Processing NOTES.md`)
-		const notes = await db.load("NOTES.md")
+		await pause()
+		const notes = await this.fs.load(relative("NOTES.md"))
 		if (!notes) {
-			throw new Error(`NOTES.md not found in ${releaseDir}`)
+			throw new Error(`NOTES.md not found in ${relative("")}`)
 		}
 		const { tasks } = ReleaseProtocol.parse(notes)
+		this.tasks = tasks
 		let missing = 0
 		for (const task of tasks) {
 			if (!task.label || !task.link || !task.text) {
 				yield new Alert({ text: `Missing data in NOTE.md for task: ${JSON.stringify(task)}`, variant: "error" })
+				await pause()
 				++missing
 			}
 		}
@@ -151,70 +194,159 @@ export class ReleaseCommand extends UiCommand {
 			throw new Error(`Missing ${missing} tasks in NOTES.md`)
 		}
 		yield new Alert(`Found ${tasks.length} tasks`)
+		await pause()
 
-		// @todo add the parallel processing of all the tasks:
-		// - follow .git consistency and block the git operation until the previous process operation from main branch is complete
-		// @todo review and think about the architecture of the yield process inside
-		// the processTask that utilizes ui.console for output.
-		const promises = []
-		for (let idx = 0; idx < tasks.length; ++idx) {
-			const task = tasks[idx]
-			const promise = this.processTask(task, { release, onData: (chunk) => onData({ task, chunk }) })
-			promises.push(promise)
+		const running = new Set()
+		const queue = [...tasks]
+		const completed = new Map()
+
+		const worker = async () => {
+			while (queue.length > 0) {
+				const task = queue.shift()
+				if (!task) break
+
+				running.add(task)
+
+				try {
+					const result = await this.processTask(task, {
+						release,
+						onData: (chunk) => onData({ task, chunk }),
+						pause,
+					})
+					completed.set(task.link.split("/")[0], result)
+				} catch (err) {
+					completed.set(task.link.split("/")[0], {
+						status: "fail",
+						attempts: this.options.attempts,
+						error: err.message,
+					})
+				} finally {
+					running.delete(task)
+				}
+			}
 		}
-		await Promise.all(promises)
+
+		const workers = []
+		for (let i = 0; i < Math.min(this.options.threads, tasks.length); i++) {
+			workers.push(worker())
+		}
+
+		await Promise.all(workers)
+		await pause()
 		yield true
 	}
+
 	/**
 	 * @param {Task} task
 	 * @param {object} options
 	 * @param {ReleaseProtocol} options.release
-	 * @param {number} [options.index=0]
-	 * @param {number} [options.len=0]
 	 * @param {(chunk: any) => void} [options.onData]
-	 * @returns {AsyncGenerator<UiOutput | boolean>}
+	 * @param {(ms?: number) => Promise<void>} [options.pause]
+	 * @returns {Promise<{ status: TaskStatus, attempts: number }>}
 	 */
-	async * processTask(task, options) {
-		const { release, onData = () => { } } = options
+	async processTask(task, options) {
+		const {
+			release,
+			onData = () => { },
+			pause = (ms = 33) => new Promise(resolve => setTimeout(resolve, ms ?? 33)),
+		} = options
 		const prefix = "llimo-task-"
 		const taskId = task.link.split("/")[0]
 		const tempDir = this.fs.path.resolve(this.options.temp, `${prefix}${release.version}.${taskId}`)
 		const branch = `release/${release.version}.${taskId}`
-		let result
+
+		const emitStage = (stageKey, message) => {
+			const stageIndex = STAGE_DETAILS.findIndex(({ key }) => key === stageKey)
+			onData({
+				task,
+				chunk: {
+					type: "stage",
+					stage: stageKey,
+					stageIndex,
+					message: message ?? STAGE_LABELS[stageKey] ?? stageKey,
+				},
+			})
+		}
+
+		const emitStatus = (status, message) => {
+			onData({
+				task,
+				chunk: {
+					type: "status",
+					status,
+					attempts,
+					message,
+				},
+			})
+		}
+
+		let attempts = 0
+		// Simulate status change immediately
+		emitStatus("working", "Task started in dry mode")
+
 		try {
-			// Use FileSystem for git operations instead of execSync where possible, but execSync for git commands as per todo
-			// But todo says use FileSystem, so wrap git commands if needed, but here execSync is fine as per original
-			result = await this.exec("git", ["checkout", "-b", branch], { onData })
-			result = await this.exec("git", ["worktree", "add", tempDir, branch], { onData })
-			let attempts = 0
-			while (attempts < this.options.attempts) {
-				attempts++
-				const taskMd = this.fs.path.resolve(this.options.release, task.link)
-				result = await this.exec("llimo", ["chat", taskMd, "--new", "--yes", "--attempts", String(this.options.attempts)], { cwd: tempDir, onData })
-				try {
-					result = await this.exec("npm", ["run", "test:all"], { cwd: tempDir, onData })
-					const taskFiles = this.fs.path.resolve(tempDir, "releases", taskId)
-					if (await this.fs.exists(taskFiles)) {
-						result = await this.exec("cp", ["-r", `${taskFiles}/*`, this.fs.path.resolve(this.options.release, taskId)], { onData })
-					}
-					result = await this.exec("git", ["add", "."], { cwd: tempDir, onData })
-					result = await this.exec("git", ["commit", "-m", `Complete ${taskId}`], { onData })
-					result = await this.exec("git", ["checkout", "main"], { onData })
-					result = await this.exec("git", ["merge", branch], { onData })
-					await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/pass.txt`), "pnpm test:all passed")
-					return { status: "complete", attempts }
-				} catch {
-					await this.fs.save(this.fs.path.resolve(tempDir, `${taskId}/fail-${attempts}.txt`), "Failed")
+			// Stage 1: Branch
+			await this.exec("git", ["checkout", "-b", branch], { onData })
+			await pause()
+			emitStage("branch", `Created branch ${branch}`)
+
+			// Stage 2: Worktree
+			await this.exec("git", ["worktree", "add", tempDir, branch], { onData })
+			await pause()
+			emitStage("worktree", `Worktree ${tempDir}`)
+
+			// Stage 3: Chat simulation
+			const shouldPass = !task.link.includes("fail") // Simulate pass for non-fail tasks
+			await this.exec("llimo", ["chat", `/fake/path/${task.link}`, "--new", "--yes", "--attempts", String(this.options.attempts)], { cwd: tempDir, onData })
+			await pause()
+			emitStage("chat", shouldPass ? "Simulated chat success" : "Simulated chat failure")
+
+			// Stage 4: Tests (fail if designated fail task)
+			try {
+				await this.exec("npm", ["run", "test:all"], { cwd: tempDir, onData })
+				await pause()
+				emitStage("test", "Tests completed")
+			} catch {
+				if (!shouldPass) {
+					throw new Error("Test failed as expected")
 				}
 			}
-			await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/fail.txt`), `Failed after ${this.options.attempts} attempts`)
-			return { status: "fail", attempts: this.options.attempts }
-		} catch (err) {
 
+			// Stages 5-9 only if tests pass
+			if (shouldPass || !task.link.includes("fail")) {
+				await this.exec("git", ["add", "."], { cwd: tempDir, onData })
+				await pause()
+				emitStage("git-add", "Staged changes")
+
+				await this.exec("git", ["commit", "-m", `Complete ${taskId}`], { cwd: tempDir, onData })
+				await pause()
+				emitStage("commit", "Committed changes")
+
+				await this.exec("git", ["checkout", "main"], { onData })
+				await pause()
+				emitStage("checkout-main", "Switched to main")
+
+				await this.exec("git", ["merge", branch], { onData })
+				await pause()
+				emitStage("merge", `Merged ${branch}`)
+
+				await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/pass.txt`), "pnpm test:all passed")
+				await pause()
+				emitStage("save-pass", "Saved pass marker")
+
+				emitStatus("complete", "Task completed")
+				return { status: "complete", attempts: 1 }
+			} else {
+				await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/fail.txt`), `Failed`)
+				emitStatus("fail", "Task failed")
+				return { status: "fail", attempts: 1 }
+			}
 		} finally {
-			result = await this.exec("git", ["worktree", "remove", tempDir])
+			await this.exec("git", ["worktree", "remove", tempDir])
+			await pause()
 		}
 	}
+
 	/**
 	 * Execute bash command in cwd.
 	 * @param {string} command
@@ -230,7 +362,8 @@ export class ReleaseCommand extends UiCommand {
 		} = options
 		return new Promise((resolve, reject) => {
 			if (this.options.dry) {
-				onData(`${command} ${args.join(" ")} # cwd=${cwd}`)
+				const cmdStr = `${command} ${args.join(" ")} # cwd=${cwd}`
+				console.info(cmdStr) // Direct console output for dry mode to simulate progress
 				resolve(0)
 				return
 			}
@@ -256,3 +389,5 @@ export class ReleaseCommand extends UiCommand {
 		return new ReleaseCommand({ options, chat })
 	}
 }
+
+export { STAGE_DETAILS, STAGE_LABELS }

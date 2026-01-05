@@ -87,12 +87,14 @@ export default class FileSystem {
      * @param {boolean} [options.recursive=false] Whether to browse recursively.
      * @param {string[]} [options.ignore=[]] An array of directory/file patterns to ignore (supports glob patterns).
      * @param {(dir: string, entries: string[]) => Promise<void>} [options.onRead] Callback for each directory read.
+     * @param {number} [options.depth=Infinity] Maximum depth to traverse.
      * @returns {Promise<string[]>} A promise that resolves to an array of file/directory paths.
      */
     browse(path: string, options?: {
         recursive?: boolean | undefined;
         ignore?: string[] | undefined;
         onRead?: ((dir: string, entries: string[]) => Promise<void>) | undefined;
+        depth?: number | undefined;
     }): Promise<string[]>;
     /**
      * Relative proxy of stat().

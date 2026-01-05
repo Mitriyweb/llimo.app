@@ -56,7 +56,7 @@ export async function selectModel(models, modelPartial, providerPartial, ui, onS
 	let candidates = findCandidates(modelPartial, providerPartial)
 
 	if (candidates.length === 0) {
-		ui.console.warn(`❌ No models match the criteria – model:${modelPartial ?? "*"} provider:${providerPartial ?? "*"}`)
+		ui.console.warn(`! No models match the criteria – model:${modelPartial ?? "*"} provider:${providerPartial ?? "*"}`)
 		ui.console.warn(`  Looking for the same model pattern in all providers`)
 		candidates = findCandidates(modelPartial)
 	}

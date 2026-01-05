@@ -26,8 +26,8 @@ describe("chatProgress - Standard multi‑line format", () => {
 		const clock = { startTime: now - 500 }
 		const lines = formatChatProgress({ usage, clock, model, now })
 		assert.deepStrictEqual(lines, [
-			'read | 0:00 | $0.1470 | 420T | 840T/s',
-			'chat | 0:00 | $0.1470 | 420T | 840T/s | 130,580T',
+			'read | 0:01 | $0.1470 | 420T | 840T/s',
+			'chat | 0:01 | $0.1470 | 420T | 840T/s | 130,580T',
 		])
 	})
 	it("should draw second progress (read + reason)", () => {
@@ -35,9 +35,9 @@ describe("chatProgress - Standard multi‑line format", () => {
 		const clock = { startTime: now - 600, reasonTime: now - 100 }
 		const lines = formatChatProgress({ usage, clock, model, now })
 		assert.deepStrictEqual(lines, [
-			'  read | 0:00 | $0.1470 | 420T | 840T/s',
+			'  read | 0:01 | $0.1470 | 420T | 840T/s',
 			'reason | 0:00 | $0.0008 |   1T |  10T/s',
-			'  chat | 0:00 | $0.1478 | 421T | 702T/s | 130,579T',
+			'  chat | 0:01 | $0.1478 | 421T | 702T/s | 130,579T',
 		])
 	})
 	it("should draw third progress (read + reason + asnwer)", () => {
@@ -45,10 +45,10 @@ describe("chatProgress - Standard multi‑line format", () => {
 		const clock = { startTime: now - 31_600, reasonTime: now - 24_100, answerTime: now - 23_000 }
 		const lines = formatChatProgress({ usage, clock, model, now })
 		assert.deepStrictEqual(lines, [
-			'  read | 0:07 |  $0.1470 |    420T |    56T/s',
+			'  read | 0:08 |  $0.1470 |    420T |    56T/s',
 			'reason | 0:01 |  $0.0008 |      1T |     1T/s',
 			'answer | 0:23 | $22.5000 | 30,000T | 1,304T/s',
-			'  chat | 0:31 | $22.6478 | 30,421T |   963T/s | 100,579T',
+			'  chat | 0:32 | $22.6478 | 30,421T |   963T/s | 100,579T',
 		])
 	})
 
@@ -97,7 +97,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now - 500 }
 		const lines = formatChatProgress({ usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:00 | $0.1470 | read | 0:00 | 420T | 840T/s | 130,580T of 131,000T',
+			'step 1 | 0:01 | $0.1470 | read | 0:00 | 420T | 840T/s | 130,580T of 131,000T',
 		])
 	})
 	it("should draw second progress (read + reason)", () => {
@@ -105,7 +105,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now - 600, reasonTime: now - 100 }
 		const lines = formatChatProgress({ usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:00 | $0.1478 | reason | 0:00 | 1T | 10T/s | 130,579T of 131,000T',
+			'step 1 | 0:01 | $0.1478 | reason | 0:00 | 1T | 10T/s | 130,579T of 131,000T',
 		])
 	})
 	it.todo("should draw third progress (read + reason + asnwer)", () => {

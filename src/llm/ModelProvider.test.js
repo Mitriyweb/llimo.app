@@ -6,75 +6,8 @@ import ModelInfo from "./ModelInfo.js"
 import { fileURLToPath } from "node:url"
 import { dirname } from "node:path"
 const __dirname = dirname(fileURLToPath(import.meta.url))
+import TestFileSystem from "../cli/testing/TestFileSystem.js"
 
-class TestFileSystem extends FileSystem {
-	#logs = []
-	/** @type {Map<string, any>} */
-	#data
-	/**
-	 *
-	 * @param {Partial<FileSystem> & { data: readonly<[ string, any ]> | Map<string, any> }} input
-	 */
-	constructor(input = {}) {
-		const {
-			data = [],
-			...rest
-		} = input
-		super(rest)
-		const temp = new Map(data)
-		this.#data = new Map()
-		temp.forEach((value, path) => {
-			this.#data.set(this.path.normalize(path), value)
-		})
-	}
-	norm
-	/**
-	 * @param {string} path
-	 * @returns {Promise<boolean>}
-	 */
-	async access(path) {
-		this.#logs.push(["access", { path }])
-		return true
-	}
-	/**
-	 * @param {string} path
-	 * @param {BufferEncoding} encoding
-	 * @returns {Promise<any>}
-	 */
-	async load(path, encoding) {
-		const rel = this.path.normalize(path)
-		if (this.#data.has(rel)) {
-			return this.#data.get(rel)
-		}
-	}
-	/**
-	 * Sets the #data value for path.
-	 * @param {string} path
-	 * @param {any} [data]
-	 * @param {any} [options]
-	 * @returns {Promise<void>}
-	 */
-	async save(path, data, options) {
-		this.#data.set(this.path.normalize(path), data)
-	}
-	/**
-	 * @param {string} path
-	 * @returns {Promise<import("node:fs").Stats>>}
-	 */
-	async info(path) {
-		const rel = this.path.normalize(path)
-		const exists = this.#data.has(rel)
-		const size = exists ? JSON.stringify(this.#data.get(rel)).length : 0
-		const now = exists ? Date.now() : 0
-		return {
-			isFile: () => exists,
-			size,
-			ctimeMs: now,
-			atimeMs: now,
-			mtimeMs: now,
-		}
-	}
-}
 
 describe("ModelProvider", () => {
 	/** @type {ModelProvider} */

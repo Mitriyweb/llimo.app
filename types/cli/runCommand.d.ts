@@ -1,8 +1,9 @@
 /**
- * Execute a shell command, return stdout / stderr / exit code.
- *
  * @typedef {{ stdout: string, stderr: string, exitCode: number }} runCommandResult
  * @typedef {(cmd: string, args: string[], opts: object) => Promise<runCommandResult>} runCommandFn
+ */
+/**
+ * Execute a shell command, return stdout / stderr / exit code.
  *
  * @param {string} command
  * @param {string[]} [args=[]]
@@ -22,15 +23,9 @@ export function runCommand(command: string, args?: string[], input?: {
     stderr: string;
     exitCode: number;
 }>;
-/**
- * Execute a shell command, return stdout / stderr / exit code.
- */
 export type runCommandResult = {
     stdout: string;
     stderr: string;
     exitCode: number;
 };
-/**
- * Execute a shell command, return stdout / stderr / exit code.
- */
 export type runCommandFn = (cmd: string, args: string[], opts: object) => Promise<runCommandResult>;

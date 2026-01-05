@@ -231,3 +231,40 @@
 	• src/llm/providers/cerebras.info.js (5,279 bytes) — Fixed providers/cerebras.info.js
 	Unpack current package? (Y)es, No, ., <message>: %  
 	```
+- Only one of @ls entries is shown in the output, instead of three:
+	```md
+	#### [Cleanup & Archive](@bash)
+	```bash
+	mkdir -p archive/{fixes,backups,debug,logs/$(date +%Y%m%d)}
+	mv app/fix_* archive/fixes/ 2>/dev/null || true
+	mv app/backup_* archive/backups/ 2>/dev/null || true
+	mv app/debug_* archive/debug/ 2>/dev/null || true
+	rm -f app/*.deprecated 2>/dev/null || true
+	mv app/logs/* archive/logs/$(date +%Y%m%d)/ 2>/dev/null || true
+	echo "archive/
+	logs/
+	*.log
+	__pycache__/
+	.venv/" >> .gitignore
+	```
+	#### [Verify Cleanup](@ls)
+	```
+	archive/
+	app/
+	.gitignore
+	```
+	#### [4 file(s), 2 command(s)](@validate)
+	```markdown
+	- [Cleanup & Archive](@bash)
+	- [Verify Cleanup](@ls)
+	- [Updated .gitignore](.gitignore)
+	```
+	```
+- List files for one file injects file instead of listing.
+- Removing files before approval:
+	```bash
+	• app/script-init.js (530 bytes) — Extract Init
+	▶ @rm
+	 • Removing files:
+	 + Removed: app/script.js
+	```

@@ -97,24 +97,6 @@ export function decodeAnswer({ ui, chat, options, logs }: {
     prompt: string;
 }>;
 /**
- * @param {Object} param0
- * @param {Ui} param0.ui
- * @param {Chat} param0.chat
- * @param {Function} param0.runCommand
- * @param {number} [param0.step=1]
- * @param {(chunk) => void} [param0.onData]
- * @returns {Promise<import('../cli/runCommand.js').runCommandResult & { parsed: TestOutput }>}
- */
-export function runTests({ ui, chat, runCommand, step, onData }: {
-    ui: Ui;
-    chat: Chat;
-    runCommand: Function;
-    step?: number | undefined;
-    onData?: ((chunk: any) => void) | undefined;
-}): Promise<import("../cli/runCommand.js").runCommandResult & {
-    parsed: TestOutput;
-}>;
-/**
  *
  * @param {import('../cli/testing/node.js').TestInfo[]} tests
  * @param {Ui} ui
@@ -132,7 +114,7 @@ export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], 
  */
 export function printAnswer(input: {
     ui: Ui;
-    type?: "fail" | "skip" | "todo" | undefined;
+    type?: "todo" | "fail" | "skip" | undefined;
     tests?: import("../cli/testing/node.js").TestInfo[] | undefined;
     content?: string[] | undefined;
 }): Promise<boolean>;
@@ -148,7 +130,7 @@ export function printAnswer(input: {
  * @param {import('../cli/runCommand.js').runCommandFn} input.runCommand Function to execute shell commands
  * @param {ChatOptions} input.options Always yes to user prompts
  * @param {number} [input.step] Optional step number for per-step files
- * @returns {Promise<{testsCode?: boolean, shouldContinue: boolean, test?: import('../cli/testing/node.js').TapParseResult}>}
+ * @returns {Promise<{pass?: boolean, shouldContinue: boolean, test?: import('../cli/testing/node.js').TapParseResult}>}
  */
 export function decodeAnswerAndRunTests(input: {
     ui: import("../cli/Ui.js").default;
@@ -158,10 +140,40 @@ export function decodeAnswerAndRunTests(input: {
     options: ChatOptions;
     step?: number | undefined;
 }): Promise<{
-    testsCode?: boolean;
+    pass?: boolean;
     shouldContinue: boolean;
     test?: import("../cli/testing/node.js").TapParseResult;
 }>;
+/**
+ * @typedef {Object} runTestsResult
+ * @property {boolean} pass
+ * @property {boolean} shouldContinue
+ * @property {import("../cli/testing/node.js").SuiteParseResult} [test]
+ *
+ * @param {Object} input
+ * @param {Ui} input.ui
+ * @param {FileSystem} input.fs
+ * @param {Chat} input.chat
+ * @param {import("../cli/runCommand.js").runCommandFn} input.runCommand
+ * @param {number} [input.step=1]
+ * @param {string[]} [input.logs=[]]
+ * @param {object} [input.options={}]
+ * @returns {Promise<runTestsResult>}
+ */
+export function runTests(input: {
+    ui: Ui;
+    fs: FileSystem;
+    chat: Chat;
+    runCommand: import("../cli/runCommand.js").runCommandFn;
+    step?: number | undefined;
+    logs?: string[] | undefined;
+    options?: object;
+}): Promise<runTestsResult>;
+export type runTestsResult = {
+    pass: boolean;
+    shouldContinue: boolean;
+    test?: import("../cli/testing/node.js").SuiteParseResult | undefined;
+};
 import FileSystem from "../utils/FileSystem.js";
 import Ui from "../cli/Ui.js";
 import Chat from "./Chat.js";

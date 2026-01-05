@@ -1,10 +1,12 @@
 import { spawn as defaultSpawn } from "node:child_process"
 
 /**
- * Execute a shell command, return stdout / stderr / exit code.
- *
  * @typedef {{ stdout: string, stderr: string, exitCode: number }} runCommandResult
  * @typedef {(cmd: string, args: string[], opts: object) => Promise<runCommandResult>} runCommandFn
+ */
+
+/**
+ * Execute a shell command, return stdout / stderr / exit code.
  *
  * @param {string} command
  * @param {string[]} [args=[]]

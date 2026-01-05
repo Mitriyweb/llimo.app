@@ -1,56 +1,12 @@
 /**
- * @typedef {Object} TestInfo
- * @property {"todo" | "fail" | "pass" | "cancelled" | "skip" | "types"} type
- * @property {number} no
- * @property {string} text
- * @property {number} indent
- * @property {number} [parent]
- * @property {string} [file]
- * @property {object} [doc]
- * @property {[number, number]} [position]
- *
- * @typedef {Object} TestOutputLogEntry
- * @property {number} i
- * @property {number} no
- * @property {string} str
- *
- * @typedef {Object} TestOutputLogs
- * @property {TestOutputLogEntry[]} fail
- * @property {TestOutputLogEntry[]} cancelled
- * @property {TestOutputLogEntry[]} pass
- * @property {TestOutputLogEntry[]} tests
- * @property {TestOutputLogEntry[]} suites
- * @property {TestOutputLogEntry[]} skip
- * @property {TestOutputLogEntry[]} todo
- * @property {TestOutputLogEntry[]} duration
- * @property {TestOutputLogEntry[]} types
- *
- * @typedef {Object} TestOutputCounts
- * @property {number} fail
- * @property {number} cancelled
- * @property {number} pass
- * @property {number} tests
- * @property {number} suites
- * @property {number} skip
- * @property {number} todo
- * @property {number} duration
- * @property {number} types
- *
- * @typedef {{ logs: TestOutputLogs, counts: TestOutputCounts, types: Set<number>, tests: TestInfo[], guess: TestOutputCounts }} TestOutput
- *
- * @param {string} stdout
- * @param {string} stderr
- * @param {FileSystem} [fs]
- * @returns {TestOutput}
- */
-export function parseOutput(stdout: string, stderr: string, fs?: FileSystem): TestOutput;
-/**
  * @typedef {Object} TapParseResult
  * @property {string} [version]
  * @property {TestInfo[]} tests
  * @property {Map<number, Error>} errors
  * @property {Map<number, string>} unknowns
  * @property {Map<string, number>} counts
+ *
+ * @typedef {TapParseResult & { tap: TapParseResult, ts: TapParseResult }} SuiteParseResult
  */
 /**
  * TAP parser – extracts test‑level information from raw TAP output.
@@ -103,13 +59,21 @@ export class DeclarationTS extends Tap {
 }
 export class Suite extends Tap {
     /**
-     * @returns {TapParseResult & { tap: TapParseResult, ts: TapParseResult }}
+     * @returns {SuiteParseResult}
      */
-    parse(): TapParseResult & {
-        tap: TapParseResult;
-        ts: TapParseResult;
-    };
+    parse(): SuiteParseResult;
 }
+export type TapParseResult = {
+    version?: string | undefined;
+    tests: TestInfo[];
+    errors: Map<number, Error>;
+    unknowns: Map<number, string>;
+    counts: Map<string, number>;
+};
+export type SuiteParseResult = TapParseResult & {
+    tap: TapParseResult;
+    ts: TapParseResult;
+};
 export type TestInfo = {
     type: "todo" | "fail" | "pass" | "cancelled" | "skip" | "types";
     no: number;
@@ -153,12 +117,5 @@ export type TestOutput = {
     types: Set<number>;
     tests: TestInfo[];
     guess: TestOutputCounts;
-};
-export type TapParseResult = {
-    version?: string | undefined;
-    tests: TestInfo[];
-    errors: Map<number, Error>;
-    unknowns: Map<number, string>;
-    counts: Map<string, number>;
 };
 import FileSystem from "../../utils/FileSystem.js";
