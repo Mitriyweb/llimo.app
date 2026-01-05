@@ -2,6 +2,9 @@
 	"name": "@nan0web/llimo.app",
 	"version": "1.0.0",
 	"description": "",
+	"engines": {
+		"node": ">=25"
+	},
 	"main": "bin/llimo-chat.js",
 	"type": "module",
 	"types": "./types/index.d.ts",
