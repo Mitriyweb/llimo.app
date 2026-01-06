@@ -118,9 +118,6 @@ export class ChatCLiApp {
 			}
 		}
 
-		if (!shouldContinue) {
-			return false
-		}
 		return shouldContinue
 	}
 	async initAI(isYes = false) {
@@ -404,6 +401,7 @@ export class ChatCLiApp {
 			}
 			const tested = await this.test(step)
 			if (!tested.shouldContinue) break
+			if (!tested.test) break
 			await this.next(tested.test, step)
 			++step
 		}
@@ -411,3 +409,4 @@ export class ChatCLiApp {
 		await this.chat.save("steps.jsonl", this.#steps)
 	}
 }
+

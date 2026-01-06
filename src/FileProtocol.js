@@ -74,7 +74,7 @@ export class FileProtocol {
 	 * @returns {ValidateResult}
 	 */
 	static validate(correct = []) {
-		const validate = correct.filter(file => "@validate" === file.filename)[0]
+		const validate = correct.find(file => "@validate" === file.filename) ?? null
 		let isValid = false
 		const requested = []
 		/** @type {readonly (readonly [any, any])[] | null} */
@@ -85,9 +85,9 @@ export class FileProtocol {
 		const a = files.map(([f]) => f).sort()
 		if (validate) {
 			validate.content.split("\n").map(s => {
-				if (!s.startsWith("- [") && !s.endsWith(")")) return ""
+				if (!s.startsWith("- [") || !s.endsWith(")")) return ""
 				const [label, name = ""] = s.slice(3, -1).split("](")
-				requested.push([name, label])
+				if (label && name) requested.push([name, label])
 			}).filter(Boolean)
 			const b = requested.map(([f]) => f).sort()
 			/**
@@ -120,3 +120,4 @@ export class FileProtocol {
 		return { correct: [], failed: [], isValid: false, validate: null }
 	}
 }
+

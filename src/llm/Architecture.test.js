@@ -31,6 +31,7 @@ describe("Architecture", () => {
 		const input = {
 			input_modalities: "not-an-array",
 		}
+		// @ts-ignore invalid arrayss
 		const arch = new Architecture(input)
 		assert.deepStrictEqual(arch.input_modalities, [])
 	})

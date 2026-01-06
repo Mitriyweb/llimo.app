@@ -197,7 +197,7 @@ export class TestCommand extends InfoCommand {
 	/**
 	 * @param {object} [input]
 	 * @param {string[]} [input.argv=[]]
-	 * @param {Partial<Chat>} [input.chat]
+	 * @param {Chat} [input.chat]
 	 * @returns {TestCommand}
 	 */
 	static create(input = {}) {

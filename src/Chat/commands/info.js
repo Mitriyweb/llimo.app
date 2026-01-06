@@ -165,3 +165,4 @@ export class InfoCommand extends UiCommand {
 		return new InfoCommand({ options, chat })
 	}
 }
+

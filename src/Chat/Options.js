@@ -111,3 +111,4 @@ export default class ChatOptions {
 		this.argv = argv
 	}
 }
+

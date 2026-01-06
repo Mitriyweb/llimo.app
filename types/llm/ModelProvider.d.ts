@@ -64,9 +64,9 @@ export class ModelProvider {
     /**
      * @param {Array} raw
      * @param {AvailableProvider} name
-     * @returns {}
+     * @returns {ModelInfo[]}
      */
-    flatten(raw: any[], name: AvailableProvider): any;
+    flatten(raw: any[], name: AvailableProvider): ModelInfo[];
     #private;
 }
 export type AvailableProvider = "cerebras" | "openrouter" | "huggingface";

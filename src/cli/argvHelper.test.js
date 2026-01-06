@@ -6,9 +6,13 @@ import { parseArgv } from "./argvHelper.js"
 class ChatOptions {
 	argv = []
 	isNew = false
+	static isNew = { default: false, alias: "new" }
 	isYes = false
+	static isYes = { default: false, alias: "yes" }
 	testMode = null
+	static testMode = { default: "", alias: "test" }
 	testDir = null
+	static testDir = { default: "", alias: "test-dir" }
 
 	constructor(obj = {}) {
 		Object.assign(this, obj)
@@ -17,6 +21,7 @@ class ChatOptions {
 
 describe("argvHelper", () => {
 	describe("parseArgv", () => {
+		/** @type {Array<[string[], object]>} */
 		const expectations = [
 			[["me.md", "--new"], { argv: ["me.md"], isNew: true }],
 			[["me.md", "--new", "--yes"], { argv: ["me.md"], isNew: true, isYes: true }],
@@ -34,10 +39,6 @@ describe("argvHelper", () => {
 
 		for (const [argv, obj] of expectations) {
 			it(`should parse ${argv.join(" ")}`, () => {
-				ChatOptions.isNew = { type: "boolean", default: false, alias: "new" }
-				ChatOptions.isYes = { type: "boolean", default: false, alias: "yes" }
-				ChatOptions.testMode = { type: "string", default: null, alias: "test" }
-				ChatOptions.testDir = { type: "string", default: null, alias: "test-dir" }
 				const parsed = parseArgv(argv, ChatOptions)
 				assert.deepStrictEqual(parsed, new ChatOptions(obj))
 			})
@@ -48,3 +49,4 @@ describe("argvHelper", () => {
 		})
 	})
 })
+

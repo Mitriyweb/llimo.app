@@ -30,7 +30,7 @@ describe("pack module", () => {
 			"- [Types](types/index.d.ts)"
 		].join("\n")
 		const out = []
-		const onRead = (dir, entries) => {
+		const onRead = async (dir, entries) => {
 			out.push({ dir, entries })
 		}
 		const { injected, text } = await packMarkdown({ input, cwd: tempDir, onRead })
@@ -51,7 +51,7 @@ describe("pack module", () => {
 			"- [@ls;-**/*.test.js](src/**)",
 		].join("\n")
 		const out = []
-		const onRead = (dir, entries) => {
+		const onRead = async (dir, entries) => {
 			out.push({ dir, entries })
 		}
 		const { text } = await packMarkdown({ input, cwd: tempDir, onRead })
@@ -65,7 +65,7 @@ describe("pack module", () => {
 			"- [@ls;-types](**)",
 		].join("\n")
 		const out = []
-		const onRead = (dir, entries) => {
+		const onRead = async (dir, entries) => {
 			out.push({ dir, entries })
 		}
 		const { text } = await packMarkdown({ input, cwd: tempDir, onRead })

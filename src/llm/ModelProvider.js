@@ -160,7 +160,7 @@ export class ModelProvider {
 						"https://router.huggingface.co/v1/models",
 						{ Authorization: `Bearer ${HF_TOKEN}` }
 					)
-				} catch (err) {
+				} catch (/** @type {any} */ err) {
 					console.debug(`HF fetch failed, using static: ${err.message}`)
 					return [] // Fallback to static info only.
 				}
@@ -230,6 +230,8 @@ export class ModelProvider {
 					}
 					const { providers, ...rest } = model
 					// @todo transform platform-specific info into ModelInfo before pushing it
+					// supports only HuggingFace providers, and OpenRouter flat version
+					// @ts-ignore
 					push(new ModelInfo({ ...pre, ...rest, ...opts, provider: pro }))
 				}
 			} else {
@@ -295,7 +297,7 @@ export class ModelProvider {
 			noCache = false,
 		} = options
 
-		/** @type {AvailableProvider[]} */
+		/** @type {ModelInfo[]} */
 		const all = []
 
 		for (const name of ModelProvider.AvailableProviders) {
@@ -327,7 +329,7 @@ export class ModelProvider {
 	/**
 	 * @param {Array} raw
 	 * @param {AvailableProvider} name
-	 * @returns {}
+	 * @returns {ModelInfo[]}
 	 */
 	flatten(raw, name) {
 		const transformer = transformers[name] ?? (models => models)

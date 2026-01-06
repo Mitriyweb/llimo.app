@@ -1,7 +1,7 @@
 import { selectModel } from "../llm/selectModel.js"
 
 /**
- * @param {import("../llm/ModelInfo.js").default} model
+ * @param {import("../llm/ModelInfo.js").ModelInfo} model
  * @param {import("./Ui.js").Ui} ui
  */
 export function showModel(model, ui) {
@@ -29,16 +29,16 @@ export function showModel(model, ui) {
  * Pre-selects a model (loads from cache or defaults). If multiple matches,
  * shows the table and prompts. Persists selection to chat.config.model.
  *
- * @param {import("../llm/AI.js").default} ai
+ * @param {import("../llm/AI.js").AI} ai
  * @param {import("./Ui.js").Ui} ui
  * @param {string} modelStr
  * @param {string} providerStr
- * @param {(chosen: import("../llm/ModelInfo.js").default) => void} [onSelect]   Current chat instance
- * @returns {Promise<import("../llm/ModelInfo.js").default>}
+ * @param {(chosen: import("../llm/ModelInfo.js").ModelInfo) => void} [onSelect]   Current chat instance
+ * @returns {Promise<import("../llm/ModelInfo.js").ModelInfo>}
  */
 export async function selectAndShowModel(ai, ui, modelStr, providerStr, onSelect = () => { }) {
 	const DEFAULT_MODEL = "gpt-oss-120b:free"
-	/** @type {import("../llm/ModelInfo.js").default | undefined} */
+	/** @type {import("../llm/ModelInfo.js").ModelInfo | undefined} */
 	let model
 	if (modelStr || providerStr) {
 		model = await selectModel(ai.getModelsMap(), modelStr, providerStr, ui, onSelect)

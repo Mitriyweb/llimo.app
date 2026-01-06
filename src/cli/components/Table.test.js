@@ -10,6 +10,7 @@ class TestUi extends Ui {
 		this.console = new UiConsole()
 		this.console.table = (rows = [], options = {}) => {
 			this.calls.push([rows, options])
+			return this.calls
 		}
 	}
 }

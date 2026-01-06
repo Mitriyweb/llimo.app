@@ -96,13 +96,23 @@ export class ReleaseOptions {
 
 /**
  * Tracks stage progression for the release task.
+ * 1. Create temporary directory
+ * 2. cd tmpdir && git clone projectdir tmpdir
+ * 3. cd tmpdir
+ * 4. git checkout -b vX.Y.Z.001-Task
+ * 5. git worktree? - really needed
+ * 6. llimo chat releases/X/vX.Y.Z/001-Task/task.md --yes --new --attempts attempts # model must be defined inside task.md ---header config--
+ * 7. run tests until everything pass or attempts exhausted, if fail go to step 6 with error log
+ * 8. git commit -a -m "Task is complete {with fails?}" projectdir
+ * 9. rm -rf tmpdir
+ * 10. cd projectdir && wait until git.lock is missing && touch git.lock && git checkout vX.Y.Z.001-Task && if releases/X/vX.Y.Z/001-Task/tests.pass exists && git merge to main && rm git.lock
  */
 const STAGE_DETAILS = [
 	{ key: "branch", label: "Create branch" },
 	{ key: "worktree", label: "Prepare worktree" },
 	{ key: "chat", label: "Run llimo chat" },
 	{ key: "test", label: "Run tests" },
-	{ key: "copy", label: "Copy artifacts" },
+	// { key: "copy", label: "Copy artifacts" },
 	{ key: "git-add", label: "Stage changes" },
 	{ key: "commit", label: "Commit" },
 	{ key: "checkout-main", label: "Checkout main" },
@@ -138,7 +148,7 @@ export class ReleaseCommand extends UiCommand {
 			fs = this.fs,
 			chat = this.chat,
 		} = input
-		this.options = options
+		this.options = options instanceof ReleaseOptions ? options : new ReleaseOptions(options)
 		this.fs = fs
 		this.chat = chat
 	}
@@ -159,7 +169,7 @@ export class ReleaseCommand extends UiCommand {
 		)
 		const baseDir = "releases"
 		const release = new ReleaseProtocol({ version: this.options.release })
-		let versions = await this.fs.browse(this.fs.path.resolve(baseDir), { recursive: true, depth: 2 })
+		let versions = await this.fs.browse(baseDir, { recursive: true, depth: 2 })
 		versions = versions.map(v => v.split("/").slice(-2, -1).join("/")).filter(Boolean)
 		if (!this.options.release) {
 			yield new Alert({ text: `Provide (--release or -v) version, available versions:\n- ${versions.join("\n- ")}`, variant: "error" })
@@ -268,6 +278,7 @@ export class ReleaseCommand extends UiCommand {
 			})
 		}
 
+		let attempts = 0
 		const emitStatus = (status, message) => {
 			onData({
 				task,
@@ -280,71 +291,74 @@ export class ReleaseCommand extends UiCommand {
 			})
 		}
 
-		let attempts = 0
-		// Simulate status change immediately
-		emitStatus("working", "Task started in dry mode")
+		// Stage 0 - pending (implicit)
+		emitStatus("pending", "Task queued")
+		attempts++
 
+		// Stage 1: Branch
+		await this.exec("git", ["checkout", "-b", branch], { onData })
+		await pause()
+		emitStage("branch", `Created branch ${branch}`)
+
+		// Stage 2: Worktree
+		await this.exec("git", ["worktree", "add", tempDir, branch], { onData })
+		await pause()
+		emitStage("worktree", `Worktree ${tempDir}`)
+
+		// Stage 3: Chat simulation
+		const shouldPass = !task.link.includes("fail") // Simulate pass for non-fail tasks
+		emitStatus("working", "Task started")
+		await this.exec("llimo", ["chat", `/fake/path/${task.link}`, "--new", "--yes", "--attempts", String(this.options.attempts)], { cwd: tempDir, onData })
+		await pause()
+		emitStage("chat", shouldPass ? "Simulated chat success" : "Simulated chat failure")
+
+		// Stage 4: Tests (fail if designated fail task)
 		try {
-			// Stage 1: Branch
-			await this.exec("git", ["checkout", "-b", branch], { onData })
+			await this.exec("npm", ["run", "test:all"], { cwd: tempDir, onData })
 			await pause()
-			emitStage("branch", `Created branch ${branch}`)
-
-			// Stage 2: Worktree
-			await this.exec("git", ["worktree", "add", tempDir, branch], { onData })
-			await pause()
-			emitStage("worktree", `Worktree ${tempDir}`)
-
-			// Stage 3: Chat simulation
-			const shouldPass = !task.link.includes("fail") // Simulate pass for non-fail tasks
-			await this.exec("llimo", ["chat", `/fake/path/${task.link}`, "--new", "--yes", "--attempts", String(this.options.attempts)], { cwd: tempDir, onData })
-			await pause()
-			emitStage("chat", shouldPass ? "Simulated chat success" : "Simulated chat failure")
-
-			// Stage 4: Tests (fail if designated fail task)
-			try {
-				await this.exec("npm", ["run", "test:all"], { cwd: tempDir, onData })
-				await pause()
-				emitStage("test", "Tests completed")
-			} catch {
-				if (!shouldPass) {
-					throw new Error("Test failed as expected")
-				}
+			emitStage("test", "Tests completed")
+		} catch {
+			if (!shouldPass) {
+				throw new Error("Test failed as expected")
 			}
-
-			// Stages 5-9 only if tests pass
-			if (shouldPass || !task.link.includes("fail")) {
-				await this.exec("git", ["add", "."], { cwd: tempDir, onData })
-				await pause()
-				emitStage("git-add", "Staged changes")
-
-				await this.exec("git", ["commit", "-m", `Complete ${taskId}`], { cwd: tempDir, onData })
-				await pause()
-				emitStage("commit", "Committed changes")
-
-				await this.exec("git", ["checkout", "main"], { onData })
-				await pause()
-				emitStage("checkout-main", "Switched to main")
-
-				await this.exec("git", ["merge", branch], { onData })
-				await pause()
-				emitStage("merge", `Merged ${branch}`)
-
-				await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/pass.txt`), "pnpm test:all passed")
-				await pause()
-				emitStage("save-pass", "Saved pass marker")
-
-				emitStatus("complete", "Task completed")
-				return { status: "complete", attempts: 1 }
-			} else {
-				await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/fail.txt`), `Failed`)
-				emitStatus("fail", "Task failed")
-				return { status: "fail", attempts: 1 }
-			}
-		} finally {
-			await this.exec("git", ["worktree", "remove", tempDir])
-			await pause()
 		}
+
+		if (!shouldPass) {
+			await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/fail.txt`), `Failed`)
+			emitStatus("fail", "Task failed")
+			try {
+				await this.exec("git", ["worktree", "remove", tempDir])
+			} catch { }
+			return { status: "fail", attempts }
+		}
+
+		// Stages 5-9 only if tests pass
+		await this.exec("git", ["add", "."], { cwd: tempDir, onData })
+		await pause()
+		emitStage("git-add", "Staged changes")
+
+		await this.exec("git", ["commit", "-m", `Complete ${taskId}`], { cwd: tempDir, onData })
+		await pause()
+		emitStage("commit", "Committed changes")
+
+		await this.exec("git", ["checkout", "main"], { onData })
+		await pause()
+		emitStage("checkout-main", "Switched to main")
+
+		await this.exec("git", ["merge", branch], { onData })
+		await pause()
+		emitStage("merge", `Merged ${branch}`)
+
+		await this.fs.save(this.fs.path.resolve(this.options.release, `${taskId}/pass.txt`), "pnpm test:all passed")
+		await pause()
+		emitStage("save-pass", "Saved pass marker")
+
+		emitStatus("complete", "Task completed")
+		try {
+			await this.exec("git", ["worktree", "remove", tempDir])
+		} catch { }
+		await pause()
+		return { status: "complete", attempts }
 	}
 
 	/**
@@ -383,7 +397,7 @@ export class ReleaseCommand extends UiCommand {
 	static create(input = {}) {
 		const {
 			argv = [],
-			chat = new Chat()
+			chat = new Chat({})
 		} = input
 		const options = parseArgv(argv, ReleaseOptions)
 		return new ReleaseCommand({ options, chat })

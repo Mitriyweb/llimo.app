@@ -34,10 +34,10 @@ export class TestAI extends AI {
      * but since it's test, use the full content as original (but simulate filtering if needed).
      * @param {any} modelId
      * @param {ModelMessage[]} messages
-     * @param {UIMessageStreamOptions} [options={}]
+     * @param {UIMessageStreamOptions & } [options={}]
      * @returns {Promise<import('ai').StreamTextResult<import('ai').ToolSet>>}
      */
-    streamText(modelId: any, messages: ModelMessage[], options?: UIMessageStreamOptions): Promise<import("ai").StreamTextResult<import("ai").ToolSet, any>>;
+    streamText(modelId: any, messages: ModelMessage[], options?: UIMessageStreamOptions & any): Promise<import("ai").StreamTextResult<import("ai").ToolSet, any>>;
     /**
      * Non-streaming version (for completeness, just returns full response).
      * @param {string} modelId

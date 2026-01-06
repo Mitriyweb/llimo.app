@@ -107,6 +107,7 @@ export class TestFileSystem extends FileSystem {
 		const content = this.#data.get(rel)
 		const size = exists ? JSON.stringify(content).length : 0
 		const now = Date.now()
+		// @ts-ignore
 		return {
 			isFile: () => exists,
 			isDirectory: () => false,

@@ -28,7 +28,7 @@ export class UiFormats {
     count(value: number, format?: (value: number) => string): string;
     /**
      * @param {number} value
-     * @param {number} [digits=2]
+     * @param {number} [digits=4]
      * @returns {string}
      */
     pricing(value: number, digits?: number): string;

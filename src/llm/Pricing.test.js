@@ -34,6 +34,7 @@ describe("Pricing", () => {
 			completion: "1.2",
 			prompt: null,
 		}
+		// @ts-ignore handles invalid numbers
 		const pricing = new Pricing(input)
 		assert.strictEqual(pricing.completion, 1.2)
 		assert.strictEqual(pricing.prompt, 0)

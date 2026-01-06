@@ -32,6 +32,7 @@ describe("ModelProvider", () => {
 		provider = new ModelProvider({ fs: mockFS })
 		// Mock fetch globally.
 		mockFetch = mock.fn(async () => ({ json: async () => [] }))
+		// @ts-ignore
 		global.fetch = mockFetch
 		// Mock static imports.
 		// mock.doMock("./providers/huggingface.info.js", () => ({ models: mockHFInfo }))
@@ -45,6 +46,7 @@ describe("ModelProvider", () => {
 
 	afterEach(() => {
 		mock.restoreAll()
+		// @ts-ignore
 		delete global.fetch
 	})
 
@@ -57,7 +59,7 @@ describe("ModelProvider", () => {
 		for (const pro of ModelProvider.AvailableProviders) {
 			it(`loads fresh ${pro} cache if within TTL`, async () => {
 				const provider = new ModelProvider({ fs: mockFS })
-				const cerebras = await provider.loadCache(pro)
+				const cerebras = await provider.loadCache(pro) ?? []
 				assert.strictEqual(cerebras.length, 1)
 				assert.deepStrictEqual(cerebras[0], cache[pro][0])
 			})
@@ -71,6 +73,7 @@ describe("ModelProvider", () => {
 					]]
 				]
 			})
+			// @ts-ignore
 			fs.info = async () => ({
 				isFile: () => true,
 				mtimeMs: 0,
@@ -84,11 +87,11 @@ describe("ModelProvider", () => {
 		})
 
 		it("writes cache as JSONL", async () => {
-			const mockData = [new ModelInfo({ id: "write-test" })]
+			const mockData = [new ModelInfo({ id: "write-test", provider: "llimo" })]
 			const fs = new TestFileSystem()
 			const provider = new ModelProvider({ fs })
-			await provider.writeCache(mockData)
-			const result = await provider.loadCache()
+			await provider.writeCache(mockData, "llimo")
+			const result = await provider.loadCache("llimo") ?? []
 			assert.equal(result.length, 1)
 			assert.equal(result[0].id, "write-test")
 		})
@@ -98,6 +101,7 @@ describe("ModelProvider", () => {
 		it("fetches Cerebras with API key", async () => {
 			const provider = new ModelProvider()
 			const fetched = []
+			// @ts-ignore
 			provider.fetch = async (url, options) => {
 				fetched.push({ url, options })
 				return { ok: true, json: async () => [{ id: "cerebras-model" }] }
@@ -125,24 +129,30 @@ describe("ModelProvider", () => {
 	describe("_makeFlat", () => {
 		it("flattens single models unchanged", () => {
 			const input = [new ModelInfo({ id: "single" })]
-			const flat = provider._makeFlat(input, "test")
+			const flat = provider._makeFlat(input, "cerebras")
 			assert.deepStrictEqual(flat.length, 1)
 			assert.ok(flat[0] instanceof ModelInfo)
 		})
 
 		it("flattens multi-provider models", () => {
+			const rest = { status: "live", is_model_author: true, supports_structured_output: true, supports_tools: true }
+			/** @type {ModelInfo & { providers: import("./ModelProvider.js").HuggingFaceProviderInfo[] }} */
+			// @ts-ignore no #volume argument is in constructor.
 			const multi = {
-				id: "multi",
-				providers: [
-					{ provider: "sub1", pricing: { prompt: 0.1 } },
-					{ provider: "sub2", pricing: { prompt: 0.2 } }
-				]
+				...new ModelInfo({ id: "multi" }),
+				...{
+					providers: [
+						{ provider: "sub1", context_length: 4096, pricing: { input: 0.1, output: 0.4 }, ...rest },
+						{ provider: "sub2", context_length: 4096, pricing: { input: 0.2, output: 0.4 }, ...rest },
+					]
+				},
+				volume: 0,
 			}
 			const input = [multi]
-			const flat = provider._makeFlat(input, "test")
+			const flat = provider._makeFlat(input, "huggingface")
 			assert.strictEqual(flat.length, 2)
-			assert.strictEqual(flat[0].provider, "test/sub1")
-			assert.strictEqual(flat[1].provider, "test/sub2")
+			assert.strictEqual(flat[0].provider, "huggingface/sub1")
+			assert.strictEqual(flat[1].provider, "huggingface/sub2")
 		})
 	})
 
@@ -156,6 +166,7 @@ describe("ModelProvider", () => {
 		it("caches and loads on second call", async () => {
 			const fs = new TestFileSystem()
 			const provider = new ModelProvider({ fs })
+			// @ts-ignore
 			provider.fetch = async () => ({
 				ok: true,
 				json: async () => [{ id: "gpt-oss-120b", provider: "cerebras" }]
@@ -171,6 +182,7 @@ describe("ModelProvider", () => {
 			const provider = new ModelProvider({ fs })
 			const mockBefore = mock.fn()
 			const mockData = mock.fn()
+			// @ts-ignore
 			provider.fetch = async () => ({ ok: true, json: async () => [] })
 
 			await provider.getAll({ onBefore: mockBefore, onData: mockData })
@@ -183,14 +195,14 @@ describe("ModelProvider", () => {
 		it("should properly load models info", async () => {
 			const models = await provider.getAll()
 			let model = models.get("gpt-oss-120b@cerebras")
-			assert.equal(model.pricing.prompt, 0)
-			assert.equal(model.pricing.completion, 0)
+			assert.equal(model?.pricing.prompt, 0)
+			assert.equal(model?.pricing.completion, 0)
 			model = models.get("openai/gpt-oss-120b@huggingface/cerebras")
-			assert.equal(model.pricing.prompt, 0.25)
-			assert.equal(model.pricing.completion, 0.69)
+			assert.equal(model?.pricing.prompt, 0.25)
+			assert.equal(model?.pricing.completion, 0.69)
 			model = models.get("openai/gpt-5.1-codex-max@openrouter")
-			assert.equal(model.pricing.prompt, 1.25)
-			assert.equal(model.pricing.completion, 10)
+			assert.equal(model?.pricing.prompt, 1.25)
+			assert.equal(model?.pricing.completion, 10)
 		})
 	})
 })

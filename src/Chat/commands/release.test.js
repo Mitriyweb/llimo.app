@@ -3,6 +3,8 @@ import assert from "node:assert/strict"
 
 import { ReleaseCommand, ReleaseOptions } from "./release.js"
 import { TestFileSystem } from "../../cli/testing/index.js"
+import { ReleaseProtocol } from "../../utils/Release.js"
+import { FileSystem } from "../../utils/FileSystem.js"
 
 class StubReleaseCommand extends ReleaseCommand {
 	async exec() {
@@ -14,19 +16,14 @@ describe("ReleaseCommand", () => {
 	it.todo("emits every stage event and a completion status", async () => {
 		const options = new ReleaseOptions({ release: "v1.0.0" })
 		const cmd = new StubReleaseCommand({ options })
-		cmd.fs = {
-			cwd: "/tmp",
-			path: {
-				resolve: (...parts) => parts.join("/"),
-			},
-			exists: async () => false,
-			save: async () => { },
-		}
+		cmd.fs = new FileSystem({ cwd: "/tmp" })
+		cmd.fs.exists = async () => false
+		cmd.fs.save = async () => {}
 		const events = []
-		const task = { link: "001-Task/task.md", label: "Task 1" }
+		const task = { link: "001-Task/task.md", label: "Task 1", text: "This is test task text" }
 		const release = { version: "v1.0.0" }
 		const result = await cmd.processTask(task, {
-			release,
+			release: new ReleaseProtocol({ ...release }),
 			onData: (payload) => events.push(payload),
 			pause: async () => { },
 		})
@@ -41,19 +38,14 @@ describe("ReleaseCommand", () => {
 	it("task status transitions from pending to working to complete", async () => {
 		const options = new ReleaseOptions({ release: "v1.0.0" })
 		const cmd = new StubReleaseCommand({ options })
-		cmd.fs = {
-			cwd: "/tmp",
-			path: {
-				resolve: (...parts) => parts.join("/"),
-			},
-			exists: async () => false,
-			save: async () => { },
-		}
+		cmd.fs = new FileSystem({ cwd: "/tmp" })
+		cmd.fs.exists = async () => false
+		cmd.fs.save = async () => {}
 		const statuses = []
-		const task = { link: "001-Task/task.md", label: "Task 1" }
+		const task = { link: "001-Task/task.md", label: "Task 1", text: "This is test task text" }
 		const release = { version: "v1.0.0" }
 		const result = await cmd.processTask(task, {
-			release,
+			release: new ReleaseProtocol({ ...release }),
 			onData: (payload) => {
 				if (payload.chunk?.type === "status") {
 					statuses.push(payload.chunk.status)
@@ -94,19 +86,14 @@ describe("ReleaseCommand", () => {
 	it("emits working status when processing task", async () => {
 		const options = new ReleaseOptions({ release: "v1.0.0" })
 		const cmd = new StubReleaseCommand({ options })
-		cmd.fs = {
-			cwd: "/tmp",
-			path: {
-				resolve: (...parts) => parts.join("/"),
-			},
-			exists: async () => false,
-			save: async () => { },
-		}
+		cmd.fs = new FileSystem({ cwd: "/tmp" })
+		cmd.fs.exists = async () => false
+		cmd.fs.save = async () => {}
 		const chunks = []
-		const task = { link: "001-Task/task.md", label: "Task 1" }
+		const task = { link: "001-Task/task.md", label: "Task 1", text: "This is test task text" }
 		const release = { version: "v1.0.0" }
 		await cmd.processTask(task, {
-			release,
+			release: new ReleaseProtocol({ ...release }),
 			onData: (payload) => chunks.push(payload.chunk),
 			pause: async () => { },
 		})
@@ -119,19 +106,14 @@ describe("ReleaseCommand", () => {
 	it("properly calculates stage progress percentage", async () => {
 		const options = new ReleaseOptions({ release: "v1.0.0" })
 		const cmd = new StubReleaseCommand({ options })
-		cmd.fs = {
-			cwd: "/tmp",
-			path: {
-				resolve: (...parts) => parts.join("/"),
-			},
-			exists: async () => false,
-			save: async () => { },
-		}
+		cmd.fs = new FileSystem({ cwd: "/tmp" })
+		cmd.fs.exists = async () => false
+		cmd.fs.save = async () => {}
 		const chunks = []
-		const task = { link: "001-Task/task.md", label: "Task 1" }
+		const task = { link: "001-Task/task.md", label: "Task 1", text: "This is test task text" }
 		const release = { version: "v1.0.0" }
 		await cmd.processTask(task, {
-			release,
+			release: new ReleaseProtocol({ ...release }),
 			onData: (payload) => chunks.push(payload.chunk),
 			pause: async () => { },
 		})
@@ -140,3 +122,4 @@ describe("ReleaseCommand", () => {
 		assert.strictEqual(lastStage.stageIndex, ReleaseCommand.STAGE_DETAILS.length - 1)
 	})
 })
+

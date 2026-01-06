@@ -3,19 +3,19 @@ import assert from "node:assert/strict"
 
 import { Ui, UiConsole } from "./Ui.js"
 import { ITALIC, RESET } from "./ANSI.js"
+import { Console } from "node:console"
 
 describe("UiConsole", () => {
 	let mockConsole
 	let consoleInstance
 
 	beforeEach(() => {
-		mockConsole = {
-			debug: () => { },
-			info: () => { },
-			log: () => { },
-			warn: () => { },
-			error: () => { },
-		}
+		mockConsole = new Console(process.stdout, process.stderr)
+		mockConsole.debug = () => { }
+		mockConsole.info = () => { }
+		mockConsole.log = () => { }
+		mockConsole.warn = () => { }
+		mockConsole.error = () => { }
 		consoleInstance = new UiConsole({ console: mockConsole, debugMode: false })
 	})
 
@@ -35,11 +35,12 @@ describe("UiConsole", () => {
 	})
 
 	it("success method forwards message via console.info", () => {
-		let logged = null
+		/** @type {string} */
+		let logged = ""
 		mockConsole.info = (msg) => { logged = msg }
 		consoleInstance.success("done")
 		// Ensure the message contains the original text; colour codes may be stripped in some environments
-		assert.ok(logged?.includes("done"), "logged message should contain the provided text")
+		assert.ok(logged.includes("done"), "logged message should contain the provided text")
 	})
 
 	it("should properly print table", () => {
@@ -122,18 +123,19 @@ describe("UiFormats.money formatting", () => {
 })
 
 describe("Ui.bar", () => {
+	/** @type {Array<[[number, number, number, string | undefined, string | undefined], string]>} */
 	const examples = [
-		[[0, 10, 10], "          "],
-		[[1, 10, 10], "=         "],
-		[[4, 10, 10], "====      "],
+		[[0, 10, 10, undefined, undefined], "          "],
+		[[1, 10, 10, undefined, undefined], "=         "],
+		[[4, 10, 10, undefined, undefined], "====      "],
 		[[4, 10, 10, "+", "-"], "++++------"],
-		[[50, 10, 10], "=========="],
-		[[50, 10, 10], "=========="],
+		[[50, 10, 10, undefined, undefined], "=========="],
+		[[50, 10, 10, undefined, undefined], "=========="],
 	]
 	examples.forEach(([args, exp]) => {
 		it(`should render bar correctly ${JSON.stringify(args)}`, () => {
 			const ui = new Ui()
-			const result = ui.bar(...args)
+			const result = ui.bar.apply(ui, args)
 			assert.equal(result, exp)
 		})
 	})

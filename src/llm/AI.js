@@ -74,7 +74,7 @@ export class AI {
 
 	/**
 	 * @param {Object} input
-	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo>} [input.models=[]]
+	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo>} [input.models=[]]
 	 * @param {ModelInfo} [input.selectedModel]
 	 * @param {AiStrategy} [input.strategy]
 	 */
@@ -84,6 +84,7 @@ export class AI {
 			selectedModel = this.selectedModel,
 			strategy = new AI.Strategy()
 		} = input
+		// @ts-ignore could not solve the type error even when param copied from the original function
 		this.setModels(models)
 		this.selectedModel = selectedModel
 		this.strategy = strategy
@@ -95,7 +96,7 @@ export class AI {
 	 * - Array<[string, ModelInfo[]]>: Direct set.
 	 * - Array<[string, ModelInfo]>: Wrap singles in arrays.
 	 * - Nested providers (e.g., {providers: [{provider:'a'}]}): Expand to prefixed IDs (e.g., 'model:a').
-	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}] } models
+	 * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}]} models
 	 */
 	setModels(models) {
 		let map = new Map()

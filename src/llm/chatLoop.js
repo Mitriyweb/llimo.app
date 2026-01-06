@@ -57,6 +57,7 @@ export async function sendAndStream(options) {
 		model, fps = 30, isTiny = false
 	} = options
 	const startTime = Date.now()
+	/** @type {Array<[string, any]>} */
 	const unknowns = []
 	let answer = ""
 	let reason = ""

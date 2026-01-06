@@ -29,8 +29,8 @@ describe("ModelInfo", () => {
 			id: "test-model",
 			name: "Test Model",
 			context_length: 4096,
-			pricing: { prompt: 0.1, completion: 0.2 },
-			architecture: { modality: "text", input_modalities: ["text"] },
+			pricing: new Pricing({ prompt: 0.1, completion: 0.2 }),
+			architecture: new Architecture({ modality: "text", input_modalities: ["text"] }),
 			provider: "openai",
 		}
 		const model = new ModelInfo(input)
@@ -46,9 +46,9 @@ describe("ModelInfo", () => {
 
 	it("handles nested objects", () => {
 		const input = {
-			pricing: { prompt: 0.05 },
-			architecture: { modality: "multi" },
-			top_provider: { context_length: 8192, is_moderated: true },
+			pricing: new Pricing({ prompt: 0.05 }),
+			architecture: new Architecture({ modality: "multi" }),
+			top_provider: new TopProvider({ context_length: 8192, is_moderated: true }),
 			supported_parameters: ["temperature", "top_p"],
 			default_parameters: { temperature: 0.7 },
 			canonical_slug: "test-slug",

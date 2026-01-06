@@ -57,10 +57,11 @@ export class UiFormats {
 	}
 	/**
 	 * @param {number} value
-	 * @param {number} [digits=2]
+	 * @param {number} [digits=4]
 	 * @returns {string}
 	 */
 	pricing(value, digits = 4) {
+		/** @type {Intl.NumberFormatOptions} */
 		const options = {
 			style: 'currency',
 			currency: "USD",
@@ -562,3 +563,4 @@ export class Ui {
 		}
 	}
 }
+

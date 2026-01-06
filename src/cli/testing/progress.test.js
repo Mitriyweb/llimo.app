@@ -21,6 +21,7 @@ describe("testingProgress", () => {
 			error: (...args) => out.push(["error", args]),
 			log: (...args) => out.push(["log", args]),
 		}
+		// @ts-ignore
 		const ui = new Ui({ stdout, console: { console: mockConsole } })
 		const output = []
 		const testing = testingProgress({ ui, output, rows: 3, prefix: "@nan0web: ", fps: 10 })

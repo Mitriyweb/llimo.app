@@ -31,7 +31,9 @@ describe("selectModel – model/provider selection logic", () => {
 	describe("basic selection", () => {
 		it("returns undefined when no model matches", async () => {
 			const map = makeMap([{ id: "other-model", provider: "other" }])
-			const testUi = { ...new Ui(), ask: mock.fn(async () => "invalid") } // wrong to trigger throw from multiple=0, but for no match, no prompt
+			const testUi = new Ui()
+			// wrong to trigger throw from multiple=0, but for no match, no prompt
+			testUi.ask = mock.fn(async () => "invalid")
 			const result = await selectModel(map, "nonexistent", undefined, testUi)
 			assert.equal(result, undefined)
 		})
@@ -44,7 +46,7 @@ describe("selectModel – model/provider selection logic", () => {
 			const testUi = new Ui()
 
 			const chosen = await selectModel(map, "cerebras", undefined, testUi, () => {})
-			assert.strictEqual(chosen.id, "cerebras-model")
+			assert.strictEqual(chosen?.id, "cerebras-model")
 		})
 
 		it("asks user when several candidates, respects numeric choice", async () => {
@@ -58,7 +60,7 @@ describe("selectModel – model/provider selection logic", () => {
 			ui.ask = async () => "2" // second in filtered list: gpt-oss-40b
 
 			const chosen = await selectModel(map, "oss", undefined, ui, () => {})
-			assert.strictEqual(chosen.id, "gpt-oss-40b") // second after filter
+			assert.strictEqual(chosen?.id, "gpt-oss-40b") // second after filter
 		})
 
 		it("handles direct ID input", async () => {
@@ -67,13 +69,11 @@ describe("selectModel – model/provider selection logic", () => {
 				{ id: "exact-match", provider: "test" },
 				{ id: "test2" },
 			])
-			const mockUiDirect = {
-				...new Ui(),
-				ask: async () => "exact-match" // direct ID
-			}
+			const mockUi = new Ui()
+			mockUi.ask = async () => "exact-match"
 
-			const chosen = await selectModel(map, "", "", mockUiDirect, () => {})
-			assert.strictEqual(chosen.id, "exact-match")
+			const chosen = await selectModel(map, "", "", mockUi, () => {})
+			assert.strictEqual(chosen?.id, "exact-match")
 		})
 	})
 })

@@ -11,7 +11,7 @@ export class AI {
     static Strategy: typeof AiStrategy;
     /**
      * @param {Object} input
-     * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo>} [input.models=[]]
+     * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo>} [input.models=[]]
      * @param {ModelInfo} [input.selectedModel]
      * @param {AiStrategy} [input.strategy]
      */
@@ -29,9 +29,9 @@ export class AI {
      * - Array<[string, ModelInfo[]]>: Direct set.
      * - Array<[string, ModelInfo]>: Wrap singles in arrays.
      * - Nested providers (e.g., {providers: [{provider:'a'}]}): Expand to prefixed IDs (e.g., 'model:a').
-     * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}] } models
+     * @param {readonly[string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo> | readonly[string, Partial<ModelInfo> & {providers?: {provider: string}[]}]} models
      */
-    setModels(models: readonly [string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo | ModelInfo> | readonly [string, Partial<ModelInfo> & {
+    setModels(models: readonly [string, ModelInfo] | readonly [string, ModelInfo] | Map<string, ModelInfo> | readonly [string, Partial<ModelInfo> & {
         providers?: {
             provider: string;
         }[];

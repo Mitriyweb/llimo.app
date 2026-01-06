@@ -36,18 +36,14 @@ export async function handleTestMode(options) {
 	let timeInfo
 	const clock = { startTime, reasonTime: 0, answerTime: 0 }
 
-	const format = new Intl.NumberFormat("en-US").format
-	const valuta = new Intl.NumberFormat("en-US", { currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 }).format
-
 	const chatting = setInterval(
 		() => {
 			const lines = formatChatProgress({
-				elapsed: (Date.now() - startTime) / 1e3,
+				ui,
 				usage,
 				clock,
 				model,
-				format,
-				valuta,
+				now: Date.now(),
 			})
 			if (lines.length) {
 				ui.cursorUp(lines.length)
@@ -60,7 +56,7 @@ export async function handleTestMode(options) {
 	const chatDb = new FileSystem({ cwd: cwd })
 	try {
 		const chunks = []
-		const options = {
+		const opts = {
 			cwd: cwd,
 			onChunk: (el) => {
 				const chunk = el.chunk
@@ -68,11 +64,9 @@ export async function handleTestMode(options) {
 				if ("reasoning-delta" === chunk.type) {
 					reasoning += chunk.text
 					usage.reasoningTokens += words.length
-					usage.totalTokens += words.length
 					if (!clock.reasonTime) clock.reasonTime = Date.now()
 				} else if ("text-delta" === chunk.type) {
 					usage.outputTokens += words.length
-					usage.totalTokens += words.length
 					if (!clock.answerTime) clock.answerTime = Date.now()
 				} else if ("raw" === chunk.type) {
 					timeInfo = chunk.rawValue?.time_info
@@ -89,7 +83,7 @@ export async function handleTestMode(options) {
 
 		usage.inputTokens = chat.getTokensCount()
 
-		const { stream, result } = startStreaming(ai, "test-model", chat, options)
+		const { stream, result } = startStreaming(ai, new ModelInfo({ id: "test-model" }), chat, opts)
 
 		await chatDb.save("stream.md", "")
 		const parts = []
@@ -120,3 +114,4 @@ export async function handleTestMode(options) {
 		clearInterval(chatting)
 	}
 }
+
