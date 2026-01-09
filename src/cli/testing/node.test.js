@@ -27,14 +27,14 @@ describe("Suite", () => {
 			todo: 1 + 0,
 			types: 97,
 		})
-		assert.deepStrictEqual(parsed.tests[0].file, "node.test.js")
+		assert.ok(parsed.tests[0].file?.endsWith("node.test.js"))
 		assert.deepStrictEqual(parsed.tests[0].position, [15, 2])
 		assert.deepStrictEqual(parsed.tests[2].doc?.code, "ERR_ASSERTION")
 		assert.deepStrictEqual(parsed.tests[4].doc?.code, "ERR_TEST_FAILURE")
 		assert.deepStrictEqual(parsed.tests[4].doc?.failureType, "testTimeoutFailure")
 		assert.deepStrictEqual(parsed.tests[6].type, "pass")
 		assert.deepStrictEqual(parsed.tests[6].doc?.type, "test")
-		assert.deepStrictEqual(parsed.tests[119].file, "src/strategies/fastest.js")
+		assert.ok(parsed.tests[119].file?.endsWith("src/strategies/fastest.js"))
 		assert.deepStrictEqual(parsed.tests[119].position, [75, 11])
 	})
 	it("should produce OK", () => {

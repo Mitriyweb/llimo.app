@@ -319,3 +319,5 @@
   	ui.console.debug(`@ Limits: ${table}`)
   }
   ```
+- Show proper reason/output usage, it seems openrouter formula is 
+	`{ reason: usage.reasoningTokens, answer: usage.outputTokens - usage.reasoningTokens }`
