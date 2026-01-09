@@ -1,11 +1,11 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import Markdown from "../../../../src/utils/Markdown.js"
+import { MarkdownProtocol } from "../../../../src/utils/Markdown.js"
 
-describe("003-File-Protocol – Markdown.js", () => {
+describe("003-File-Protocol – src/utils/Markdown.js", () => {
 	describe("3.1 Parse markdown to ParsedFile", () => {
 		it("parses valid MD with @validate", async () => {
-			const parsed = await Markdown.parse(`
+			const parsed = await MarkdownProtocol.parse(`
 #### [test](file.js)
 \`\`\`js
 console.info(1)

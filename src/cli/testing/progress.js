@@ -41,17 +41,17 @@ export function testingProgress({ ui, fs = new FileSystem(), output = [], rows =
 
 		if (rows > 0) {
 			if (printed) ui.cursorUp(printed)
-			const lines = output.filter(Boolean).filter(noDebugger).slice(-rows).map(r => ui.console.full(prefix + r))
+			const lines = output.filter(Boolean).filter(noDebugger).slice(-rows).map(r => ui.console.clear(prefix + r))
 			lines.forEach(l => ui.console.info(`\r${DIM}${l}${RESET}`))
 			if (lines.length < printed) {
 				for (let i = 0; i < printed - lines.length; i++) {
-					ui.console.info(ui.console.full(""))
+					ui.console.info(ui.console.clear(""))
 				}
 			}
 			printed = lines.length
 		}
 
-		const str = testingStatus(parsed, ui.formats.timer(input.elapsed))
+		const str = testingStatus(parsed, ui.formats.timer(input.elapsed * 1e3))
 		ui.overwriteLine(`  ${str}`)
 	}, startTime, fps)
 }

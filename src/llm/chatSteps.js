@@ -17,6 +17,7 @@ import { ModelInfo } from './ModelInfo.js'
 import ChatOptions from '../Chat/Options.js'
 import { Suite } from '../cli/testing/node.js'
 import { testingProgress, testingStatus } from '../cli/testing/progress.js'
+import { UiOutput } from "../cli/UiOutput.js"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -207,10 +208,10 @@ export function startStreaming(ai, model, chat, options) {
  * @param {Ui} param0.ui
  * @param {Chat} param0.chat
  * @param {ChatOptions} param0.options
- * @param {string[]} [param0.logs=[]]
- * @returns {Promise<{ answer: string, shouldContinue: boolean, logs: string[], prompt: string }>}
+ * @returns {Promise<{ answer: string, shouldContinue: boolean, prompt: string }>}
  */
-export async function decodeAnswer({ ui, chat, options, logs = [] }) {
+export async function decodeAnswer({ ui, chat, options }) {
+	const content = []
 	const answer = chat.messages.slice().pop()
 	if ("assistant" !== answer?.role) {
 		throw new Error(`Recent message is not an assistant's but "${answer?.role}"`)
@@ -220,30 +221,27 @@ export async function decodeAnswer({ ui, chat, options, logs = [] }) {
 
 	const parsed = await MarkdownProtocol.parse(fullResponse)
 
-	logs.push("#### llimo-unpack")
-	logs.push("```bash")
+	content.push("#### llimo-unpack")
+	content.push("```bash")
 
 	if (!options.isYes) {
 		// Dry‑run unpack to show what would be written
 		const stream = unpackAnswer(parsed, true)
 		for await (const str of stream) {
-			logs.push(String(str))
-			ui.console.info(str)
+			if (str instanceof UiOutput) {
+				ui.console.info(str)
+			}
 		}
 
 		// Ask user whether to apply
 		const answerUser = await ui.askYesNo("Unpack current package? (Y)es, No, ., <message>: ")
 		if (answerUser === "no") {
-			logs.push("```")
-			return { answer: "no", shouldContinue: false, logs, prompt: logs.join("\n") }
+			return { answer: "no", shouldContinue: false, prompt: "User rejected the answer" }
 		} else if (answerUser === ".") {
-			// @todo should read the current input file for the updated information and use it as next prompt
-			logs.push("```")
-			return { answer: ".", shouldContinue: true, logs, prompt: logs.join("\n") }
+			return { answer: ".", shouldContinue: true, prompt: "User rejected the answer and provides own prompt" }
 		} else if (answerUser !== "yes") {
 			// @todo should use answerUser as next prompt
-			logs.push("```")
-			return { answer: answerUser, shouldContinue: true, logs, prompt: logs.join("\n") }
+			return { answer: answerUser, shouldContinue: true, prompt: answerUser }
 		}
 	}
 
@@ -251,30 +249,44 @@ export async function decodeAnswer({ ui, chat, options, logs = [] }) {
 	const stream = unpackAnswer(parsed)
 	for await (const uiElement of stream) {
 		ui.console.info(uiElement)
-		logs.push(String(uiElement))
+		content.push(String(uiElement))
 	}
-	logs.push("```")
-	const prompt = logs.join("\n")
+	content.push("```")
+	const prompt = content.join("\n")
 	await chat.db.save("prompt.md", prompt)
-	return { answer: "", shouldContinue: true, logs, prompt }
+	return { answer: "", shouldContinue: true, prompt }
 }
 
 /**
  *
  * @param {import('../cli/testing/node.js').TestInfo[]} tests
  * @param {Ui} ui
- * @returns {any[][]}
+ * @returns {string[][]}
  */
 export function renderTests(tests, ui = new Ui()) {
 	const stderr = []
 	tests.forEach(t => {
 		stderr.push([`${t.file}:${t.position?.[0]}:${t.position?.[1]}`, ui.createStyle({ paddingLeft: 2 })])
-		stderr.push([t.text, ui.createStyle({ paddingLeft: 4 })])
-		if (t.doc.error) stderr.push([t.doc?.error, ui.createStyle({ paddingLeft: 6 })])
-		if (t.doc.stack) stderr.push([t.doc?.stack, ui.createStyle({ paddingLeft: 8 })])
+		if (t.file !== t.text) stderr.push([t.text, ui.createStyle({ paddingLeft: 4 })])
+		if (t.doc?.error) stderr.push([t.doc.error, ui.createStyle({ paddingLeft: 6 })])
+		if (t.doc?.errors?.length) stderr.push([t.doc.errors.join("\n"), ui.createStyle({ paddingLeft: 6 })])
+		if (t.doc?.stack) stderr.push([t.doc.stack, ui.createStyle({ paddingLeft: 8 })])
 		stderr.push([""])
 	})
-	return stderr
+	return stderr.map(r => ui.render(r, true))
+}
+
+/**
+ *
+ * @param {import("../cli/testing/node.js").TestInfo[]} tests
+ * @param {import("../cli/testing/node.js").TestType} type
+ * @returns {import("../cli/testing/node.js").TestInfo[]}
+ */
+export function filterTests(tests, type) {
+	const types = {
+		fail: ["fail", "cancelled", "types"],
+	}
+	return tests.filter(t => (types[type] ?? [type]).includes(t.type))
 }
 
 /**
@@ -293,15 +305,13 @@ export async function printAnswer(input) {
 		tests = [],
 		content = [],
 	} = input
-	const types = {
-		fail: ["fail", "cancelled", "types"],
-	}
 
 	let ans = await ui.askYesNo(`\n${MAGENTA}? Do you want to continue fixing ${type} tests? (y)es, (n)o, (s)how, ., <message> % `)
 
-	const arr = tests.filter(t => (types[type] ?? [type]).includes(t.type))
+	const arr = filterTests(tests, type)
 	ui.console.info("")
 
+	/** @type {string[][]} */
 	const stderr = renderTests(arr)
 	if (["show", "s"].includes(ans.toLowerCase())) {
 		stderr.forEach(args => ui.console.info(...args))
@@ -319,7 +329,11 @@ export async function printAnswer(input) {
 	else {
 		content.push(ans)
 	}
-	stderr.map(args => args.filter(a => !(a instanceof UiStyle)).join(" ")).forEach(a => content.push(a))
+	if (stderr.length) {
+		content.push("```stderr")
+		stderr.map(args => args.join(" ")).forEach(a => content.push(a))
+		content.push("```")
+	}
 	arr.forEach(t => content.push(`- [](${t.file})`))
 	return true
 }
@@ -342,9 +356,8 @@ export async function decodeAnswerAndRunTests(input) {
 	const {
 		ui, fs = new FileSystem(), chat, runCommand, options, step = 1
 	} = input
-	const logs = []
 	try {
-		const answered = await decodeAnswer({ ui, chat, options, logs })
+		const answered = await decodeAnswer({ ui, chat, options })
 		if (!answered.shouldContinue) {
 			return { shouldContinue: false }
 		}
@@ -363,7 +376,6 @@ export async function decodeAnswerAndRunTests(input) {
 		fs,
 		chat,
 		runCommand,
-		logs,
 		options,
 		step,
 	})
@@ -393,10 +405,10 @@ export async function runTests(input) {
 		fs,
 		chat,
 		runCommand = () => { },
-		logs = [],
 		options = {},
 		step = 1,
 	} = input
+	const content = []
 	const now = Date.now()
 	const output = []
 	const testing = testingProgress({ ui, fs, output, rows: 12, prefix: "  " })
@@ -413,19 +425,18 @@ export async function runTests(input) {
 	const suite = new Suite({ rows: [...result.stdout.split("\n"), ...result.stderr.split("\n")], fs })
 	const parsed = suite.parse()
 
-	if (step) {
-		await chat.save("test.txt", `${result.stdout}\n${result.stderr}`, step)
-	}
+	await chat.saveTests(parsed, result.stderr, result.stdout, step)
 
 	// Append test output to log
-	logs.push("#### pnpm test:all")
-	logs.push("```stdeerr")
-	logs.push(result.stderr)
-	logs.push("```")
-	logs.push("```stdout")
-	logs.push(result.stdout)
-	logs.push("```")
-	await chat.db.append("prompt.md", logs.join("\n"))
+	parsed.tests.filter(t => t.type === "fail")
+	content.push("#### pnpm test:all")
+	const rows = renderTests(parsed.tests, ui)
+	content.push("```stdeerr")
+	rows.forEach(r => content.push(r))
+	content.push("")
+	content.push(result.stderr)
+	content.push("```")
+	await chat.db.append("prompt.md", content.join("\n"))
 
 	// Parse test results
 	const fail = parsed.counts.get("fail") ?? 0
@@ -434,7 +445,7 @@ export async function runTests(input) {
 	const todo = parsed.counts.get("todo") ?? 0
 	const skip = parsed.counts.get("skip") ?? 0
 	// const { fail, cancelled, pass, todo, skip, types } = parsed.counts
-	ui.overwriteLine("  " + testingStatus(parsed, ui.formats.timer((Date.now() - now) / 1e3)))
+	ui.overwriteLine("  " + testingStatus(parsed, ui.formats.timer(Date.now() - now)))
 	ui.console.info("")
 	// ui.console.info()
 

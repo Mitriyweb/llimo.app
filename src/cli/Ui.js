@@ -3,9 +3,10 @@ import readline from "node:readline"
 import { appendFileSync, existsSync, mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 
-import { YELLOW, RED, RESET, GREEN, overwriteLine, DIM, stripANSI, ITALIC } from "./ANSI.js"
+import { YELLOW, RED, RESET, GREEN, overwriteLine, DIM, stripANSI, ITALIC, CLEAR_LINE } from "./ANSI.js"
 import { UiOutput } from "./UiOutput.js"
 import { Alert, Table, Progress } from "./components/index.js"
+import { TableOptions } from "./components/Table.js"
 
 /** @typedef {"success" | "info" | "warn" | "error" | "debug" | "log"} LogTarget */
 
@@ -260,6 +261,20 @@ export class UiConsole {
 	}
 
 	/**
+	 * @todo write jsdoc
+	 * @param {string} line
+	 * @param {string} [space=" "]
+	 * @param {string} [more="…"]
+	 * @returns {string}
+	 */
+	clear(line, space = " ", more = "…") {
+		const [w] = this.stdout.getWindowSize?.() ?? [120, 30]
+		let str = CLEAR_LINE
+		str += line.length > w ? this.full(line, space, more) : line
+		return str
+	}
+
+	/**
 	 * Progress bar string.
 	 * @param {number} i
 	 * @param {number} len
@@ -278,11 +293,11 @@ export class UiConsole {
 	/**
 	 * @todo cover with tests.
 	 * @param {any[][]} rows
-	 * @param {{divider?: string | number, aligns?: string[], silent?: boolean, overflow?: "visible" | "hidden"}} [options={}]
+	 * @param {Partial<TableOptions>} [options={}]
 	 * @returns {string[]}
 	 */
 	table(rows = [], options = {}) {
-		const { divider = " | ", aligns = [], silent = false, overflow = "visible" } = options
+		const { divider = " | ", aligns = [], silent = false, overflow = "visible" } = new TableOptions(options)
 		const div = "number" === typeof divider ? " ".repeat(divider) : divider
 
 		const colWidths = []
@@ -541,10 +556,17 @@ export class Ui {
 
 	/**
 	 * Renders the element
-	 * @param {UiOutput} element
+	 * @param {UiOutput | any[]} element
+	 * @returns {any}
 	 */
-	render(element) {
-		if (element instanceof Alert) {
+	render(element, returnOnly = false) {
+		if (Array.isArray(element)) {
+			const { args } = this.console.extractStyles(element)
+			if (returnOnly) return args
+			this.console.info(args)
+		}
+		else if (element instanceof Alert) {
+			if (returnOnly) return element.text
 			if (element.variant in this.console) {
 				this.console[element.variant](element.text)
 			}
@@ -553,10 +575,13 @@ export class Ui {
 			}
 		}
 		else if (element instanceof Table) {
-			this.console.table(Table.normalizeRows(element.rows), element.options)
+			const norm = Table.normalizeRows(element.rows)
+			if (returnOnly) return this.console.table(norm, { ...element.options, silent: true })
+			this.console.table(norm, element.options)
 		}
 		else if (element instanceof Progress) {
 			const str = String(element)
+			if (returnOnly) return str
 			this.cursorUp(this.progressFrame.length)
 			this.progressFrame = str.split("\n").map(s => this.console.full(s))
 			this.console.info("\r" + this.progressFrame.join("\n"))

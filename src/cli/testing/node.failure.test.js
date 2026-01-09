@@ -27,5 +27,22 @@ describe("node.failure.txt handling", () => {
 		assert.strictEqual(first.file, "node.test.js")
 		// error code from the YAML block must be captured
 		assert.strictEqual(first.doc?.code, "ERR_TEST_FAILURE")
+		assert.deepStrictEqual(first.doc?.errors, [
+			"node:internal/modules/esm/resolve:274",
+			"    throw new ERR_MODULE_NOT_FOUND(",
+			"          ^",
+			"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/i/src/nan.web/apps/llimo.app/src/utils/indexx.js' imported from /Users/i/src/nan.web/apps/llimo.app/src/cli/testing/node.test.js",
+			"    at finalizeResolution (node:internal/modules/esm/resolve:274:11)",
+			"    at moduleResolve (node:internal/modules/esm/resolve:859:10)",
+			"    at defaultResolve (node:internal/modules/esm/resolve:983:11)",
+			"    at \\#cachedDefaultResolve (node:internal/modules/esm/loader:717:20)",
+			"    at ModuleLoader.resolve (node:internal/modules/esm/loader:694:38)",
+			"    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:308:38)",
+			"    at ModuleJob._link (node:internal/modules/esm/module_job:183:49) {",
+			"  code: 'ERR_MODULE_NOT_FOUND',",
+			"  url: 'file:///Users/i/src/nan.web/apps/llimo.app/src/utils/indexx.js'",
+			"}",
+			"Node.js v22.19.0",
+		])
 	})
 })

@@ -152,6 +152,12 @@ export class FileSystem {
      * @returns {Promise<string>}
      */
     mkdtemp(prefix: string): Promise<string>;
+    /**
+     * @param {string} path
+     * @param {import('node:fs').RmOptions} options
+     * @returns {Promise<void>}
+     */
+    rm(path: string, options: import("node:fs").RmOptions): Promise<void>;
     #private;
 }
 export type MkDirOptions = import("node:fs").Mode | import("node:fs").MakeDirectoryOptions | null;

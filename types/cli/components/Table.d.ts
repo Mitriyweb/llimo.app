@@ -1,43 +1,99 @@
-export class Table extends UiOutput {
-    static Options: typeof TableOptions;
-    /**
-     * @todo write jsdoc
-     * @param {any[][] | object[]} rows
-     * @returns {any[][]}
-     */
-    static normalizeRows(rows: any[][] | object[]): any[][];
-    /**
-     * @param {Partial<Table>} [input={}]
-     */
-    constructor(input?: Partial<Table>);
-    /** @type {any[][] | object[]} */
-    rows: any[][] | object[];
-    /** @type {Partial<TableOptions>} */
-    options: Partial<TableOptions>;
-}
-export type TableAlign = "left" | "center" | "right";
-import { UiOutput } from "../UiOutput.js";
 /**
- * @typedef {"left" | "center" | "right"} TableAlign
+ * @typedef {"left" | "right" | "center" | "l" | "r" | "c" | undefined} TableAlign
  */
-declare class TableOptions {
-    static divider: {
-        help: string;
-        default: string;
-    };
-    static aligns: {
-        help: string;
-        default: never[];
-    };
+/**
+ * Column padding configuration.
+ */
+export class Padding {
     /**
-     * @param {Partial<TableOptions> & { divider?: string | number }} input
+     * @param {string} str
+     * @returns {Padding}
      */
-    constructor(input?: Partial<TableOptions> & {
-        divider?: string | number;
+    static parse(str: string): Padding;
+    /**
+     * @param {any} input
+     * @returns {Padding}
+     */
+    static from(input: any): Padding;
+    /**
+     * @param {{left?: number, right?: number}} [input]
+     */
+    constructor(input?: {
+        left?: number;
+        right?: number;
     });
-    /** @type {string} */
-    divider: string;
+    /** @type {number} */
+    left: number;
+    /** @type {number} */
+    right: number;
+    /** @returns {string} */
+    toString(): string;
+}
+/**
+ * Table rendering options.
+ */
+export class TableOptions {
+    /**
+     * @param {Partial<TableOptions>} input
+     */
+    constructor(input?: Partial<TableOptions>);
+    /** @type {string | number} */
+    divider: string | number;
+    /** @type {TableAlign} */
+    align: TableAlign;
     /** @type {TableAlign[]} */
     aligns: TableAlign[];
+    /** @type {Padding | string | number} */
+    padding: Padding | string | number;
+    /** @type {(Padding | string | number)[]} */
+    paddings: (Padding | string | number)[];
+    /** @type {(number | string)[]} */
+    widths: (number | string)[];
+    /** @type {number | string | undefined} */
+    width: number | string | undefined;
+    /** @type {"visible" | "hidden"} */
+    overflow: "visible" | "hidden";
+    /** @type {boolean} */
+    silent: boolean;
 }
-export {};
+export class Table extends UiOutput {
+    static Options: typeof TableOptions;
+    static Padding: typeof Padding;
+    /**
+     * Normalizes object rows to array rows with header and separator.
+     * @param {any[][] | object[]} rows
+     * @returns {string[][]}
+     */
+    static normalizeRows(rows: any[][] | object[]): string[][];
+    /**
+     * Renders table lines from normalized rows.
+     * Single source for table rendering.
+     * @param {any[][]} rows
+     * @param {Partial<TableOptions>} [options]
+     * @returns {string[]}
+     */
+    static renderLines(rows: any[][], options?: Partial<TableOptions>): string[];
+    /**
+     * Normalizes alignment shorthand.
+     * @param {TableAlign} align
+     * @returns {"left" | "right" | "center"}
+     */
+    static normalizeAlign(align: TableAlign): "left" | "right" | "center";
+    /**
+     * @param {Object} [input]
+     * @param {any[][] | object[]} [input.rows=[]]
+     * @param {Partial<TableOptions>} [input.options={}]
+     */
+    constructor(input?: {
+        rows?: any[] | any[][] | undefined;
+        options?: Partial<TableOptions> | undefined;
+    });
+    /** @type {any[][] | object[]} */
+    rows: any[][] | object[];
+    /** @type {TableOptions} */
+    options: TableOptions;
+    /** @returns {string[]} */
+    toLines(): string[];
+}
+export type TableAlign = "left" | "right" | "center" | "l" | "r" | "c" | undefined;
+import { UiOutput } from "../UiOutput.js";

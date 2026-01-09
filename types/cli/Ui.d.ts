@@ -122,6 +122,14 @@ export class UiConsole {
      */
     full(line: string, space?: string, more?: string): string;
     /**
+     * @todo write jsdoc
+     * @param {string} line
+     * @param {string} [space=" "]
+     * @param {string} [more="…"]
+     * @returns {string}
+     */
+    clear(line: string, space?: string, more?: string): string;
+    /**
      * Progress bar string.
      * @param {number} i
      * @param {number} len
@@ -134,15 +142,10 @@ export class UiConsole {
     /**
      * @todo cover with tests.
      * @param {any[][]} rows
-     * @param {{divider?: string | number, aligns?: string[], silent?: boolean, overflow?: "visible" | "hidden"}} [options={}]
+     * @param {Partial<TableOptions>} [options={}]
      * @returns {string[]}
      */
-    table(rows?: any[][], options?: {
-        divider?: string | number;
-        aligns?: string[];
-        silent?: boolean;
-        overflow?: "visible" | "hidden";
-    }): string[];
+    table(rows?: any[][], options?: Partial<TableOptions>): string[];
 }
 export class UiCommand {
     /**
@@ -286,11 +289,13 @@ export class Ui {
     }): UiStyle;
     /**
      * Renders the element
-     * @param {UiOutput} element
+     * @param {UiOutput | any[]} element
+     * @returns {any}
      */
-    render(element: UiOutput): void;
+    render(element: UiOutput | any[], returnOnly?: boolean): any;
 }
 export type LogTarget = "success" | "info" | "warn" | "error" | "debug" | "log";
+import { TableOptions } from "./components/Table.js";
 import { Alert } from "./components/index.js";
 import { Table } from "./components/index.js";
 import { UiOutput } from "./UiOutput.js";

@@ -34,6 +34,8 @@ export class Chat {
 	messages = []
 	/** @type {Array<{ model: ModelInfo, usage: Usage }>} */
 	steps = []
+	/** @type {string[]} Chat files */
+	files = []
 	/** @type {ChatConfig} */
 	config
 	/** @type {string} */
@@ -118,9 +120,10 @@ export class Chat {
 		stream: "stream.md",
 		chunks: "chunks.jsonl",
 		unknowns: "unknowns.jsonl",
-		tests: "tests.json",
+		tests: "tests.jsonl",
+		testsInfo: "tests.json",
 		testsErr: "tests.err",
-		testsTxt: "tests.txt",
+		testsOut: "tests.out",
 		time: "time.json",
 		todo: "todo.md",
 		usage: "usage.json",
@@ -209,6 +212,8 @@ export class Chat {
 				}
 				return true
 			}
+			const arr = await this.db.browse(".", { recursive: true }) ?? []
+			this.files = arr.filter(a => !a.endsWith("/"))
 		}
 		return false
 	}
@@ -329,6 +334,21 @@ export class Chat {
 	 */
 	async calcTokens(text) {
 		return Math.round(String(text).length / 3.6)
+	}
+
+	/**
+	 * Saves tests info.
+	 *
+	 * @param {import("../cli/testing/node.js").SuiteParseResult} parsed
+	 * @param {string} stderr
+	 * @param {string} stdout
+	 * @param {number} step
+	 */
+	async saveTests(parsed, stderr, stdout, step) {
+		await this.save("testsErr", stderr, step)
+		await this.save("testsOut", stdout, step)
+		await this.save("testsInfo", Object.fromEntries(parsed.counts.entries()), step)
+		await this.save("tests", parsed.tests, step)
 	}
 }
 

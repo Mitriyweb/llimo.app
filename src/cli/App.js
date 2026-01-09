@@ -1,6 +1,8 @@
 import process from "node:process"
+import yaml from "yaml"
+
 import { Git, FileSystem } from "../utils/index.js"
-import { GREEN, RESET, MAGENTA, ITALIC, BOLD, YELLOW, RED } from "./ANSI.js"
+import { RESET, MAGENTA, ITALIC } from "./ANSI.js"
 import { Ui } from "./Ui.js"
 import { runCommand } from "./runCommand.js"
 import { selectAndShowModel, showModel } from "./selectModel.js"
@@ -12,20 +14,15 @@ import {
 	ModelInfo, Architecture, Pricing,
 	decodeAnswer,
 	Usage,
-	runTests,
+	printAnswer,
 } from "../llm/index.js"
 import { loadModels, ChatOptions } from "../Chat/index.js"
 import { InfoCommand } from "../Chat/commands/info.js"
 import { TestCommand } from "../Chat/commands/test.js"
 import { ReleaseCommand } from "../Chat/commands/release.js"
+import { testingProgress, testingStatus } from "./testing/progress.js"
+import { Suite } from "./testing/node.js"
 
-// const DEFAULT_MODEL = "gpt-oss-120b"
-// const DEFAULT_MODEL = "zai-glm-4.6"
-// const DEFAULT_MODEL = "qwen-3-235b-a22b-instruct-2507"
-// const DEFAULT_MODEL = "qwen-3-32b"
-// const DEFAULT_MODEL = "x-ai/grok-code-fast-1"
-// const DEFAULT_MODEL = "x-ai/grok-4-fast"
-// const DEFAULT_MODEL = "openai/gpt-oss-20b:free"
 const DEFAULT_MODEL = "gpt-oss-120b"
 const DEFAULT_PROVIDER = "cerebras"
 
@@ -89,7 +86,7 @@ export class ChatCLiApp {
 		return true
 	}
 	/**
-	 * Run the command before the chat, such as info, test.
+	 * Run the command before the chat, such as info, test, list.
 	 * Returns `false` if no need to continue with chat, and `true` if continue.
 	 * @param {string[]} input
 	 * @returns {Promise<boolean>}
@@ -120,6 +117,7 @@ export class ChatCLiApp {
 
 		return shouldContinue
 	}
+
 	async initAI(isYes = false) {
 		/** @type {AI} */
 		if (!this.ai) {
@@ -144,10 +142,9 @@ export class ChatCLiApp {
 				throw new Error(`Model not found for ${modelStr}@${providerStr}`)
 			}
 			this.ai.selectedModel = model
-			this.chat.save("model.json", model) // Persist for pre-select
+			this.chat.save("model.json", model)
 			return
 		}
-		// Interactive selection, but pre-load chat model if available
 		const preLoaded = await this.chat.load("model.json")
 		if (preLoaded) {
 			this.ai.selectedModel = preLoaded
@@ -176,8 +173,7 @@ export class ChatCLiApp {
 		}
 
 		await this.chat.save("input.md", this.input)
-		const testChatDir = this.options.testDir || this.chat.dir  // Use provided dir or current chat.dir
-
+		const testChatDir = this.options.testDir || this.chat.dir
 		if (this.options.isTest) {
 			const dummyModel = new ModelInfo({
 				id: "test-model",
@@ -190,7 +186,6 @@ export class ChatCLiApp {
 			})
 			return false
 		}
-		// Normal real AI mode continues...
 		return true
 	}
 	/**
@@ -225,7 +220,6 @@ export class ChatCLiApp {
 			showModel(found, this.ui)
 			model = found
 		}
-
 		const cost = await this.chat.cost()
 		const left = model.context_length - totalTokens
 		const str = [
@@ -257,7 +251,7 @@ export class ChatCLiApp {
 	 * Decodes the answer and return the next prompt
 	 * @param {import("../llm/chatLoop.js").sendAndStreamOptions} sent
 	 * @param {number} [step=1]
-	 * @returns {Promise<{ answer: string, shouldContinue: boolean, logs: string[], prompt: string }>}
+	 * @returns {Promise<{ answer: string, shouldContinue: boolean, prompt: string }>}
 	 */
 	async unpack(sent, step = 1) {
 		this.chat.add({ role: "assistant", content: sent.answer })
@@ -293,29 +287,97 @@ export class ChatCLiApp {
 		await this.chat.save("steps.jsonl", this.#steps)
 		return streamed
 	}
+	async runTests(step) {
+		const ui = this.ui
+		const fs = this.fs
+		const chat = this.chat
+		const options = this.options
+		const content = []
+		const now = Date.now()
+		const output = []
+		const testing = testingProgress({ ui, fs, output, rows: 12, prefix: "  " })
+		const onData = chunk => output.push(...String(chunk).split("\n"))
+		// const { stdout: testStdout, stderr: testStderr, exitCode } = await runTests({ ui, chat, runCommand, step, onData })
+
+		ui.console.info("@ Running tests")
+		ui.console.debug("% pnpm test:all")
+		const result = await runCommand("pnpm", ["test:all"], { onData })
+		clearInterval(testing)
+		if (!result) {
+			return { pass: false, shouldContinue: false }
+		}
+		const suite = new Suite({ rows: [...result.stdout.split("\n"), ...result.stderr.split("\n")], fs })
+		const parsed = suite.parse()
+
+		await chat.saveTests(parsed, result.stderr, result.stdout, step)
+
+		// Parse test results
+		const fail = parsed.counts.get("fail") ?? 0
+		const cancelled = parsed.counts.get("cancelled") ?? 0
+		const types = parsed.counts.get("types") ?? 0
+		const todo = parsed.counts.get("todo") ?? 0
+		const skip = parsed.counts.get("skip") ?? 0
+		// const { fail, cancelled, pass, todo, skip, types } = parsed.counts
+		ui.overwriteLine("  " + testingStatus(parsed, ui.formats.timer(Date.now() - now)))
+		ui.console.info("")
+		// ui.console.info()
+
+		let shouldContinue = true
+
+		if (!options.isYes) {
+			let continuing = false
+			if (fail > 0 || cancelled > 0 || types > 0) {
+				continuing = await printAnswer({ tests: parsed.tests, ui, content, type: "fail" })
+				if (!continuing) {
+					return { pass: false, shouldContinue: false, test: parsed }
+				}
+			}
+			if (shouldContinue && todo > 0) {
+				continuing = await printAnswer({ tests: parsed.tests, ui, content, type: "todo" })
+				if (!continuing) {
+					return { pass: false, shouldContinue: false, test: parsed }
+				}
+			}
+			if (shouldContinue && skip > 0) {
+				continuing = await printAnswer({ tests: parsed.tests, ui, content, type: "skip" })
+				if (!continuing) {
+					return { pass: false, shouldContinue: false, test: parsed }
+				}
+			}
+			chat.add({ role: "user", content: content.join("\n") })
+			if (shouldContinue && fail === 0 && cancelled === 0 && types === 0 && todo === 0 && skip === 0) {
+				ui.console.success("All tests passed.")
+				return { pass: true, shouldContinue: false, test: parsed }
+			}
+		}
+
+		const testFailed = fail > 0 || cancelled > 0 || types > 0
+		let pass = !testFailed
+
+		if (0 === result.exitCode) {
+			shouldContinue = false
+			pass = true
+		}
+
+		if (!testFailed) {
+			ui.console.info("All tests passed, no typed mistakes.")
+		}
+
+		return { pass, shouldContinue, test: parsed }
+	}
 	/**
 	 *
 	 * @param {number} [step=1]
 	 * @returns {Promise<{ shouldContinue: boolean, test?: import("./testing/node.js").SuiteParseResult }>}
 	 */
 	async test(step = 1) {
-		// @todo use the small progress window
-		const tested = await runTests({
-			ui: this.ui,
-			fs: this.fs,
-			chat: this.chat,
-			runCommand,
-			options: this.options,
-			step
-		})
-		const { test } = tested
-		if (true === tested.pass) {
-			// Task is complete, let's commit and exit
-			this.ui.console.info(`  ${GREEN}+ Task is complete${RESET}`)
+		const { test, pass } = await this.runTests(step)
+		if (true === pass) {
+			this.ui.console.success("@ Task is complete")
 			await this.git.commitAll("Task is complete")
 			return { shouldContinue: false, test }
 		} else {
-			let consecutiveErrors = 0 // Assume tracked in caller
+			let consecutiveErrors = 0
 			const MAX_ERRORS = 9
 			consecutiveErrors++
 			if (consecutiveErrors >= MAX_ERRORS) {
@@ -330,32 +392,34 @@ export class ChatCLiApp {
 	 *
 	 * @param {import("./testing/node.js").SuiteParseResult} tested
 	 * @param {number} [step=1]
+	 * @returns {Promise<string>} Prompt
 	 */
 	async next(tested, step = 1) {
-		// Load test output to provide feedback for fixing
-		this.chat.save("fail", tested, step)
-
 		const rows = [
-			"Test results:",
-			Object.entries(tested.counts).map(([k, v]) => `- ${k}: ${v}`).join("\n")
+			"## Test results:",
+			Array.from(tested.counts.entries()).map(([k, v]) => `- ${k}: ${v}`).join("\n"),
+			"",
 		]
-		// @todo fix logging
-		// if (tested.logs.fail.length) {
-		// 	rows.push("Fail tests:")
-		// 	tested.logs.fail.forEach(e => rows.push(`- ${e.str}`))
-		// }
-		// if (tested.logs.cancelled.length) {
-		// 	rows.push("Cancelled tests:")
-		// 	tested.logs.cancelled.forEach(e => rows.push(`- ${e.str}`))
-		// }
-		// if (tested.logs.types.length) {
-		// 	rows.push("Types tests:")
-		// 	tested.logs.types.forEach(e => rows.push(`- ${e.str}`))
-		// }
-
+		const fillRows = (type) => {
+			const arr = tested.tests.filter(t => t.type === type)
+			if (!arr.length) return
+			rows.push(`### ${type} tests:`)
+			arr.forEach(t => {
+				rows.push(`#### ${t.file}:${t.position?.[0]}:${t.position?.[1]}`)
+				rows.push("```")
+				const text = t.doc ? yaml.stringify(t.doc) : t.text
+				rows.push(`${text.split("\n").filter(Boolean).join("\n")}`)
+				rows.push("```")
+			})
+			rows.push("")
+		}
+		fillRows("fail")
+		fillRows("cancelled")
+		fillRows("todo")
 		// Pack the next input (original or test feedback)
 		const packed = await packPrompt(packMarkdown, rows.join("\n"), this.chat)
-		await this.chat.save("prompt.md", packed.packedPrompt)
+		await this.chat.save("prompt.md", packed.packedPrompt, step)
+		return packed.packedPrompt
 	}
 	/**
 	 * Starts the chat:
@@ -382,31 +446,32 @@ export class ChatCLiApp {
 		if (!model) {
 			throw new Error("LLiMo model is not selected, provide it in env variable LLIMO_MODEL=gpt-oss-120b")
 		}
-
 		return { step, prompt, model, packed }
 	}
 	/**
 	 * Run communication loop.
+	 * @returns {Promise<void>}
 	 */
 	async loop() {
-		// 3. copy source file to chat directory (if any)
 		let { step, prompt, model, packed } = await this.start()
+		let fixing = this.options.isFix
 		while (true) {
-			if (!this.options.isFix) {
+			if (!fixing) {
 				let shouldContinue = await this.prepare(prompt, model, packed, step)
 				if (!shouldContinue) break
 				const sent = await this.send(prompt, model, step)
 				const unpacked = await this.unpack(sent, step)
 				if (!unpacked.shouldContinue) break
 			}
+			fixing = false
 			const tested = await this.test(step)
 			if (!tested.shouldContinue) break
 			if (!tested.test) break
-			await this.next(tested.test, step)
+			prompt = await this.next(tested.test, step)
 			++step
 		}
-		// Save final steps.jsonl
 		await this.chat.save("steps.jsonl", this.#steps)
 	}
 }
 
+// Removed duplicate code from chatSteps into ChatCliApp as methods

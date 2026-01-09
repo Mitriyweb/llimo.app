@@ -88,6 +88,7 @@
 - Extend `streamText` to ai-sdk file tools: Text (inline), Audio (transcribe on ref like story.mp3 → .txt), Vision (analyze image/dir → description).
 - Command: @media audio.mp3 → gen @bash "node batch-transcribe-api audio.mp3" (Whisper-1, lang=uk, env) or through OpenRouter providers or others available models with such modality.
 - Deps: Install @ai-sdk/openai-vision, mock for tests.
+- Autocomplete for cli such as in git with commands and branches.
 
 ## Hot-fix requests
 

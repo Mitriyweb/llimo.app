@@ -23,6 +23,7 @@ if (process.argv.length < 3) {
 	ui.console.error("Usage: llimo <command> [options]")
 	ui.console.info("\nCommands:")
 	ui.console.info("  chat     – Interactive chat with AI (default)")
+	ui.console.info("  list     – List chats and select current")
 	ui.console.info("  models   – List available models and filter")
 	ui.console.info("  pack     – Pack markdown checklist into prompt")
 	ui.console.info("  unpack   – Unpack files/commands from markdown response")
@@ -36,6 +37,8 @@ const args = process.argv.slice(3)
 if (subcmd === "chat") {
 	// Delegate to chat main with remaining args
 	import("./llimo-chat.js").then(({ main }) => main(args))
+} else if (subcmd === "list") {
+	import("./llimo-list.js").then(({ main }) => main(args))
 } else if (subcmd === "models") {
 	import("./llimo-models.js").then(({ main }) => main(args))
 } else if (subcmd === "pack") {

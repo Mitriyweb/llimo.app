@@ -19,7 +19,7 @@ export class ChatCLiApp {
     inputFile: string;
     init(input: any): Promise<boolean>;
     /**
-     * Run the command before the chat, such as info, test.
+     * Run the command before the chat, such as info, test, list.
      * Returns `false` if no need to continue with chat, and `true` if continue.
      * @param {string[]} input
      * @returns {Promise<boolean>}
@@ -47,12 +47,11 @@ export class ChatCLiApp {
      * Decodes the answer and return the next prompt
      * @param {import("../llm/chatLoop.js").sendAndStreamOptions} sent
      * @param {number} [step=1]
-     * @returns {Promise<{ answer: string, shouldContinue: boolean, logs: string[], prompt: string }>}
+     * @returns {Promise<{ answer: string, shouldContinue: boolean, prompt: string }>}
      */
     unpack(sent: import("../llm/chatLoop.js").sendAndStreamOptions, step?: number): Promise<{
         answer: string;
         shouldContinue: boolean;
-        logs: string[];
         prompt: string;
     }>;
     /**
@@ -63,6 +62,15 @@ export class ChatCLiApp {
      * @returns {Promise<import("../llm/chatLoop.js").sendAndStreamOptions>}
      */
     send(prompt: string, model: ModelInfo, step?: number): Promise<import("../llm/chatLoop.js").sendAndStreamOptions>;
+    runTests(step: any): Promise<{
+        pass: boolean;
+        shouldContinue: boolean;
+        test?: undefined;
+    } | {
+        pass: boolean;
+        shouldContinue: boolean;
+        test: import("./testing/node.js").SuiteParseResult;
+    }>;
     /**
      *
      * @param {number} [step=1]
@@ -76,8 +84,9 @@ export class ChatCLiApp {
      *
      * @param {import("./testing/node.js").SuiteParseResult} tested
      * @param {number} [step=1]
+     * @returns {Promise<string>} Prompt
      */
-    next(tested: import("./testing/node.js").SuiteParseResult, step?: number): Promise<void>;
+    next(tested: import("./testing/node.js").SuiteParseResult, step?: number): Promise<string>;
     /**
      * Starts the chat:
      * 1. Detect the recent step
@@ -100,6 +109,7 @@ export class ChatCLiApp {
     }>;
     /**
      * Run communication loop.
+     * @returns {Promise<void>}
      */
     loop(): Promise<void>;
     #private;

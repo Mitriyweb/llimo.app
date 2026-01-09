@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * CLI entry point for LLiMo
- * @see https://github.com/nan0web/llimo
+ * @see https://github.com/nan0web/llimo.app
  */
 
 import process from "node:process"
@@ -41,7 +41,7 @@ Options:
 Examples:
 	llimo chat me.md                    # default model, interactive
 	llimo chat --model qwen-3-32b me.md  # specific model
-	llimo models --filter id~gpt         # list models
+	llimo list                          # list chats (like llimo models)
 	llimo pack checklist.md > prompt.md  # pack files
 	llimo unpack response.md             # unpack files/commands
 `)
@@ -64,8 +64,6 @@ Examples:
 	await app.loop()
 }
 
-/* -------------------------------------------------------------------------- */
-
 if (import.meta.url === `file://${process.argv[1]}`) {
 	main().catch((err) => {
 		ui.console.error(err.message)
@@ -73,4 +71,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 		process.exit(1)
 	})
 }
-

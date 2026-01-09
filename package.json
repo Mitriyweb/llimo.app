@@ -9,6 +9,7 @@
 	"bin": {
 		"llimo": "bin/llimo.js",
 		"llimo-chat": "bin/llimo-chat.js",
+		"llimo-list": "bin/llimo-list.js",
 		"llimo-models": "bin/llimo-models.js",
 		"llimo-release": "bin/llimo-release.js",
 		"llimo-system": "bin/llimo-system.js",

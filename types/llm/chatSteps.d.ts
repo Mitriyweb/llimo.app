@@ -82,27 +82,31 @@ export function startStreaming(ai: AI, model: ModelInfo, chat: Chat, options: ob
  * @param {Ui} param0.ui
  * @param {Chat} param0.chat
  * @param {ChatOptions} param0.options
- * @param {string[]} [param0.logs=[]]
- * @returns {Promise<{ answer: string, shouldContinue: boolean, logs: string[], prompt: string }>}
+ * @returns {Promise<{ answer: string, shouldContinue: boolean, prompt: string }>}
  */
-export function decodeAnswer({ ui, chat, options, logs }: {
+export function decodeAnswer({ ui, chat, options }: {
     ui: Ui;
     chat: Chat;
     options: ChatOptions;
-    logs?: string[] | undefined;
 }): Promise<{
     answer: string;
     shouldContinue: boolean;
-    logs: string[];
     prompt: string;
 }>;
 /**
  *
  * @param {import('../cli/testing/node.js').TestInfo[]} tests
  * @param {Ui} ui
- * @returns {any[][]}
+ * @returns {string[][]}
  */
-export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], ui?: Ui): any[][];
+export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], ui?: Ui): string[][];
+/**
+ *
+ * @param {import("../cli/testing/node.js").TestInfo[]} tests
+ * @param {import("../cli/testing/node.js").TestType} type
+ * @returns {import("../cli/testing/node.js").TestInfo[]}
+ */
+export function filterTests(tests: import("../cli/testing/node.js").TestInfo[], type: import("../cli/testing/node.js").TestType): import("../cli/testing/node.js").TestInfo[];
 /**
  *
  * @param {Object} input
@@ -114,7 +118,7 @@ export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], 
  */
 export function printAnswer(input: {
     ui: Ui;
-    type?: "todo" | "skip" | "fail" | undefined;
+    type?: "skip" | "todo" | "fail" | undefined;
     tests?: import("../cli/testing/node.js").TestInfo[] | undefined;
     content?: string[] | undefined;
 }): Promise<boolean>;

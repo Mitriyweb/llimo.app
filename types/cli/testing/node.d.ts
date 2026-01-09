@@ -36,12 +36,13 @@ export class Tap {
      *
      * Handles both indented YAML (`---` ...) and non‑indented variants.
      *
-     * @param {{ i: number, parent?: number }} input
+     * @param {{ i: number, parent?: number, errors?: string[] }} input
      * @returns {number} new index (position right after the processed block)
      */
     collectTest(input: {
         i: number;
         parent?: number;
+        errors?: string[];
     }): number;
 }
 export class DeclarationTS extends Tap {
@@ -74,8 +75,9 @@ export type SuiteParseResult = TapParseResult & {
     tap: TapParseResult;
     ts: TapParseResult;
 };
+export type TestType = "todo" | "fail" | "pass" | "cancelled" | "skip" | "types";
 export type TestInfo = {
-    type: "todo" | "fail" | "pass" | "cancelled" | "skip" | "types";
+    type: TestType;
     no: number;
     text: string;
     indent: number;

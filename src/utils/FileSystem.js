@@ -1,7 +1,7 @@
 /**
  * Utility functions for llimo-chat
  */
-import fs, { mkdtemp } from 'node:fs/promises'
+import fs, { mkdtemp, rm } from 'node:fs/promises'
 import process from 'node:process'
 import os from "node:os"
 import { Stream } from 'node:stream'
@@ -371,5 +371,14 @@ export class FileSystem {
 	async mkdtemp(prefix) {
 		const path = prefix.includes(sep) ? this.path.resolve(prefix) : this.path.resolve(os.tmpdir(), prefix)
 		return await mkdtemp(path)
+	}
+
+	/**
+	 * @param {string} path
+	 * @param {import('node:fs').RmOptions} options
+	 * @returns {Promise<void>}
+	 */
+	async rm(path, options) {
+		return await rm(this.path.resolve(path), options)
 	}
 }

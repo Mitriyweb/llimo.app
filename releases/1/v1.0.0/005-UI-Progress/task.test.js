@@ -1,105 +1,76 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import { spawnSync } from "node:child_process"
-import { resolve } from "node:path"
-import { clearDebugger } from "../../../../src/utils/test.js"
-import { formatChatProgress } from "../../../../src/llm/chatProgress.js"
-import { Ui }from "../../../../src/cli/Ui.js"
 
-const rootDir = resolve("src/llm/chat-progress")
+import { formatChatProgress } from "../../../../src/llm/chatProgress.js"
+import { ModelInfo } from "../../../../src/llm/ModelInfo.js"
+import { Pricing } from "../../../../src/llm/Pricing.js"
+import { Usage } from "../../../../src/llm/Usage.js"
+import { Ui } from "../../../../src/cli/Ui.js"
+
+const ui = new Ui()
+const now = 1_000_000
 
 describe("005-UI-Progress – formatChatProgress", () => {
-	const ui = new Ui()
-	const now = Date.now()
-	/** @todo add format for all the different steps: only input usage, read, reason, asnwer */
 	describe("5.1 Progress table formats and no NaN", () => {
+		const model = new ModelInfo({
+			pricing: new Pricing({ prompt: 0.0002, completion: 0.00015 }),
+			context_length: 256_000
+		})
+
 		it("standard multi-line - read", () => {
-			const lines = formatChatProgress({
-				ui,
-				usage: { inputTokens: 1_000 },
-				clock: { startTime: now - 5000 },
-				model: { context_length: 16_000, pricing: { prompt: 0.1, completion: 0.2 } },
-				now,
-			})
+			const usage = new Usage({ inputTokens: 141_442 })
+			const clock = { startTime: now - 9_000 }
+			const lines = formatChatProgress({ ui, usage, clock, model, now })
 			assert.deepStrictEqual(lines, [
-				'read | 0:05 | $0.0001 | 1,000T | 200T/s',
-				'chat | 0:05 | $0.0001 | 1,000T | 200T/s | 15,000T',
+				"  read | 0:09 | $0.0283 | 141,442T | 15,715T/s",
+				"  chat | 0:09 | $0.0283 | 141,442T | 15,715T/s | 114,558T"
 			])
 		})
+
 		it("standard multi-line - reason", () => {
-			const lines = formatChatProgress({
-				ui,
-				usage: { inputTokens: 1_000, reasoningTokens: 2_000 },
-				clock: { startTime: now - 5000, reasonTime: now - 2000 },
-				model: { context_length: 16_000, pricing: { prompt: 0.1, completion: 0.2 } },
-				now,
-			})
+			const usage = new Usage({ inputTokens: 141_442, reasoningTokens: 338 })
+			const clock = { startTime: now - 37_000, reasonTime: now - 28_200 }
+			const lines = formatChatProgress({ ui, usage, clock, model, now })
 			assert.deepStrictEqual(lines, [
-				'  read | 0:03 | $0.0001 | 1,000T |   333T/s',
-				'reason | 0:02 | $0.0004 | 2,000T | 1,000T/s',
-				'  chat | 0:05 | $0.0005 | 3,000T |   600T/s | 13,000T'
+				"  read | 0:09 | $0.0283 | 141,442T | 15,715T/s",
+				"reason | 0:09 | $0.0001 |     338T |     38T/s",
+				"  chat | 0:37 | $0.0284 | 141,780T |  3,835T/s | 114,220T"
 			])
 		})
+
 		it("standard multi-line - answer", () => {
-			const lines = formatChatProgress({
-				ui,
-				usage: { inputTokens: 1_000, outputTokens: 2_000 },
-				clock: { startTime: now - 5000, answerTime: now - 2000 },
-				model: { context_length: 16_000, pricing: { prompt: 0.1, completion: 0.2 } },
-				now,
-			})
+			const usage = new Usage({ inputTokens: 141_442, outputTokens: 2_791 })
+			const clock = { startTime: now - 37_000, answerTime: now - 16_000 }
+			const lines = formatChatProgress({ ui, usage, clock, model, now })
 			assert.deepStrictEqual(lines, [
-				'  read | 0:03 | $0.0001 | 1,000T |   333T/s',
-				'answer | 0:02 | $0.0004 | 2,000T | 1,000T/s',
-				'  chat | 0:05 | $0.0005 | 3,000T |   600T/s | 13,000T'
+				"  read | 0:21 | $0.0283 | 141,442T |  6,734T/s",
+				"answer | 0:16 | $0.0004 |   2,791T |   174T/s",
+				"  chat | 0:37 | $0.0287 | 144,233T |  3,900T/s | 111,767T"
 			])
 		})
+
 		it("standard multi-line - complete", () => {
-			const lines = formatChatProgress({
-				ui,
-				usage: { inputTokens: 1_000, reasoningTokens: 1_000, outputTokens: 2_000 },
-				clock: { startTime: now - 5000, reasonTime: now - 3000, answerTime: now - 1000 },
-				model: { context_length: 16_000, pricing: { prompt: 0.1, completion: 0.2 } },
-				now,
-			})
+			const usage = new Usage({ inputTokens: 141_442, reasoningTokens: 338, outputTokens: 2_791 })
+			const clock = { startTime: now - 37_000, reasonTime: now - 28_200, answerTime: now - 16_000 }
+			const lines = formatChatProgress({ ui, usage, clock, model, now })
 			assert.deepStrictEqual(lines, [
-				'  read | 0:02 | $0.0001 | 1,000T |   500T/s',
-				'reason | 0:02 | $0.0002 | 1,000T |   500T/s',
-				'answer | 0:01 | $0.0004 | 2,000T | 2,000T/s',
-				'  chat | 0:05 | $0.0007 | 4,000T |   800T/s | 12,000T',
+				"  read | 0:09 | $0.0283 | 141,442T | 15,715T/s",
+				"reason | 0:12 | $0.0001 |     338T |     28T/s",
+				"answer | 0:16 | $0.0004 |   2,791T |   174T/s",
+				"  chat | 0:37 | $0.0288 | 144,571T |  3,912T/s | 111,429T"
 			])
 		})
 
 		it("one-line (--tiny mode)", () => {
 			const lines = formatChatProgress({
-				ui,
-				usage: { inputTokens: 1_000, outputTokens: 100 },
+				ui, usage: new Usage({ inputTokens: 1_000, outputTokens: 100 }),
 				clock: { startTime: now - 1_000, answerTime: now },
-				model: { context_length: 128_000, pricing: { prompt: 0.1, completion: 0.2 } },
-				now,
-				isTiny: true
+				model: new ModelInfo({ pricing: new Pricing({ prompt: 0.1, completion: 0.2 }), context_length: 128_000 }),
+				now, isTiny: true
 			})
 			assert.deepStrictEqual(lines, [
-				"step 1 | 1.0s | $0.0001 | answer | 0:00 | 100T | 100T/s | 1,100T | 126,900T"
+				"step 1 | 0:01 | $0.0001 | answer | 0:00 | 100T | 100T/s | 1,100T of 128,000T"
 			])
 		})
-	})
-})
-
-describe.skip("005-UI-Progress – end-to-end CLI simulation", () => {
-	it("standard mode (--debug, multi-line progress)", () => {
-		const result = spawnSync("node", [resolve(rootDir, "../../../bin/llimo-chat.js"), resolve(rootDir, "standard/me.md"), "--yes", "--debug"], { cwd: resolve(rootDir, "standard"), encoding: "utf8", timeout: 20000 })
-		const output = clearDebugger(result.stdout).slice(0, 1000).trim()  // Limit for assertion
-		assert.ok(output.includes("chat progress |"), "Shows chat progress first line")
-		assert.ok(output.includes("reading |"), "Shows phase lines")
-		assert.ok(output.includes("$0.00"), "Cost is calculated")
-		assert.ok(!output.includes("step 3 |"), "Not one-line mode")
-	})
-
-	it("one-line mode (--one, single progress line)", () => {
-		const result = spawnSync("node", [resolve(rootDir, "../../../bin/llimo-chat.js"), resolve(rootDir, "one/me.md"), "--yes", "--one"], { cwd: resolve(rootDir, "one"), encoding: "utf8", timeout: 20000 })
-		const output = clearDebugger(result.stdout).slice(0, 200).trim()  // Limit for assertion
-		assert.ok(output.includes("step 4 |"), "Shows single-step progress line")
-		assert.ok(output.includes("$0.00"), "Cost is present")
 	})
 })

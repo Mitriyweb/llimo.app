@@ -67,18 +67,23 @@ export class Tap {
 			this.counts.set(name, 0)
 		})
 
+		let errors = []
+
 		for (let i = 0; i < this.rows.length; i++) {
 			const row = this.rows[i]
 			const str = row.trim()
 			const found = summary.find(s => str.startsWith(s))
 			if (row.startsWith("TAP version ")) {
 				version = row.slice(12)
+				errors = []
 			}
 			else if (str.startsWith("# Subtest: ")) {
-				i = this.collectTest({ i })
+				i = this.collectTest({ i, errors })
+				errors = []
 			}
 			else if (str.match(/^\d+\.\.\d+$/)) {
 				// @todo use subtotal markers like "1..1" for validation
+				errors = []
 			}
 			else if (found) {
 				let [, name] = found.split(" ")
@@ -87,9 +92,14 @@ export class Tap {
 				let value = this.counts.get(name) ?? 0
 				value += name.includes("duration") ? parseFloat(val) : parseInt(val)
 				this.counts.set(name, value)
+				errors = []
+			}
+			else if (str.startsWith("# ")) {
+				errors.push(str.slice(2))
 			}
 			else {
 				this.unknowns.set(i, row)
+				errors = []
 			}
 		}
 		return {
@@ -106,11 +116,11 @@ export class Tap {
 	 *
 	 * Handles both indented YAML (`---` ...) and non‑indented variants.
 	 *
-	 * @param {{ i: number, parent?: number }} input
+	 * @param {{ i: number, parent?: number, errors?: string[] }} input
 	 * @returns {number} new index (position right after the processed block)
 	 */
 	collectTest(input) {
-		const { i, parent } = input
+		const { i, parent, errors = [] } = input
 		const row = this.rows[i]                // "# Subtest: ..."
 		const str = row.trim()
 		const text = str.slice(11)              // subtest title
@@ -124,7 +134,6 @@ export class Tap {
 		let fail = false
 		if (clean.startsWith("# Subtest: ")) {
 			const nextI = this.collectTest({ i: j, parent: i })
-			const x = 9
 			return nextI
 		}
 		else if (clean.startsWith("not ok ")) {
@@ -165,7 +174,10 @@ export class Tap {
 			doc = yaml.parse(yamlLines.join("\n"))
 		} catch (/** @type {any} */ err) {
 			this.errors.set(j, err)
-			doc = {}
+			doc = { errors: [err] }
+		}
+		if (errors.length) {
+			doc.errors = errors.slice()
 		}
 		/** @type {[number, number]} */
 		let position = [0, 0]
@@ -286,8 +298,10 @@ export class Suite extends Tap {
 }
 
 /**
+ * @typedef {"todo" | "fail" | "pass" | "cancelled" | "skip" | "types"} TestType
+ *
  * @typedef {Object} TestInfo
- * @property {"todo" | "fail" | "pass" | "cancelled" | "skip" | "types"} type
+ * @property {TestType} type
  * @property {number} no
  * @property {string} text
  * @property {number} indent

@@ -18,8 +18,9 @@ export class Chat {
         chunks: string;
         unknowns: string;
         tests: string;
+        testsInfo: string;
         testsErr: string;
-        testsTxt: string;
+        testsOut: string;
         time: string;
         todo: string;
         usage: string;
@@ -58,6 +59,8 @@ export class Chat {
         model: ModelInfo;
         usage: Usage;
     }>;
+    /** @type {string[]} Chat files */
+    files: string[];
     /** @type {ChatConfig} */
     config: ChatConfig;
     /** @type {string} */
@@ -171,6 +174,15 @@ export class Chat {
      * @returns {Promise<number>}
      */
     calcTokens(text: string): Promise<number>;
+    /**
+     * Saves tests info.
+     *
+     * @param {import("../cli/testing/node.js").SuiteParseResult} parsed
+     * @param {string} stderr
+     * @param {string} stdout
+     * @param {number} step
+     */
+    saveTests(parsed: import("../cli/testing/node.js").SuiteParseResult, stderr: string, stdout: string, step: number): Promise<void>;
     #private;
 }
 export type ChatMessage = {
