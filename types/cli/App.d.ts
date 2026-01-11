@@ -1,36 +1,49 @@
 /**
- * Main CLI application for chat interactions.
- * Orchestrates initialization, input reading, model selection, streaming, unpacking, and testing loop.
+ * @typedef {Object} SendAndStreamOptions
+ * @property {string} answer
+ * @property {string} reason
+ * @property {Usage} usage
+ * @property {any[]} unknowns
+ * @property {any} [error]
  */
 export class ChatCLiApp {
+    /** @param {Partial<ChatCLiApp>} props */
+    constructor(props: Partial<ChatCLiApp>);
+    /** @type {FileSystem} */
+    fs: FileSystem;
+    /** @type {Git} */
+    git: Git;
+    /** @type {Ui} */
+    ui: Ui;
+    /** @type {AI} */
+    ai: AI;
+    /** @type {ChatOptions} */
+    options: ChatOptions;
+    /** @type {Chat} */
+    chat: Chat;
+    /** @type {string} */
+    input: string;
+    /** @type {string} */
+    inputFile: string;
+    init(input: any): Promise<boolean>;
     /**
-     * Initializes the app: chat, AI, runs pre-chat commands if any.
-     * @param {string[]} [argv] - CLI arguments.
-     * @returns {Promise<boolean>} - True to continue chat loop.
+     * Run the command before the chat, such as info, test, list.
+     * Returns `false` if no need to continue with chat, and `true` if continue.
+     * @param {string[]} input
+     * @returns {Promise<boolean>}
      */
-    init(argv?: string[]): Promise<boolean>;
-    /**
-     * Runs a command (info/test/release) before main chat if argv[0] matches.
-     * @param {string[]} argv - Arguments for command.
-     * @returns {Promise<boolean>} - True if continue to chat.
-     */
-    runCommandFirst(argv: string[]): Promise<boolean>;
-    /**
-     * Initializes AI with models, selects based on options/chat config/env.
-     * @param {boolean} [isYes] - Skip interactive selection.
-     * @returns {Promise<void>}
-     */
+    runCommandFirst(input: string[]): Promise<boolean>;
     initAI(isYes?: boolean): Promise<void>;
     /**
-     * Reads input from argv/file/stdin.
-     * @returns {Promise<boolean>} - False if no input.
+     *
+     * @returns {Promise<boolean>}
      */
     readInput(): Promise<boolean>;
     /**
-     * Prepares prompt, shows stats, confirms send (unless --yes).
+     * Returns True to continue chat and False to stop the chat.
      * @param {string} prompt
      * @param {ModelInfo} model
-     * @param {{packedPrompt: string, injected: string[]}} packed
+     * @param {{ packedPrompt: string, injected: string[] }} packed
      * @param {number} [step=1]
      * @returns {Promise<boolean>}
      */
@@ -39,52 +52,59 @@ export class ChatCLiApp {
         injected: string[];
     }, step?: number): Promise<boolean>;
     /**
-     * Unpacks streamed response, saves files/commands.
-     * @param {import("./chatLoop.js").sendAndStreamOptions} sent
+     * Decodes the answer and return the next prompt
+     * @param {import("../llm/chatLoop.js").sendAndStreamOptions} sent
      * @param {number} [step=1]
-     * @returns {Promise<{answer: string, shouldContinue: boolean, prompt: string}>}
+     * @returns {Promise<{ answer: string, shouldContinue: boolean, prompt: string }>}
      */
-    unpack(sent: any, step?: number): Promise<{
+    unpack(sent: import("../llm/chatLoop.js").sendAndStreamOptions, step?: number): Promise<{
         answer: string;
         shouldContinue: boolean;
         prompt: string;
     }>;
     /**
-     * Sends prompt to model, streams response with progress.
+     *
      * @param {string} prompt
      * @param {ModelInfo} model
      * @param {number} [step=1]
-     * @returns {Promise<import("./chatLoop.js").sendAndStreamOptions>}
+     * @returns {Promise<import("../llm/chatLoop.js").sendAndStreamOptions>}
      */
-    send(prompt: string, model: ModelInfo, step?: number): Promise<any>;
-    /**
-     * Runs tests, parses results, prompts for continuation if fails/todo/skip.
-     * @param {number} step
-     * @returns {Promise<{pass: boolean, shouldContinue: boolean}>}
-     */
-    runTests(step: number): Promise<{
+    send(prompt: string, model: ModelInfo, step?: number): Promise<import("../llm/chatLoop.js").sendAndStreamOptions>;
+    runTests(step: any): Promise<{
         pass: boolean;
         shouldContinue: boolean;
+        test?: undefined;
+    } | {
+        pass: boolean;
+        shouldContinue: boolean;
+        test: import("./testing/node.js").SuiteParseResult;
     }>;
     /**
-     * Runs tests, commits if pass, checks max fails.
+     *
      * @param {number} [step=1]
-     * @returns {Promise<{shouldContinue: boolean, test?: import("./testing/node.js").SuiteParseResult}>}
+     * @returns {Promise<{ shouldContinue: boolean, test?: import("./testing/node.js").SuiteParseResult }>}
      */
     test(step?: number): Promise<{
         shouldContinue: boolean;
         test?: import("./testing/node.js").SuiteParseResult;
     }>;
     /**
-     * Generates next prompt from test results (fail/todo/skip).
+     *
      * @param {import("./testing/node.js").SuiteParseResult} tested
      * @param {number} [step=1]
-     * @returns {Promise<string>}
+     * @returns {Promise<string>} Prompt
      */
     next(tested: import("./testing/node.js").SuiteParseResult, step?: number): Promise<string>;
     /**
-     * Starts chat: detects step, packs initial prompt.
-     * @returns {Promise<{step: number, prompt: string, model: ModelInfo, packed: {packedPrompt: string, injected: string[]}}>}
+     * Starts the chat:
+     * 1. Detect the recent step
+     * 1.1. for Test it should go from the first step
+     * 1.2. for Real it should go from the recent step
+     * 2. Prepare input (pack prompt with messages)
+     * 3. Select a model
+     * 3.1. for Test it should be selected from saved log
+     * 3.2. for Real it should use available by the algorithm
+     * @returns {Promise<{ step: number, prompt: string, model: ModelInfo, packed: { packedPrompt: string, injected: string[] } }>}
      */
     start(): Promise<{
         step: number;
@@ -96,8 +116,24 @@ export class ChatCLiApp {
         };
     }>;
     /**
-     * Main loop: prepare → send → unpack → test → repeat until pass/no continue.
+     * Run communication loop.
      * @returns {Promise<void>}
      */
     loop(): Promise<void>;
+    #private;
 }
+export type SendAndStreamOptions = {
+    answer: string;
+    reason: string;
+    usage: Usage;
+    unknowns: any[];
+    error?: any;
+};
+import { FileSystem } from "../utils/index.js";
+import { Git } from "../utils/index.js";
+import { Ui } from "./Ui.js";
+import { AI } from "../llm/index.js";
+import { ChatOptions } from "../Chat/index.js";
+import { Chat } from "../llm/index.js";
+import { ModelInfo } from "../llm/index.js";
+import { Usage } from "../llm/index.js";
