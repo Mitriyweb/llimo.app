@@ -321,3 +321,11 @@
   ```
 - Show proper reason/output usage, it seems openrouter formula is 
 	`{ reason: usage.reasoningTokens, answer: usage.outputTokens - usage.reasoningTokens }`
+- On fail `pnpm test:all` should show the error and send to LLiMo, instead of:
+	```bash
+	ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "test:all" not found                                                        
+	  Did you mean "pnpm test"?                                                                                                
+	  0:00 tests: 0 | pass: 0 | fail: 0 | cancelled: 0 | types: 0 | skip: 0 | todo: 0
+	All tests passed.
+	  + Task is complete
+	```

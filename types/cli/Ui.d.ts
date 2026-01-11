@@ -7,18 +7,19 @@ export class UiStyle {
     /** @type {number} */
     paddingLeft: number;
 }
+/** @typedef {"b" | "f" | "T"} UiWeightType */
 export class UiFormats {
     /**
      * Formats weight (size) of the value, available types:
      * b - bytes
      * f - files
      * T - Tokens
-     * @param {"b" | "f" | "T"} type
+     * @param {UiWeightType} type
      * @param {number} value
      * @param {(value: number) => string} [format]
      * @returns {string}
      */
-    weight(type: "b" | "f" | "T", value: number, format?: (value: number) => string): string;
+    weight(type: UiWeightType, value: number, format?: (value: number) => string): string;
     /**
      * Formats count (amount) of the value
      * @param {number} value
@@ -47,12 +48,13 @@ export class UiFormats {
      */
     timer(elapsed: number): string;
     /**
-     * Returns a colored LEFT tokens count of TOTAL.
+     * Returns a colored used count of TOTAL.
      * @param {number} count
-     * @param {number} context_length
+     * @param {number} total
+     * @param {UiWeightType} [type="T"]
      * @returns {string}
      */
-    leftTokens(count: number, context_length: number): string;
+    used(count: number, total: number, type?: UiWeightType): string;
 }
 export class UiConsole {
     /**
@@ -78,18 +80,18 @@ export class UiConsole {
      */
     appendFile(target: LogTarget, msg: string): void;
     /**
-     * Set's the prefix such as color before every message in .info method.
+     * Set's the prefix such such as color before every message in .info method.
      * @param {string} prefix
      */
     style(prefix?: string): void;
     /**
      * @todo write jsdoc
      * @param {any[]} args
-     * @returns {{ styles: UiStyle[], args: any[] }}
+     * @returns {{ styles: UiStyle[], args: string[] }}
      */
     extractStyles(args?: any[]): {
         styles: UiStyle[];
-        args: any[];
+        args: string[];
     };
     /**
      * @todo write jsdoc
@@ -194,6 +196,8 @@ export class Ui {
     formats: UiFormats;
     /** @type {string[]} Queue of predefined stdin values (if STDIN env var is set). */
     definedInputs: string[];
+    /** @type {readline.Interface|undefined} */
+    _rl: readline.Interface | undefined;
     /**
      * Get debug mode status.
      *
@@ -288,14 +292,17 @@ export class Ui {
         paddingLeft?: number | undefined;
     }): UiStyle;
     /**
-     * Renders the element
-     * @param {UiOutput | any[]} element
-     * @returns {any}
+     * Renders element into string and outputs if returnOnly is omitted or false.
+     * @param {string | any[] | UiOutput} element
+     * @param {*} returnOnly
+     * @returns {string}
      */
-    render(element: UiOutput | any[], returnOnly?: boolean): any;
+    render(element: string | any[] | UiOutput, returnOnly?: any): string;
 }
 export type LogTarget = "success" | "info" | "warn" | "error" | "debug" | "log";
+export type UiWeightType = "b" | "f" | "T";
 import { TableOptions } from "./components/Table.js";
 import { Alert } from "./components/index.js";
 import { Table } from "./components/index.js";
+import readline from "node:readline";
 import { UiOutput } from "./UiOutput.js";

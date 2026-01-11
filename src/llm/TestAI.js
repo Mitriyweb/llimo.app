@@ -18,7 +18,7 @@ export class TestAI extends AI {
 	async streamText(model, messages, options = {}) {
 		const { cwd = process.cwd(), step = 1, delay = 10 } = options
 		const fs = new FileSystem({ cwd })
-		const stepDir = `step/${String(step).padStart(3, '0')}/`
+		const stepDir = `steps/${String(step).padStart(3, '0')}/`
 		let chunks = []
 		let fullResponse = ""
 		let reasoning = ""

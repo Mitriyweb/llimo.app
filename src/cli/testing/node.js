@@ -176,6 +176,7 @@ export class Tap {
 			this.errors.set(j, err)
 			doc = { errors: [err] }
 		}
+		if (!doc) doc = { errors: [] }
 		if (errors.length) {
 			doc.errors = errors.slice()
 		}
@@ -186,6 +187,9 @@ export class Tap {
 			const [loc, x, y = "0"] = doc.location.split(":")
 			position = [parseInt(x), parseInt(y)]
 			file = this.fs.path.relative(this.fs.path.cwd, this.fs.path.resolve(this.fs.path.cwd, loc))
+		}
+		if (clean.startsWith("not ok")) {
+			const x = 9
 		}
 		this.tests.push({
 			type: "# TODO" === status ? "todo"

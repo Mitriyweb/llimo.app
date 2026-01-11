@@ -41,7 +41,7 @@ console.info("Echo:", ...args);
 
 			const { stdout, stderr, exitCode } = await runNodeScript({
 				cwd: tempDir,
-				scriptPath: echoScriptPath,
+				script: echoScriptPath,
 				args: ["Hello from test"]
 			})
 

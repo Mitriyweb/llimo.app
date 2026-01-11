@@ -189,7 +189,7 @@ describe("autocomplete – core utilities", () => {
 			console.info = () => {}
 			console.table = () => []
 			const mockUi = new Ui({
-				// @ts-expect-error - mock stdin for testing, ExEmitter extends EventEmitter not ReadStream
+				// @ts-ignore
 				stdin: mockStdin,
 				console,
 			})

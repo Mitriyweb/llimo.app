@@ -9,10 +9,10 @@ import { Chat } from "./Chat.js"
 import { AI } from "./AI.js"
 import { generateSystemPrompt } from "./system.js"
 import { unpackAnswer } from "./unpack.js"
-import { BOLD, GREEN, ITALIC, MAGENTA, RED, RESET, YELLOW } from "../cli/ANSI.js"
+import { BOLD, GREEN, MAGENTA, RESET } from "../cli/ANSI.js"
 import { FileSystem } from "../utils/FileSystem.js"
 import { MarkdownProtocol } from "../utils/Markdown.js"
-import { Ui, UiStyle } from "../cli/Ui.js"
+import { Ui } from "../cli/Ui.js"
 import { ModelInfo } from './ModelInfo.js'
 import ChatOptions from '../Chat/Options.js'
 import { Suite } from '../cli/testing/node.js'
@@ -261,7 +261,7 @@ export async function decodeAnswer({ ui, chat, options }) {
  *
  * @param {import('../cli/testing/node.js').TestInfo[]} tests
  * @param {Ui} ui
- * @returns {string[][]}
+ * @returns {string[]}
  */
 export function renderTests(tests, ui = new Ui()) {
 	const stderr = []
@@ -311,10 +311,10 @@ export async function printAnswer(input) {
 	const arr = filterTests(tests, type)
 	ui.console.info("")
 
-	/** @type {string[][]} */
+	/** @type {string[]} */
 	const stderr = renderTests(arr)
 	if (["show", "s"].includes(ans.toLowerCase())) {
-		stderr.forEach(args => ui.console.info(...args))
+		stderr.forEach(s => ui.console.info(s))
 		ans = await ui.askYesNo(`${MAGENTA}? Do you want to continue fixing ${type} tests? (y)es, (n)o, ., <message> % `)
 	}
 	if ("no" === ans) {
@@ -331,7 +331,7 @@ export async function printAnswer(input) {
 	}
 	if (stderr.length) {
 		content.push("```stderr")
-		stderr.map(args => args.join(" ")).forEach(a => content.push(a))
+		stderr.forEach(a => content.push(a))
 		content.push("```")
 	}
 	arr.forEach(t => content.push(`- [](${t.file})`))

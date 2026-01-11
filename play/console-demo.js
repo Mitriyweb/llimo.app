@@ -1,10 +1,10 @@
-import Ui, { UiConsole } from '../src/cli/Ui.js'
+import { Ui, UiConsole } from '../src/cli/Ui.js'
 
 export class ConsoleDemo {
 	static async run() {
 		const console = new UiConsole({
 			debugMode: true,
-			logFile: 'console-demo.log'
+			logFile: 'dist/console-demo.log'
 		})
 
 		console.info('=== UiConsole Demo ===')

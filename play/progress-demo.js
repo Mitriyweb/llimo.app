@@ -1,5 +1,5 @@
 import { Progress } from '../src/cli/components/Progress.js'
-import { Ui }from '../src/cli/Ui.js'
+import { Ui } from '../src/cli/Ui.js'
 
 export class ProgressDemo {
 	static async run() {
@@ -20,7 +20,9 @@ export class ProgressDemo {
 			prefix: '⬇ '
 		})
 		ui.overwriteLine(customProgress.toString({ fill: '█', space: '░' }))
+		await new Promise(resolve => setTimeout(resolve, 500)) // Pause to show
 		console.info('Custom (75%) with options')
+		console.info('')
 
 		// Simulate updating progress
 		console.info('Simulating progress updates:')

@@ -4,9 +4,11 @@
 
 import { spawn } from "node:child_process"
 import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises"
-import { join, dirname } from "node:path"
+import { join, dirname, sep } from "node:path"
 import { tmpdir } from "node:os"
 import { randomUUID } from "node:crypto"
+
+import { runCommand } from "./cli/index.js"
 
 /**
  * Create a temporary workspace with test files
@@ -29,54 +31,24 @@ export async function createTempWorkspace(files = {}) {
 /**
  * Execute a Node.js script in an isolated temporary directory
  * @param {Object} options
- * @param {string} options.cwd - Original working directory
- * @param {string} options.scriptPath - Path to the script to execute
+ * @param {string} options.script - Path to the script to execute
+ * @param {string} [options.cwd] - Original working directory
  * @param {string[]} [options.args=[]] - Arguments to pass to the script
- * @param {string} [options.input] - Data to pipe to stdin
+ * @param {Uint8Array | string} [options.input]
+ * @param {NodeJS.ProcessEnv} [options.env]
+ * @param {import("node:child_process").StdioPipeNamed | import("node:child_process").StdioPipe[] | undefined} [options.stdio]
  * @returns {Promise<{ stdout:string, stderr:string, exitCode:number }>}
  */
-export async function runNodeScript({ cwd, scriptPath, args = [], input = "" }) {
-	// Copy the script to temp directory to ensure it's isolated
-	const scriptName = scriptPath.split('/').pop()
-	const tempScriptPath = join(cwd, scriptName || "")
-	const scriptContent = await readFile(scriptPath, 'utf-8')
-	await writeFile(tempScriptPath, scriptContent, 'utf-8')
-
-	return new Promise((resolve, reject) => {
-		const child = spawn(process.execPath, [tempScriptPath, ...args], {
-			cwd,
-			stdio: ["pipe", "pipe", "pipe"],
-			env: {
-				...process.env,
-				// Prevent any git operations in temp directory
-				GIT_DIR: undefined,
-				GIT_WORK_TREE: undefined
-			}
-		})
-
-		let stdout = ""
-		let stderr = ""
-
-		child.stdout.on("data", (d) => (stdout += d))
-		child.stderr.on("data", (d) => (stderr += d))
-
-		child.on("close", (code) => {
-			resolve({
-				stdout,
-				stderr,
-				exitCode: code ?? 0,
-			})
-		})
-
-		child.on("error", (err) => {
-			reject(err)
-		})
-
-		if (input) {
-			child.stdin.write(input)
-		}
-		child.stdin.end()
-	})
+export async function runNodeScript(options) {
+	const {
+		script,
+		cwd = process.cwd(),
+		args = [],
+		input = undefined,
+		stdio = ["pipe", "pipe", "pipe"],
+		env = process.env,
+	} = options
+	return await runCommand(process.execPath, [script, ...args], { cwd, stdio, env, input })
 }
 
 /**

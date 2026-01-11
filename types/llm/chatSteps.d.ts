@@ -97,9 +97,9 @@ export function decodeAnswer({ ui, chat, options }: {
  *
  * @param {import('../cli/testing/node.js').TestInfo[]} tests
  * @param {Ui} ui
- * @returns {string[][]}
+ * @returns {string[]}
  */
-export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], ui?: Ui): string[][];
+export function renderTests(tests: import("../cli/testing/node.js").TestInfo[], ui?: Ui): string[];
 /**
  *
  * @param {import("../cli/testing/node.js").TestInfo[]} tests

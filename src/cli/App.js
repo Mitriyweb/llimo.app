@@ -26,6 +26,15 @@ import { Suite } from "./testing/node.js"
 const DEFAULT_MODEL = "gpt-oss-120b"
 const DEFAULT_PROVIDER = "cerebras"
 
+/**
+ * @typedef {Object} SendAndStreamOptions
+ * @property {string} answer
+ * @property {string} reason
+ * @property {Usage} usage
+ * @property {any[]} unknowns
+ * @property {any} [error]
+ */
+
 export class ChatCLiApp {
 	/** @type {FileSystem} */
 	fs
@@ -230,7 +239,7 @@ export class ChatCLiApp {
 			ITALIC, this.ui.formats.weight("b", totalSize), RESET,
 			" ~ ", ITALIC, this.ui.formats.weight("T", totalTokens), RESET,
 			" ~ ", this.ui.formats.money(model.pricing.calc(new Usage({ inputTokens: totalTokens }))),
-			" | Left: ", this.ui.formats.leftTokens(left, model.context_length),
+			" | Left: ", this.ui.formats.used(left, model.context_length),
 			" | ", this.ui.formats.money(cost, 2)
 		].filter(Boolean).join("")
 		this.ui.console.info(str)

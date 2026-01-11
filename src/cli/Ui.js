@@ -17,12 +17,12 @@ export class UiStyle {
 	 * @param {Partial<UiStyle>} input
 	 */
 	constructor(input = {}) {
-		const {
-			paddingLeft = 0,
-		} = input
+		const { paddingLeft = 0 } = input
 		this.paddingLeft = Number(paddingLeft)
 	}
 }
+
+/** @typedef {"b" | "f" | "T"} UiWeightType */
 
 export class UiFormats {
 	/**
@@ -30,7 +30,7 @@ export class UiFormats {
 	 * b - bytes
 	 * f - files
 	 * T - Tokens
-	 * @param {"b" | "f" | "T"} type
+	 * @param {UiWeightType} type
 	 * @param {number} value
 	 * @param {(value: number) => string} [format]
 	 * @returns {string}
@@ -64,7 +64,7 @@ export class UiFormats {
 	pricing(value, digits = 4) {
 		/** @type {Intl.NumberFormatOptions} */
 		const options = {
-			style: 'currency',
+			style: "currency",
 			currency: "USD",
 			minimumFractionDigits: digits,
 			maximumFractionDigits: digits,
@@ -93,20 +93,21 @@ export class UiFormats {
 		return `${mins}:${secs.toString().padStart(2, "0")}`
 	}
 	/**
-	 * Returns a colored LEFT tokens count of TOTAL.
+	 * Returns a colored used count of TOTAL.
 	 * @param {number} count
-	 * @param {number} context_length
+	 * @param {number} total
+	 * @param {UiWeightType} [type="T"]
 	 * @returns {string}
 	 */
-	leftTokens(count, context_length) {
+	used(count, total, type = "T") {
 		return [
 			ITALIC,
-			count > context_length / 2 ? GREEN
-				: count > context_length / 4 ? YELLOW
+			count > total / 2 ? GREEN
+				: count > total / 4 ? YELLOW
 					: RED,
-			this.weight("T", count), RESET,
+			this.weight(type, count), RESET,
 			" of ", ITALIC,
-			this.weight("T", context_length), RESET,
+			this.weight(type, total), RESET,
 		].join("")
 	}
 }
@@ -156,7 +157,7 @@ export class UiConsole {
 	}
 
 	/**
-	 * Set's the prefix such as color before every message in .info method.
+	 * Set's the prefix such such as color before every message in .info method.
 	 * @param {string} prefix
 	 */
 	style(prefix = RESET) {
@@ -166,20 +167,18 @@ export class UiConsole {
 	/**
 	 * @todo write jsdoc
 	 * @param {any[]} args
-	 * @returns {{ styles: UiStyle[], args: any[] }}
+	 * @returns {{ styles: UiStyle[], args: string[] }}
 	 */
 	extractStyles(args = []) {
 		const styles = []
+		/** @type {string[]} */
 		let rest = []
 		args.forEach(el => {
-			if (el instanceof UiStyle) {
-				styles.push(el)
-			} else {
-				rest.push(el)
-			}
+			if (el instanceof UiStyle) styles.push(el)
+			else rest.push(String(el))
 		})
 		let combined = {}
-		styles.forEach(s => combined = { ...combined, ...s })
+		styles.forEach(s => (combined = { ...combined, ...s }))
 		Object.entries(new UiStyle(combined)).forEach(([name, value]) => {
 			if ("paddingLeft" === name) {
 				const spaces = " ".repeat(Number(value))
@@ -307,7 +306,6 @@ export class UiConsole {
 				colWidths[j] = Math.max(colWidths[j] ?? 0, visible)
 			})
 		})
-
 		const lines = rows.map(row =>
 			row.map((cell, j) => {
 				const raw = String(cell).trim()
@@ -387,6 +385,9 @@ export class Ui {
 	/** @type {string[]} Queue of predefined stdin values (if STDIN env var is set). */
 	definedInputs = []
 
+	/** @type {readline.Interface|undefined} */
+	_rl
+
 	/**
 	 * @param {Partial<Ui>} [options={}]
 	 */
@@ -406,16 +407,21 @@ export class Ui {
 		this.stdin = stdin
 		this.stdout = stdout
 		this.stderr = stderr
-		this.console = console instanceof UiConsole ? console
-			: new UiConsole({
-				debugMode: this.debugMode,
-				stdout: /** @type {any} */ (stdout), ...(console ?? {})
-			})
+		this.console = console instanceof UiConsole ? console : new UiConsole(console)
+		this.console.debugMode = this.debugMode
+		this.console.stdout = /** @type {any} */ (stdout)
 		this.formats = formats
 
-		const raw = process.env.STDIN ?? ""
-		const normalized = raw.replace(/\\n/g, "\n")
-		this.definedInputs = normalized ? normalized.split("\n") : definedInputs
+		if (definedInputs.length) {
+			this.definedInputs = definedInputs
+		} else {
+			const raw = process.env.STDIN ?? ""
+			const sep = process.env.STDIN_SEP ?? "\n"
+			if (raw) {
+				const normalized = raw.replace(/\\n/g, "\n").split(sep)
+				this.definedInputs = normalized.filter(Boolean)
+			}
+		}
 	}
 
 	/**
@@ -476,10 +482,11 @@ export class Ui {
 	 * @param {(err?: Error | null | undefined) => void} [cb]
 	 */
 	write(buffer, cb = () => { }) {
-		if (buffer instanceof Error) buffer = (this.isDebug ? buffer.stack ?? buffer.message : buffer.message) || ""
+		if (buffer instanceof Error) {
+			buffer = (this.isDebug ? buffer.stack ?? buffer.message : buffer.message) || ""
+		}
 		this.stdout.write(String(buffer), cb)
 	}
-
 	/**
 	 * Prompt the user with a question and resolve with the answer.
 	 *
@@ -492,22 +499,31 @@ export class Ui {
 	async ask(question) {
 		if (this.definedInputs.length) {
 			const next = this.definedInputs.shift() ?? ""
+			// Echo the question and the answer so tests can assert on it.
 			this.console.info(question + next)
 			return next
 		}
-		const rl = readline.createInterface({
-			input: this.stdin,
-			output: this.stdout,
-			terminal: true,
-		})
-		return new Promise(resolve => {
-			rl.question(question, ans => {
-				rl.close()
-				resolve(ans)
+		// Lazily create a readline interface that works for both TTY and pipe.
+		if (!this._rl) {
+			this._rl = readline.createInterface({
+				input: this.stdin,
+				output: this.stdout,
+				terminal: false,
+			})
+		}
+		return new Promise((resolve, reject) => {
+			if (!this._rl) {
+				reject(new Error("Readline interface not available"))
+				return
+			}
+			this._rl.question(question, answer => {
+				// Close the interface to free resources and allow a fresh one for the next prompt.
+				if (this._rl) this._rl.close()
+				this._rl = undefined
+				resolve(answer)
 			})
 		})
 	}
-
 	/**
 	 * Prompt a yes/no question.
 	 *
@@ -553,30 +569,28 @@ export class Ui {
 	createStyle(options = {}) {
 		return new UiStyle(options)
 	}
-
 	/**
-	 * Renders the element
-	 * @param {UiOutput | any[]} element
-	 * @returns {any}
+	 * Renders element into string and outputs if returnOnly is omitted or false.
+	 * @param {string | any[] | UiOutput} element
+	 * @param {*} returnOnly
+	 * @returns {string}
 	 */
 	render(element, returnOnly = false) {
 		if (Array.isArray(element)) {
 			const { args } = this.console.extractStyles(element)
-			if (returnOnly) return args
+			if (returnOnly) return args.join("")
 			this.console.info(args)
 		}
 		else if (element instanceof Alert) {
 			if (returnOnly) return element.text
-			if (element.variant in this.console) {
-				this.console[element.variant](element.text)
-			}
-			else {
-				this.console.info(element.text)
-			}
+			if (element.variant in this.console) this.console[element.variant](element.text)
+			else this.console.info(element.text)
 		}
 		else if (element instanceof Table) {
 			const norm = Table.normalizeRows(element.rows)
-			if (returnOnly) return this.console.table(norm, { ...element.options, silent: true })
+			if (returnOnly) {
+				return this.console.table(norm, { ...element.options, silent: true }).join("\n")
+			}
 			this.console.table(norm, element.options)
 		}
 		else if (element instanceof Progress) {
@@ -586,6 +600,6 @@ export class Ui {
 			this.progressFrame = str.split("\n").map(s => this.console.full(s))
 			this.console.info("\r" + this.progressFrame.join("\n"))
 		}
+		return ""
 	}
 }
-

@@ -7,17 +7,21 @@ export function createTempWorkspace(files?: any): Promise<string>;
 /**
  * Execute a Node.js script in an isolated temporary directory
  * @param {Object} options
- * @param {string} options.cwd - Original working directory
- * @param {string} options.scriptPath - Path to the script to execute
+ * @param {string} options.script - Path to the script to execute
+ * @param {string} [options.cwd] - Original working directory
  * @param {string[]} [options.args=[]] - Arguments to pass to the script
- * @param {string} [options.input] - Data to pipe to stdin
+ * @param {Uint8Array | string} [options.input]
+ * @param {NodeJS.ProcessEnv} [options.env]
+ * @param {import("node:child_process").StdioPipeNamed | import("node:child_process").StdioPipe[] | undefined} [options.stdio]
  * @returns {Promise<{ stdout:string, stderr:string, exitCode:number }>}
  */
-export function runNodeScript({ cwd, scriptPath, args, input }: {
-    cwd: string;
-    scriptPath: string;
+export function runNodeScript(options: {
+    script: string;
+    cwd?: string | undefined;
     args?: string[] | undefined;
-    input?: string | undefined;
+    input?: string | Uint8Array<ArrayBufferLike> | undefined;
+    env?: NodeJS.ProcessEnv | undefined;
+    stdio?: import("node:child_process").StdioPipeNamed | import("node:child_process").StdioPipe[] | undefined;
 }): Promise<{
     stdout: string;
     stderr: string;

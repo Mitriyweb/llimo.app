@@ -21,7 +21,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 		const lines = formatChatProgress({ ui, usage, clock, model, now })
 		assert.deepStrictEqual(lines, [
 			'read | 0:00 | $0.1470 | 420T | 0T/s',
-			'chat | 0:00 | $0.1470 | 420T | 0T/s | 130,580T',
+			'chat | 0:00 | $0.1470 | 420T | 0T/s | 130,580T --- 0%',
 		])
 	})
 	it("should draw first progress (read)", () => {
@@ -30,7 +30,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 		const lines = formatChatProgress({ ui, usage, clock, model, now })
 		assert.deepStrictEqual(lines, [
 			'read | 0:01 | $0.1470 | 420T | 840T/s',
-			'chat | 0:01 | $0.1470 | 420T | 840T/s | 130,580T',
+			'chat | 0:01 | $0.1470 | 420T | 840T/s | 130,580T --- 0%',
 		])
 	})
 	it("should draw second progress (read + reason)", () => {
@@ -40,7 +40,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 		assert.deepStrictEqual(lines, [
 			'  read | 0:01 | $0.1470 | 420T | 840T/s',
 			'reason | 0:00 | $0.0008 |   1T |  10T/s',
-			'  chat | 0:01 | $0.1478 | 421T | 702T/s | 130,579T',
+			'  chat | 0:01 | $0.1478 | 421T | 702T/s | 130,579T --- 0%',
 		])
 	})
 	it("should draw third progress (read + reason + asnwer)", () => {
@@ -51,7 +51,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 			'  read | 0:08 |  $0.1470 |    420T |    56T/s',
 			'reason | 0:01 |  $0.0008 |      1T |     1T/s',
 			'answer | 0:23 | $22.5000 | 30,000T | 1,304T/s',
-			'  chat | 0:32 | $22.6478 | 30,421T |   963T/s | 100,579T',
+			'  chat | 0:32 | $22.6478 | 30,421T |   963T/s | 100,579T =-- 23%',
 		])
 	})
 
@@ -71,7 +71,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 			"  read | 1:17 | $42.0000 | 120,000T | 1,558T/s",
 			"reason | 0:01 |  $0.2250 |     300T |   300T/s",
 			"answer | 0:02 |  $0.3750 |     500T |   250T/s",
-			"  chat | 1:20 | $42.6000 | 120,800T | 1,510T/s | 10,200T",
+			"  chat | 1:20 | $42.6000 | 120,800T | 1,510T/s | 10,200T === 92%",
 		])
 	})
 	it("handles zero tokens gracefully", () => {
@@ -81,7 +81,7 @@ describe("chatProgress - Standard multi‑line format", () => {
 
 		const lines = formatChatProgress({ ui, usage, clock, model })
 		assert.deepStrictEqual(lines, [
-			"chat | 0:00 | $0.0000 | 0T | 0T/s | 128,000T"
+			"chat | 0:00 | $0.0000 | 0T | 0T/s | 128,000T --- 0%"
 		])
 	})
 })
@@ -92,7 +92,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now }
 		const lines = formatChatProgress({ ui, usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:00 | $0.1470 | read | 0:00 | 420T | ∞T/s | 130,580T of 131,000T',
+			'step 1 | 0:00 | $0.1470 | read | 0:00 | 420T | ∞T/s | 420T of 131,000T --- 0%',
 		])
 	})
 	it("should draw first progress (read)", () => {
@@ -100,7 +100,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now - 500 }
 		const lines = formatChatProgress({ ui, usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:01 | $0.1470 | read | 0:00 | 420T | 840T/s | 130,580T of 131,000T',
+			'step 1 | 0:01 | $0.1470 | read | 0:00 | 420T | 840T/s | 420T of 131,000T --- 0%',
 		])
 	})
 	it("should draw second progress (read + reason)", () => {
@@ -108,7 +108,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now - 600, reasonTime: now - 100 }
 		const lines = formatChatProgress({ ui, usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:01 | $0.1478 | reason | 0:00 | 1T | 10T/s | 130,579T of 131,000T',
+			'step 1 | 0:01 | $0.1478 | reason | 0:00 | 1T | 10T/s | 421T of 131,000T --- 0%',
 		])
 	})
 	it("should draw third progress (read + reason + asnwer)", () => {
@@ -116,7 +116,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 		const clock = { startTime: now - 31_600, reasonTime: now - 24_100, answerTime: now - 23_000 }
 		const lines = formatChatProgress({ ui, usage, clock, model, now, isTiny: true })
 		assert.deepStrictEqual(lines, [
-			'step 1 | 0:32 | $22.6478 | answer | 0:23 | 30,000T | 1,304T/s | 100,579T of 131,000T',
+			'step 1 | 0:32 | $22.6478 | answer | 0:23 | 30,000T | 1,304T/s | 30,421T of 131,000T =-- 23%',
 		])
 	})
 
@@ -134,7 +134,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 			isTiny: true,
 		})
 		assert.deepStrictEqual(lines, [
-			"step 1 | 2:00 | $0.0001 | answer | 1:40 | 100T | 1T/s | 126,900T of 128,000T"
+			"step 1 | 2:00 | $0.0001 | answer | 1:40 | 100T | 1T/s | 1,100T of 128,000T --- 1%"
 		])
 	})
 
@@ -152,7 +152,7 @@ describe("chatProgress - One‑line format (--tiny mode)", () => {
 			isTiny: true,
 		})
 		assert.deepStrictEqual(lines, [
-			"step 1 | 0:00 | $0.0000 | read | 0:00 | 0T | ∞T/s | 128,000T of 128,000T"
+			"step 1 | 0:00 | $0.0000 | read | 0:00 | 0T | ∞T/s | 0T of 128,000T --- 0%"
 		])
 	})
 })

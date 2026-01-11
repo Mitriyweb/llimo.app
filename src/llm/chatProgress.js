@@ -93,7 +93,11 @@ export function formatChatProgress(input) {
 
 		const phaseSpeed = value?.speed ? `${ui.formats.count(value.speed)}T/s` : "∞T/s"
 
-		const totalTokensStr = ui.formats.leftTokens(model.context_length - totalTokens, model.context_length)
+		const totalTokensStr = [
+			ui.formats.used(totalTokens, model.context_length, "T"),
+			ui.bar(totalTokens, model.context_length, 3, "=", "-"),
+			Math.round(100 * totalTokens / model.context_length) + "%"
+		].join(" ")
 
 		return [
 			`step ${step} | ${elapsedStr} | ${ui.formats.money(tinyPrice, precision)} | ${phase} | ${phaseTime} | ${phaseTokens} | ${phaseSpeed} | ${totalTokensStr}`,
@@ -128,7 +132,11 @@ export function formatChatProgress(input) {
 	const totalSpeedStr = `${ui.formats.count(totalSpeed)}T/s`
 
 	const extraTokens = Math.max(0, (model.context_length || 0) - totalTokens)
-	const extraStr = ui.formats.weight("T", extraTokens)
+	const extraStr = [
+		ui.formats.weight("T", extraTokens),
+		ui.bar(totalTokens, model.context_length, 3, "=", "-"),
+		Math.round(100 * totalTokens / model.context_length) + "%"
+	].join(" ")
 
 	const chatRow = [
 		"chat",

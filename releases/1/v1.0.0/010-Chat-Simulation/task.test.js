@@ -12,6 +12,7 @@ import { Chat } from "../../../../src/llm/Chat.js"
 import { Usage } from "../../../../src/llm/Usage.js"
 import { ModelInfo } from "../../../../src/llm/ModelInfo.js"
 import { Ui } from "../../../../src/cli/Ui.js"
+import { Pricing } from "../../../../src/llm/Pricing.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const rootDir = resolve(__dirname, "../../../..")
@@ -19,19 +20,19 @@ const rootDir = resolve(__dirname, "../../../..")
 describe("010-Chat-Simulation for Error Detection – TestAI histroy sim + UI frames", () => {
 	describe("10.1 Full chat history simulation using TestAI with per-step files", () => {
 		it("Simulates complete chat (unpack/tests) with TestAI, saves steps.jsonl", async () => {
-			const tempDir = await mkdtemp(`${tmpdir}/sim-chat-`)
+			const tempDir = await mkdtemp(`${tmpdir()}/sim-chat-`)
 			const chat = new Chat({ cwd: tempDir, root: "sim-chat" })
 			await chat.init()
-			await chat.save("step/001/answer.md", "Step 1 response")  // Fixed path: step/001/
+			await chat.save("answer", "Step 1 response", 1)
 			const ai = new TestAI()
 			const messages = [{ role: "user", content: "Sim" }]
-			const result = await ai.streamText("test-model", messages, { cwd: tempDir, step: 1 })
-			assert.strictEqual(result.text, "Step 1 response", "Simulates step responses")  // Fixed: result.text
+			const result = await ai.streamText("test-model", messages, { cwd: chat.dir, step: 1 })
+			assert.strictEqual(result.text, "Step 1 response", "Simulates step responses")
 			await rm(tempDir, { recursive: true })
 		})
 
 		it("Detects errors in unpack/tests (no files → fallback, rate-limits sim)", async () => {
-			const tempDir = await mkdtemp(`${tmpdir}/err-detect-`)
+			const tempDir = await mkdtemp(`${tmpdir()}/err-detect-`)
 			const chat = new Chat({ cwd: tempDir })
 			await chat.save("answer.md", "No files here")
 			// Simulate parse - no files expected
