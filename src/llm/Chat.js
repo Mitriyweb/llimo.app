@@ -108,6 +108,7 @@ export class Chat {
 
 	/** Constants for chat files – single source of truth */
 	static FILES = {
+		system: "system.md",
 		answer: "answer.md",
 		files: "files.jsonl",
 		input: "input.md",
@@ -328,7 +329,7 @@ export class Chat {
 
 	/**
 	 * @param {string} path
-	 * @param {number} step
+	 * @param {number} [step]
 	 */
 	rel(path, step) {
 		return this.fs.path.relative(this.fs.cwd, this.path(path, step))

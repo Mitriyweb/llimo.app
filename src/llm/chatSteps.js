@@ -106,7 +106,7 @@ export async function initialiseChat(input) {
 		if (system.content) {
 			ui.console.info(`@ system instructions ${BOLD}${ui.formats.weight("b", Buffer.byteLength(system.content))}`)
 		}
-
+		await chat.save("system", system.content)
 		chat.add(system)
 	}
 	await fs.save(currentFile, chat.id)
@@ -128,10 +128,11 @@ export async function copyInputToChat(inputFile, input, chat, ui, step = 1) {
 	if (!inputFile) return
 	const file = chat.db.path.basename(inputFile)
 	const full = chat.path("input")
-	let rel = chat.fs.path.relative(chat.fs.cwd, full)
+	let rel = chat.rel(full)
 	if (rel.startsWith("..")) rel = full
 	await chat.save("input", input, step)
 	ui.console.debug(`> preparing ${file} (${inputFile})`)
+	ui.console.success(`+ system.md (${chat.rel("system")})`)
 	ui.console.success(`+ ${file} (${rel})`)
 }
 

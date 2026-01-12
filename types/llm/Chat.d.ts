@@ -5,6 +5,7 @@ export class Chat {
     static Config: typeof ChatConfig;
     /** Constants for chat files – single source of truth */
     static FILES: {
+        system: string;
         answer: string;
         files: string;
         input: string;
@@ -169,9 +170,9 @@ export class Chat {
     path(path: string, step?: number): string;
     /**
      * @param {string} path
-     * @param {number} step
+     * @param {number} [step]
      */
-    rel(path: string, step: number): string;
+    rel(path: string, step?: number): string;
     /**
      * Calculates the amount of tokens in the text.
      * @todo make it work with real tokenizers

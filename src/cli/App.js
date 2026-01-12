@@ -243,7 +243,7 @@ export class ChatCLiApp {
 			" | ", this.ui.formats.money(cost, 2)
 		].filter(Boolean).join("")
 		this.ui.console.info(str)
-		this.ui.console.success("  (" + this.chat.rel("prompt.md", step) + ")")
+		this.ui.console.success("  prompt.md (" + this.chat.rel("prompt.md", step) + ")")
 
 		// Show batch discount information
 		const discount = model.pricing?.getBatchDiscount() ?? []
