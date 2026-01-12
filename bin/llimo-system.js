@@ -31,8 +31,8 @@ async function main(argv = process.argv.slice(2)) {
 		if (outputPath) {
 			const stats = await fs.stat(outputPath)
 			const format = new Intl.NumberFormat("en-US").format
-			ui.console.info(` ${GREEN}+${RESET} File has been saved (${ITALIC}${format(stats.size)} bytes${RESET})`)
-			ui.console.info(` ${GREEN}+ ${outputPath}${RESET}`)
+			ui.console.info(`@ ${GREEN}+${RESET} File has been saved (${ITALIC}${format(stats.size)} bytes${RESET})`)
+			ui.console.info(`  ${GREEN}+ ${outputPath}${RESET}`)
 		} else {
 			ui.console.info(output)
 		}

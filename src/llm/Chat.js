@@ -327,6 +327,14 @@ export class Chat {
 	}
 
 	/**
+	 * @param {string} path
+	 * @param {number} step
+	 */
+	rel(path, step) {
+		return this.fs.path.relative(this.fs.cwd, this.path(path, step))
+	}
+
+	/**
 	 * Calculates the amount of tokens in the text.
 	 * @todo make it work with real tokenizers
 	 * @param {string} text The text to measure.

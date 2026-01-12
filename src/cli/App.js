@@ -243,6 +243,7 @@ export class ChatCLiApp {
 			" | ", this.ui.formats.money(cost, 2)
 		].filter(Boolean).join("")
 		this.ui.console.info(str)
+		this.ui.console.success("  (" + this.chat.rel("prompt.md", step) + ")")
 
 		// Show batch discount information
 		const discount = model.pricing?.getBatchDiscount() ?? []
@@ -455,6 +456,7 @@ export class ChatCLiApp {
 		if (!model) {
 			throw new Error("LLiMo model is not selected, provide it in env variable LLIMO_MODEL=gpt-oss-120b")
 		}
+		this.ui.console.info("@", this.chat.assistantMessages.length + 1, "steps loaded")
 		return { step, prompt, model, packed }
 	}
 	/**
@@ -482,5 +484,3 @@ export class ChatCLiApp {
 		await this.chat.save("steps.jsonl", this.#steps)
 	}
 }
-
-// Removed duplicate code from chatSteps into ChatCliApp as methods

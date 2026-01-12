@@ -168,6 +168,11 @@ export class Chat {
      */
     path(path: string, step?: number): string;
     /**
+     * @param {string} path
+     * @param {number} step
+     */
+    rel(path: string, step: number): string;
+    /**
      * Calculates the amount of tokens in the text.
      * @todo make it work with real tokenizers
      * @param {string} text The text to measure.
