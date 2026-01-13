@@ -85,7 +85,6 @@ export class ChatCLiApp {
 		const { isNew, isYes } = this.options
 		const { chat } = await initialiseChat({ ui: this.ui, ChatClass: Chat, fs: this.fs, isNew })
 		this.chat = chat
-
 		let shouldContinue = await this.runCommandFirst(input)
 		if (!shouldContinue) {
 			return false

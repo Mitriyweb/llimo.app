@@ -7,9 +7,9 @@
  */
 import { Chat } from "./Chat.js"
 import { AI } from "./AI.js"
-import { generateSystemPrompt } from "./system.js"
+import { generateSystemPrompt, parseSystemPrompt, mergeSystemPrompts } from "./system.js"
 import { unpackAnswer } from "./unpack.js"
-import { BOLD, GREEN, MAGENTA, RESET } from "../cli/ANSI.js"
+import { GREEN, MAGENTA, RESET } from "../cli/ANSI.js"
 import { FileSystem } from "../utils/FileSystem.js"
 import { MarkdownProtocol } from "../utils/Markdown.js"
 import { Ui } from "../cli/Ui.js"
@@ -18,6 +18,7 @@ import ChatOptions from '../Chat/Options.js'
 import { Suite } from '../cli/testing/node.js'
 import { testingProgress, testingStatus } from '../cli/testing/progress.js'
 import { UiOutput } from "../cli/UiOutput.js"
+import { packMarkdown } from "./pack.js"
 
 /**
  * Read the input either from STDIN or from the first CLI argument.
@@ -90,8 +91,9 @@ export async function initialiseChat(input) {
 		ui.console.info(`${GREEN}+ ${chat.id} new chat created${RESET}`)
 		await chat.clear()
 
-		/** @type {{ role: "system", content: string }} */
-		const system = { role: "system", content: await generateSystemPrompt() }
+		const arr = []
+		const base = await generateSystemPrompt()
+		arr.push(parseSystemPrompt(base))
 
 		const systemFiles = ["system.md", "agent.md"]
 		for (const file of systemFiles) {
@@ -99,15 +101,20 @@ export async function initialiseChat(input) {
 				const content = await fs.load(file) || ""
 
 				ui.console.info(`${GREEN}+ ${file}${RESET} loaded ${ui.formats.weight("b", Buffer.byteLength(content))}`)
-				system.content += "\n\n" + content
+				arr.push(parseSystemPrompt(content))
 			}
 		}
+		const system = mergeSystemPrompts(arr)
+		chat.system = system
 
-		if (system.content) {
-			ui.console.info(`@ system instructions ${BOLD}${ui.formats.weight("b", Buffer.byteLength(system.content))}`)
-		}
-		await chat.save("system", system.content)
-		chat.add(system)
+		const packed = await packMarkdown({
+			input: system.body,
+			cwd: fs.cwd,
+			ignore: system.vars.ignore ?? undefined
+		})
+		const content = system.head + packed.text
+		await chat.save("system", content)
+		chat.add({ content, role: "system" })
 	}
 	await fs.save(currentFile, chat.id)
 
@@ -132,7 +139,8 @@ export async function copyInputToChat(inputFile, input, chat, ui, step = 1) {
 	if (rel.startsWith("..")) rel = full
 	await chat.save("input", input, step)
 	ui.console.debug(`> preparing ${file} (${inputFile})`)
-	ui.console.success(`+ system.md (${chat.rel("system")})`)
+	const size = Buffer.byteLength(chat.system.head + chat.system.body)
+	ui.console.success(`+ system.md (${chat.rel("system")}) - ${ui.formats.weight("b", size)}`)
 	ui.console.success(`+ ${file} (${rel})`)
 }
 

@@ -1,3 +1,4 @@
+import yaml from "yaml"
 import { FileSystem } from "../utils/FileSystem.js"
 import commands from "./commands/index.js"
 import loadSystemInstructions from "../templates/system.js"
@@ -30,4 +31,38 @@ export async function generateSystemPrompt(outputPath) {
 	}
 
 	return output
+}
+
+/**
+ * @param {string} content
+ * @returns {{ content: string, vars: object }}
+ */
+export function parseSystemPrompt(content) {
+	const rows = content.split("\n")
+	const result = { content, vars: {} }
+	if ("---" === rows[0]) {
+		const next = rows.findIndex((r, i) => i > 0 && "---" === r)
+		if (next > 0) {
+			result.vars = yaml.parse(rows.slice(1, next).join("\n"))
+			result.content = rows.slice(next + 1).join("\n")
+		}
+	}
+	return result
+}
+
+/**
+ * @param {string[] | Array<{ content: string, vars: object }>} arr
+ * @returns {{ head: string, body: string, vars: object }}
+ */
+export function mergeSystemPrompts(arr) {
+	const content = []
+	let vars = {}
+	for (let s of arr) {
+		if ("string" === typeof s) s = parseSystemPrompt(s)
+		content.push(s.content ?? "")
+		vars = Object.assign(vars, s.vars ?? {})
+	}
+	const head = Object.keys(vars).length ? `---\n${yaml.stringify(vars)}---\n` : ""
+	const body = content.join("\n\n---\n\n")
+	return { head, body, vars }
 }

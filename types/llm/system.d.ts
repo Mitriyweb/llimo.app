@@ -4,3 +4,23 @@
  * @returns {Promise<string>} - The generated system prompt string.
  */
 export function generateSystemPrompt(outputPath?: string): Promise<string>;
+/**
+ * @param {string} content
+ * @returns {{ content: string, vars: object }}
+ */
+export function parseSystemPrompt(content: string): {
+    content: string;
+    vars: object;
+};
+/**
+ * @param {string[] | Array<{ content: string, vars: object }>} arr
+ * @returns {{ head: string, body: string, vars: object }}
+ */
+export function mergeSystemPrompts(arr: string[] | Array<{
+    content: string;
+    vars: object;
+}>): {
+    head: string;
+    body: string;
+    vars: object;
+};

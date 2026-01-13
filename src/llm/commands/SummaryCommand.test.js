@@ -2,6 +2,7 @@ import { describe, it } from "node:test"
 import assert from "node:assert"
 import { MarkdownProtocol } from "../../utils/Markdown.js"
 import SummaryCommand from "./SummaryCommand.js"
+import { Alert } from "../../cli/index.js"
 
 describe("SummaryCommand", () => {
 	it("should display summary message", async () => {
@@ -22,10 +23,10 @@ Key updates:
 		for await (const line of cmd.run()) out.push(line)
 
 		assert.deepStrictEqual(out, [
-			" ℹ Summary:",
-			"   Key updates:",
-			"   - Fixed file listing",
-			"   - Added new commands",
+			new Alert(" ℹ Summary:"),
+			new Alert("   Key updates:"),
+			new Alert("   - Fixed file listing"),
+			new Alert("   - Added new commands"),
 		])
 	})
 
@@ -45,7 +46,7 @@ Key updates:
 		for await (const line of cmd.run()) out.push(line)
 
 		assert.deepStrictEqual(out, [
-			" ℹ Empty summary"
+			new Alert(" ℹ Empty summary")
 		])
 	})
 })

@@ -1,8 +1,14 @@
 ---
-response.format: "markdown #### [<label>](<filename>)\n```<type>\n<content>\n```\n and more files, for tooling use filename with prefix @ - @bash; provide @validate file with the content of the list of provided files and commands in current response message: #### [X file(s), Y command(s)](@validate)\n```markdown\n- [](index.js)\n- [](package.json)\n- [Init git](@bash)"
 response.schema: "[{ label: string, filename: string, type: string, content: string }]"
 tools: <!--TOOLS_LIST-->
 jsdoc: English. For every exported function, class property, besides test.
+ignore:
+  - .datasets
+  - .git
+  - .gitignore
+  - node_modules
+  - dist
+  - chat/**
 validation.js: node:test describe > it, same file path with .test.js instead of .js, cover every exported function.
 validation.jsx: vitest describe > it, same file path with .test.jsx instead of .jsx, cover every exported function and component.
 ---
@@ -49,16 +55,14 @@ If the file content itself contains a line that starts with three back‑ticks, 
 In every response provide file with list of provided, named "@validate" with type "markdown": `- [<label>](<filename>)`
 as example:
 
----
-#### [2 file(s), 1 command(s)](@validate)
-```markdown
-- [](system.md)
-- [Updated](play/main.js)
-- [Setting up the project](@bash)
-```
----
+  #### [2 file(s), 1 command(s)](@validate)
+  ```markdown
+  - [](system.md)
+  - [Updated](play/main.js)
+  - [Setting up the project](@bash)
+  ```
 
-**Audio Handling**: If me.md references audio files (.mp3, .m4a, etc.), pack will note them as "AUDIO FILE: path (transcribe via API)". Generate a Node.js script using OpenAI Whisper API (whisper-1 model) or OpenRouter/HuggingFace for fast Ukrainian transcription. Use env vars (OPENAI_API_KEY, etc.). Output transcripts as .txt files. Install deps via @bash if needed.
+**Audio Handling**: If input references audio files (.mp3, .m4a, etc.), pack will note them as "AUDIO FILE: path (transcribe via API)". Generate a Node.js script using OpenAI Whisper API (whisper-1 model) or OpenRouter/HuggingFace for fast Ukrainian transcription. Use env vars (OPENAI_API_KEY, etc.). Output transcripts as .txt files. Install deps via @bash if needed.
 
 ## Escaping special chars
 

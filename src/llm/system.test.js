@@ -3,7 +3,7 @@ import assert from "node:assert"
 import { mkdtemp, rm } from "node:fs/promises"
 import { resolve } from "node:path"
 import { tmpdir } from "node:os"
-import { generateSystemPrompt } from "./system.js"
+import { generateSystemPrompt, parseSystemPrompt, mergeSystemPrompts } from "./system.js"
 import { FileSystem } from "../utils/index.js"
 
 describe("system module", () => {
@@ -34,5 +34,78 @@ describe("system module", () => {
 
 		const content = await fs.readFile(outputPath, "utf-8")
 		assert.ok(content.includes("validate"), "File content should be valid")
+	})
+
+	it("should parse system prompt without variables", () => {
+		const prompt = [
+			"---",
+			"# Some system instructions",
+			"With no vars",
+		].join("\n")
+		const result = parseSystemPrompt(prompt)
+		assert.deepStrictEqual(result, {
+			vars: {},
+			content: prompt,
+		})
+	})
+
+	it("should parse system prompt with variables", () => {
+		const prompt = [
+			"---",
+			"inputFile: dev.md",
+			"arr: [1, 2, 3]",
+			"---",
+			"# Some system instructions",
+			"With vars",
+		].join("\n")
+		const result = parseSystemPrompt(prompt)
+		assert.deepStrictEqual(result, {
+			vars: {
+				inputFile: "dev.md",
+				arr: [1, 2, 3],
+			},
+			content: "# Some system instructions\nWith vars",
+		})
+	})
+
+	it("should merge prompts", () => {
+		const p1 = [
+			"---",
+			"inputFile: dev.md",
+			"strategy:",
+			"  finance: free",
+			"  speed: fastest",
+			"---",
+			"# Instructions 1",
+			"Details 1",
+		].join("\n")
+		const p2 = [
+			"---",
+			"strategy:",
+			"  finance: low",
+			"---",
+			"# Instructions 2",
+			"Details 2",
+		].join("\n")
+		const p3 = [
+			"---",
+			"inputFile: what.md",
+			"---",
+			"# Instructions 3",
+			"Details 3",
+		].join("\n")
+		const system = mergeSystemPrompts([p1, p2, p3])
+		assert.deepStrictEqual(system, {
+			head: "---\ninputFile: what.md\nstrategy:\n  finance: low\n---\n",
+			body: [
+				"# Instructions 1\nDetails 1",
+				"# Instructions 2\nDetails 2",
+				"# Instructions 3\nDetails 3",
+			].join("\n\n---\n\n"),
+			vars: {
+				inputFile: "what.md",
+				strategy: { finance: "low" }
+			}
+		})
 	})
 })

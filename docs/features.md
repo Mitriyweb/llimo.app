@@ -329,3 +329,34 @@
 	All tests passed.
 	  + Task is complete
 	```
+- Incorrect progress bar calculation `94%` instead of `42%`:
+	```bash
+	╭╴yaro::nan.web/apps/llimo.app
+	╰╴12:45 √ok % node bin/llimo.js chat dev.md --new      
+
+	+ b0416d7c-2e49-4408-9615-e32c41d08738 new chat created
+	+ system.md loaded 2,309b
+	@ Loaded 633 inference models from 3 providers
+	> cerebras
+	> huggingface
+	> openrouter
+	@ gpt-oss-120b @cerebras []
+	  context: 65,000T (max output → 65,000T)
+	  price: → $0.00 / 1M ← $0.00 / 1M
+	+ system.md (chat/b0416d7c-2e49-4408-9615-e32c41d08738/system.md) - 6,961b
+	+ dev.md (chat/b0416d7c-2e49-4408-9615-e32c41d08738/input.md)
+	@ 1 steps loaded
+
+	@ Step 1. 1/13/2026, 12:46:36 PM
+	@ Model changed due to AiStrategy
+	@ deepseek-ai/DeepSeek-V3.2 @huggingface/fireworks-ai []
+	  context: 163,840T (max output → 163,840T)
+	  price: → $0.00 / 1M ← $0.00 / 1M
+	  Prompt: 223,442b | Chat: 245,456b ~ 68,182T ~ $0.0000 | Left: 95,658T of 163,840T | $0.00
+	  prompt.md (chat/b0416d7c-2e49-4408-9615-e32c41d08738/steps/001/prompt.md)
+
+	? Send prompt to LLiMo? (Y)es, No: 
+
+	read | 0:33 | $0.0000 | 61,069T | 1,840T/sss
+	chat | 0:33 | $0.0000 | 61,069T | 1,840T/s | 3,931T === 94%
+	```

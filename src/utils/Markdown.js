@@ -163,13 +163,12 @@ export class MarkdownProtocol extends FileProtocol {
 	 * @returns {{ name: string, path: string }|null} – relative path and name, or null if the line does not match.
 	 */
 	static extractPath(line) {
-		const trimmed = line.trim()
 		// Valid checklist line must start with "- [" and end with ")".
-		if (!trimmed.startsWith("- [") || !trimmed.endsWith(")")) {
+		if (!line.startsWith("- [") || !line.endsWith(")")) {
 			return null
 		}
 		// Remove leading "- [" and trailing ")" then split on "](".
-		const parts = trimmed.slice(3, -1).split("](")
+		const parts = line.slice(3, -1).split("](")
 		if (parts.length !== 2) {
 			// malformed header – treat as not a checklist line
 			return null

@@ -66,6 +66,12 @@ export class Chat {
     config: ChatConfig;
     /** @type {string} */
     dir: string;
+    /** @type {{ head: string, body: string, vars: object }} System instructions with vars */
+    system: {
+        head: string;
+        body: string;
+        vars: object;
+    };
     /** @returns {FileSystem} */
     get fs(): FileSystem;
     /** @returns {FileSystem} */

@@ -1,4 +1,5 @@
 import { RESET, GREEN, CYAN } from "../../cli/ANSI.js"
+import { Alert } from "../../cli/components/Alert.js"
 import Command from "./Command.js"
 
 /** @typedef {import("../../FileProtocol.js").ParsedFile} ParsedFile */
@@ -38,13 +39,13 @@ export default class SummaryCommand extends Command {
 		const message = (file.content ?? "").trim()
 
 		if (!message) {
-			yield ` ${CYAN}ℹ${RESET} Empty summary`
+			yield new Alert(` ${CYAN}ℹ${RESET} Empty summary`)
 			return
 		}
 
-		yield ` ${CYAN}ℹ${RESET} ${GREEN}Summary:${RESET}`
+		yield new Alert(` ${CYAN}ℹ${RESET} ${GREEN}Summary:${RESET}`)
 		for (const line of message.split("\n")) {
-			yield `   ${line}`
+			yield new Alert(`   ${line}`)
 		}
 	}
 }

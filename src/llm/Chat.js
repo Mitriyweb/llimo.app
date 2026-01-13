@@ -40,6 +40,8 @@ export class Chat {
 	config
 	/** @type {string} */
 	dir
+	/** @type {{ head: string, body: string, vars: object }} System instructions with vars */
+	system
 	/** @type {FileSystem} Access to the current working directory file system */
 	#fs
 	/** @type {FileSystem} access to the chat directory file system */
@@ -54,6 +56,7 @@ export class Chat {
 			steps = [],
 			dir = "",
 			config = new Chat.Config({}),
+			system = { head: "", body: "", vars: {} }
 		} = input
 		this.id = String(id)
 		this.cwd = String(cwd)
@@ -61,6 +64,7 @@ export class Chat {
 		this.messages = messages
 		this.steps = steps
 		this.config = config
+		this.system = system
 		this.#fs = new FileSystem({ cwd })
 		this.dir = dir ? dir : this.#fs.path.resolve(root, id)
 		// Fixed: Respect 'dir' input if provided, else construct as before

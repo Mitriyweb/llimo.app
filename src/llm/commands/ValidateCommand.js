@@ -8,7 +8,7 @@ export default class ValidateCommand extends Command {
 	static name = "validate"
 	static label = "2 file(s), 1 command(s)"
 	static help = "Validate of the response by comparing provided (parsed) files and commands to expected list of files and commands. Label is amount of files provided in the response and commands besides @validate provided in the response."
-	static example = "```markdown\n- [](system.md)\n- [Updated](play/main.js)\n- [Setting up the project](@bash)\n```"
+	static example = "  ```markdown\n  - [](system.md)\n  - [Updated](play/main.js)\n  - [Setting up the project](@bash)\n  ```"
 
 	/** @type {ParsedFile} */
 	parsed = {}

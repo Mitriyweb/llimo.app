@@ -10,9 +10,6 @@ import { Chat } from "./Chat.js"
 import { Ui, UiFormats } from "../cli/Ui.js"
 import { AI, ModelInfo } from "./index.js"
 
-/* -------------------------------------------------
-	 Helper mocks
-	 ------------------------------------------------- */
 class DummyAI extends AI {
 	/**
 	 * Stream text from a model.
@@ -50,9 +47,6 @@ class DummyAI extends AI {
 // @ts-ignore mock stdin in short way
 const mockUi = new Ui({ stdin: { isTTY: true } })
 
-/* -------------------------------------------------
-	 Tests
-	 ------------------------------------------------- */
 describe("chatSteps – readInput", () => {
 	let tempDir
 	let fsInstance
